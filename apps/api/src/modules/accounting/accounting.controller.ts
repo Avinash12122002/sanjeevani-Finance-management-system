@@ -2,9 +2,13 @@ import {
   Controller,
   Get,
   Post,
+  Patch,
+  Delete,
+  Param,
   Body,
   UseGuards,
   BadRequestException,
+  NotFoundException,
 } from '@nestjs/common';
 import { DataStoreService } from '../../database/data-store.service';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
@@ -12,6 +16,7 @@ import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { FinancialEngine } from '@sanjeevani/financial-engine';
 import {
   AccountClassification,
+  IChartOfAccount,
   IJournalEntry,
   IUser,
 } from '@sanjeevani/shared-types';
@@ -24,6 +29,97 @@ export class AccountingController {
   @Get('chart-of-accounts')
   getChartOfAccounts() {
     return this.dataStore.chartOfAccounts;
+  }
+
+  @Post('chart-of-accounts')
+  createAccount(@Body() body: Partial<IChartOfAccount>, @CurrentUser() user: IUser) {
+    if (!body.accountName || !body.accountType) {
+      throw new BadRequestException('Account Name and Account Classification are required.');
+    }
+
+    const code = body.accountCode || `COA-${Math.floor(1000 + Math.random() * 9000)}`;
+
+    const newAccount: IChartOfAccount = {
+      id: code,
+      accountCode: code,
+      accountName: body.accountName,
+      accountType: body.accountType as AccountClassification,
+      parentId: body.parentId || undefined,
+      currentBalance: Number(body.currentBalance) || 0,
+      isActive: true,
+      description: body.description || undefined,
+    };
+
+    this.dataStore.chartOfAccounts.push(newAccount);
+
+    this.dataStore.logAudit(
+      user.id,
+      user.employeeName || 'Admin',
+      'ACCOUNT_CREATED',
+      'ChartOfAccount',
+      newAccount.id,
+      undefined,
+      newAccount,
+      `Created COA Ledger Account ${newAccount.accountName} (${newAccount.accountCode})`,
+    );
+
+    return newAccount;
+  }
+
+  @Patch('chart-of-accounts/:id')
+  updateAccount(
+    @Param('id') id: string,
+    @Body() body: Partial<IChartOfAccount>,
+    @CurrentUser() user: IUser,
+  ) {
+    const accIndex = this.dataStore.chartOfAccounts.findIndex((a) => a.id === id || a.accountCode === id);
+    if (accIndex === -1) {
+      throw new NotFoundException(`Chart of Account not found: ${id}`);
+    }
+
+    const currentAcc = this.dataStore.chartOfAccounts[accIndex];
+    const oldVal = { ...currentAcc };
+
+    if (body.accountName) currentAcc.accountName = body.accountName;
+    if (body.accountType) currentAcc.accountType = body.accountType as AccountClassification;
+    if (body.description) currentAcc.description = body.description;
+    if (body.isActive !== undefined) currentAcc.isActive = body.isActive;
+
+    this.dataStore.logAudit(
+      user.id,
+      user.employeeName || 'Admin',
+      'ACCOUNT_UPDATED',
+      'ChartOfAccount',
+      currentAcc.id,
+      oldVal,
+      currentAcc,
+      `Updated COA Ledger Account ${currentAcc.accountName} (${currentAcc.accountCode})`,
+    );
+
+    return currentAcc;
+  }
+
+  @Delete('chart-of-accounts/:id')
+  deleteAccount(@Param('id') id: string, @CurrentUser() user: IUser) {
+    const accIndex = this.dataStore.chartOfAccounts.findIndex((a) => a.id === id || a.accountCode === id);
+    if (accIndex === -1) {
+      throw new NotFoundException(`Chart of Account not found: ${id}`);
+    }
+
+    const removed = this.dataStore.chartOfAccounts.splice(accIndex, 1)[0];
+
+    this.dataStore.logAudit(
+      user.id,
+      user.employeeName || 'Admin',
+      'ACCOUNT_DELETED',
+      'ChartOfAccount',
+      removed.id,
+      removed,
+      undefined,
+      `Deleted COA Ledger Account ${removed.accountName} (${removed.accountCode})`,
+    );
+
+    return { message: `Ledger account ${removed.accountName} removed successfully.`, id: removed.id };
   }
 
   @Get('journals')

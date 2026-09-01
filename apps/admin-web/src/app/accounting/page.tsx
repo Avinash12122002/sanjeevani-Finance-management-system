@@ -15,16 +15,19 @@ import {
   Row,
   Col,
   Tabs,
+  Popconfirm,
   message,
   Divider,
 } from 'antd';
 import {
   BookOutlined,
   PlusOutlined,
+  EditOutlined,
+  DeleteOutlined,
   CheckCircleOutlined,
   MinusCircleOutlined,
 } from '@ant-design/icons';
-import { fetchApi, postApi } from '@/lib/api-client';
+import { fetchApi, postApi, patchApi, deleteApi } from '@/lib/api-client';
 import { FinancialEngine } from '@sanjeevani/financial-engine';
 import { IChartOfAccount, IJournalEntry } from '@sanjeevani/shared-types';
 
@@ -36,6 +39,13 @@ export default function AccountingPage() {
   const [bs, setBs] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const [journalModalVisible, setJournalModalVisible] = useState(false);
+
+  // COA Modals
+  const [addAccountModal, setAddAccountModal] = useState(false);
+  const [editAccountModal, setEditAccountModal] = useState(false);
+  const [selectedAccount, setSelectedAccount] = useState<IChartOfAccount | null>(null);
+  const [accountForm] = Form.useForm();
+  const [editAccountForm] = Form.useForm();
 
   // New Journal Lines State
   const [journalLines, setJournalLines] = useState<
@@ -90,6 +100,51 @@ export default function AccountingPage() {
     }
   };
 
+  const handleCreateAccount = async (values: any) => {
+    const res = await postApi('/accounting/chart-of-accounts', values);
+    if (res.success) {
+      message.success(`Ledger Account [${values.accountName}] created!`);
+      setAddAccountModal(false);
+      accountForm.resetFields();
+      loadAccountingData();
+    } else {
+      message.error(res.message || 'Failed to create ledger account');
+    }
+  };
+
+  const handleOpenEditAccount = (record: IChartOfAccount) => {
+    setSelectedAccount(record);
+    editAccountForm.setFieldsValue({
+      accountName: record.accountName,
+      accountType: record.accountType,
+      description: record.description,
+    });
+    setEditAccountModal(true);
+  };
+
+  const handleUpdateAccount = async (values: any) => {
+    if (!selectedAccount) return;
+    const res = await patchApi(`/accounting/chart-of-accounts/${selectedAccount.id}`, values);
+    if (res.success) {
+      message.success(`Ledger Account [${values.accountName}] updated!`);
+      setEditAccountModal(false);
+      editAccountForm.resetFields();
+      loadAccountingData();
+    } else {
+      message.error(res.message || 'Failed to update ledger account');
+    }
+  };
+
+  const handleDeleteAccount = async (id: string, name: string) => {
+    const res = await deleteApi(`/accounting/chart-of-accounts/${id}`);
+    if (res.success) {
+      message.success(`Ledger Account [${name}] removed.`);
+      loadAccountingData();
+    } else {
+      message.error(res.message || 'Failed to remove ledger account');
+    }
+  };
+
   const coaColumns = [
     {
       title: 'Account Code',
@@ -118,6 +173,29 @@ export default function AccountingPage() {
       dataIndex: 'currentBalance',
       key: 'bal',
       render: (b: number) => <span className="font-bold text-slate-900">{FinancialEngine.formatINR(b)}</span>,
+    },
+    {
+      title: 'Actions',
+      key: 'actions',
+      render: (_: any, r: IChartOfAccount) => (
+        <Space>
+          <Button size="small" icon={<EditOutlined />} onClick={() => handleOpenEditAccount(r)}>
+            Edit
+          </Button>
+          <Popconfirm
+            title="Delete Ledger Account"
+            description={`Delete account ${r.accountName} (${r.accountCode})?`}
+            onConfirm={() => handleDeleteAccount(r.id, r.accountName)}
+            okText="Yes, Delete"
+            cancelText="Cancel"
+            okButtonProps={{ danger: true }}
+          >
+            <Button size="small" danger icon={<DeleteOutlined />}>
+              Delete
+            </Button>
+          </Popconfirm>
+        </Space>
+      ),
     },
   ];
 
@@ -168,14 +246,19 @@ export default function AccountingPage() {
             Chart of accounts, balanced journal postings, automated double-entry verification, P&L and Balance Sheet (SRS §38–§41, BR-016).
           </p>
         </div>
-        <Button
-          type="primary"
-          icon={<PlusOutlined />}
-          onClick={() => setJournalModalVisible(true)}
-          style={{ background: '#059669', borderColor: '#059669', height: 40 }}
-        >
-          Create Journal Entry
-        </Button>
+        <Space>
+          <Button icon={<PlusOutlined />} onClick={() => setAddAccountModal(true)}>
+            + Add Ledger Account
+          </Button>
+          <Button
+            type="primary"
+            icon={<PlusOutlined />}
+            onClick={() => setJournalModalVisible(true)}
+            style={{ background: '#059669', borderColor: '#059669', height: 40 }}
+          >
+            Create Journal Entry
+          </Button>
+        </Space>
       </div>
 
       <Tabs
@@ -185,7 +268,14 @@ export default function AccountingPage() {
             key: 'coa',
             label: `Chart of Accounts (${coa.length})`,
             children: (
-              <Card className="glass-card">
+              <Card
+                className="glass-card"
+                extra={
+                  <Button type="primary" icon={<PlusOutlined />} onClick={() => setAddAccountModal(true)} style={{ background: '#059669', borderColor: '#059669' }}>
+                    Add Ledger Account
+                  </Button>
+                }
+              >
                 <Table columns={coaColumns} dataSource={coa} rowKey="id" loading={loading} scroll={{ x: 800 }} />
               </Card>
             ),
@@ -240,12 +330,12 @@ export default function AccountingPage() {
                   summary={() => (
                     <Table.Summary.Row className="bg-slate-50 font-bold">
                       <Table.Summary.Cell index={0} colSpan={3}>
-                        TOTAL TRIAL BALANCE
+                        TOTAL TRIAL BALANCE (BALANCED)
                       </Table.Summary.Cell>
-                      <Table.Summary.Cell index={3} className="text-emerald-800">
+                      <Table.Summary.Cell index={3} className="text-emerald-700">
                         {FinancialEngine.formatINR(trialBalance.totalDebit)}
                       </Table.Summary.Cell>
-                      <Table.Summary.Cell index={4} className="text-emerald-800">
+                      <Table.Summary.Cell index={4} className="text-emerald-700">
                         {FinancialEngine.formatINR(trialBalance.totalCredit)}
                       </Table.Summary.Cell>
                     </Table.Summary.Row>
@@ -378,48 +468,48 @@ export default function AccountingPage() {
                     newLines[idx].ledgerAccountId = val;
                     setJournalLines(newLines);
                   }}
-                  className="w-full mt-0.5"
+                  className="w-full mt-1"
                   options={coa.map((c) => ({
-                    label: `${c.accountCode} - ${c.accountName} (${c.accountType})`,
                     value: c.id,
+                    label: `${c.accountCode} - ${c.accountName} (${c.accountType})`,
                   }))}
                 />
               </div>
-
               <div className="w-32">
                 <label className="text-[11px] text-slate-500">Debit (₹)</label>
                 <InputNumber
                   min={0}
                   value={line.debitAmount}
-                  onChange={(v) => {
+                  onChange={(val) => {
                     const newLines = [...journalLines];
-                    newLines[idx].debitAmount = Number(v) || 0;
+                    newLines[idx].debitAmount = val || 0;
                     setJournalLines(newLines);
                   }}
-                  className="w-full mt-0.5"
+                  className="w-full mt-1"
                 />
               </div>
-
               <div className="w-32">
                 <label className="text-[11px] text-slate-500">Credit (₹)</label>
                 <InputNumber
                   min={0}
                   value={line.creditAmount}
-                  onChange={(v) => {
+                  onChange={(val) => {
                     const newLines = [...journalLines];
-                    newLines[idx].creditAmount = Number(v) || 0;
+                    newLines[idx].creditAmount = val || 0;
                     setJournalLines(newLines);
                   }}
-                  className="w-full mt-0.5"
+                  className="w-full mt-1"
                 />
               </div>
-
               {journalLines.length > 2 && (
                 <Button
                   danger
                   type="text"
                   icon={<MinusCircleOutlined />}
-                  onClick={() => setJournalLines(journalLines.filter((_, i) => i !== idx))}
+                  onClick={() => {
+                    setJournalLines(journalLines.filter((_, i) => i !== idx));
+                  }}
+                  className="mt-5"
                 />
               )}
             </div>
@@ -427,47 +517,155 @@ export default function AccountingPage() {
 
           <Button
             type="dashed"
-            onClick={() =>
-              setJournalLines([...journalLines, { ledgerAccountId: 'COA-1010', debitAmount: 0, creditAmount: 0 }])
-            }
-            className="w-full"
+            block
+            icon={<PlusOutlined />}
+            onClick={() => {
+              setJournalLines([
+                ...journalLines,
+                { ledgerAccountId: coa[0]?.id || 'COA-1010', debitAmount: 0, creditAmount: 0 },
+              ]);
+            }}
           >
-            + Add Another Journal Line
+            Add Journal Line Item
           </Button>
 
-          {/* Real-time Double-Entry Balancing Card (BR-016) */}
-          <div className="p-4 bg-slate-900 text-white rounded-lg space-y-2">
-            <div className="flex justify-between text-xs">
-              <span className="text-slate-400">Total Debits:</span>
-              <span className="font-bold text-emerald-400">{FinancialEngine.formatINR(balanceCheck.totalDebit)}</span>
+          {/* Validation & Balance Status Pill */}
+          <div
+            className={`p-3 rounded-lg flex items-center justify-between text-sm ${
+              balanceCheck.isValid ? 'bg-emerald-50 text-emerald-800 border border-emerald-200' : 'bg-red-50 text-red-800 border border-red-200'
+            }`}
+          >
+            <div className="flex items-center gap-2">
+              {balanceCheck.isValid ? <CheckCircleOutlined className="text-emerald-600" /> : <MinusCircleOutlined className="text-red-600" />}
+              <span className="font-semibold">{balanceCheck.isValid ? 'Balanced Double-Entry Journal' : 'Unbalanced Journal'}</span>
             </div>
-            <div className="flex justify-between text-xs">
-              <span className="text-slate-400">Total Credits:</span>
-              <span className="font-bold text-emerald-400">{FinancialEngine.formatINR(balanceCheck.totalCredit)}</span>
-            </div>
-            <Divider style={{ borderColor: '#334155', margin: '8px 0' }} />
-            <div className="flex justify-between items-center">
-              <span className="text-xs font-semibold">Balance Status:</span>
-              {balanceCheck.isValid ? (
-                <Tag color="success">BALANCED (BR-016 OK)</Tag>
-              ) : (
-                <Tag color="error">UNBALANCED (Variance: ₹ {balanceCheck.difference})</Tag>
-              )}
+            <div className="font-mono text-xs">
+              Debits: ₹ {balanceCheck.totalDebit} | Credits: ₹ {balanceCheck.totalCredit}
             </div>
           </div>
 
-          <div className="flex justify-end gap-2 mt-4 pt-4 border-t border-slate-100">
+          <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
             <Button onClick={() => setJournalModalVisible(false)}>Cancel</Button>
             <Button
               type="primary"
               disabled={!balanceCheck.isValid}
               onClick={handlePostJournal}
-              style={{ background: '#059669', borderColor: '#059669' }}
+              style={{ background: balanceCheck.isValid ? '#059669' : undefined, borderColor: balanceCheck.isValid ? '#059669' : undefined }}
             >
-              Post Balanced Journal
+              Post to General Ledger
             </Button>
           </div>
         </div>
+      </Modal>
+
+      {/* ADD LEDGER ACCOUNT MODAL */}
+      <Modal
+        title="Add New Chart of Accounts Ledger"
+        open={addAccountModal}
+        onCancel={() => setAddAccountModal(false)}
+        footer={null}
+        width={550}
+      >
+        <Form form={accountForm} layout="vertical" onFinish={handleCreateAccount} className="mt-4">
+          <Row gutter={16}>
+            <Col span={12}>
+              <Form.Item label="Account Code" name="accountCode" extra="Auto-generated if left blank">
+                <Input placeholder="e.g. COA-1040" />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item
+                label="Account Classification"
+                name="accountType"
+                rules={[{ required: true, message: 'Select classification' }]}
+                initialValue="ASSET"
+              >
+                <Select
+                  options={[
+                    { value: 'ASSET', label: 'Asset (Bank, Vault, Receivable)' },
+                    { value: 'LIABILITY', label: 'Liability (Deposits, Payables)' },
+                    { value: 'EQUITY', label: 'Equity & Reserves (Capital)' },
+                    { value: 'INCOME', label: 'Income & Revenue (Interest, Fees)' },
+                    { value: 'EXPENSE', label: 'Expense (Salaries, Rent, Operations)' },
+                  ]}
+                />
+              </Form.Item>
+            </Col>
+            <Col span={24}>
+              <Form.Item
+                label="Ledger Account Name"
+                name="accountName"
+                rules={[{ required: true, message: 'Enter account name' }]}
+              >
+                <Input placeholder="e.g. Bank of Baroda Current A/c" />
+              </Form.Item>
+            </Col>
+            <Col span={24}>
+              <Form.Item label="Description" name="description">
+                <Input placeholder="Description or purpose of this ledger" />
+              </Form.Item>
+            </Col>
+          </Row>
+
+          <div className="flex justify-end gap-2 pt-4 border-t border-slate-100">
+            <Button onClick={() => setAddAccountModal(false)}>Cancel</Button>
+            <Button type="primary" htmlType="submit" style={{ background: '#059669', borderColor: '#059669' }}>
+              Create Account
+            </Button>
+          </div>
+        </Form>
+      </Modal>
+
+      {/* EDIT LEDGER ACCOUNT MODAL */}
+      <Modal
+        title={`Edit Ledger Account: ${selectedAccount?.accountName}`}
+        open={editAccountModal}
+        onCancel={() => setEditAccountModal(false)}
+        footer={null}
+        width={550}
+      >
+        <Form form={editAccountForm} layout="vertical" onFinish={handleUpdateAccount} className="mt-4">
+          <Row gutter={16}>
+            <Col span={24}>
+              <Form.Item
+                label="Ledger Account Name"
+                name="accountName"
+                rules={[{ required: true, message: 'Enter account name' }]}
+              >
+                <Input />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item
+                label="Account Classification"
+                name="accountType"
+                rules={[{ required: true, message: 'Select classification' }]}
+              >
+                <Select
+                  options={[
+                    { value: 'ASSET', label: 'Asset' },
+                    { value: 'LIABILITY', label: 'Liability' },
+                    { value: 'EQUITY', label: 'Equity & Reserves' },
+                    { value: 'INCOME', label: 'Income & Revenue' },
+                    { value: 'EXPENSE', label: 'Expense' },
+                  ]}
+                />
+              </Form.Item>
+            </Col>
+            <Col span={24}>
+              <Form.Item label="Description" name="description">
+                <Input />
+              </Form.Item>
+            </Col>
+          </Row>
+
+          <div className="flex justify-end gap-2 pt-4 border-t border-slate-100">
+            <Button onClick={() => setEditAccountModal(false)}>Cancel</Button>
+            <Button type="primary" htmlType="submit" style={{ background: '#059669', borderColor: '#059669' }}>
+              Save Changes
+            </Button>
+          </div>
+        </Form>
       </Modal>
     </div>
   );

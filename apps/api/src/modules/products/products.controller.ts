@@ -3,6 +3,7 @@ import {
   Get,
   Post,
   Patch,
+  Delete,
   Param,
   Body,
   UseGuards,
@@ -114,5 +115,28 @@ export class ProductsController {
     );
 
     return updated;
+  }
+
+  @Delete(':id')
+  deleteProduct(@Param('id') id: string, @CurrentUser() user: IUser) {
+    const index = this.dataStore.products.findIndex((p) => p.id === id || p.productCode === id);
+    if (index === -1) {
+      throw new NotFoundException(`Product not found for: ${id}`);
+    }
+
+    const removed = this.dataStore.products.splice(index, 1)[0];
+
+    this.dataStore.logAudit(
+      user.id || 'USR-001',
+      user.employeeName || 'Admin',
+      'PRODUCT_DELETED',
+      'Product',
+      removed.id,
+      removed,
+      undefined,
+      `Deleted product ${removed.productName} (${removed.productCode})`,
+    );
+
+    return { message: `Product ${removed.productName} deleted successfully.`, id: removed.id };
   }
 }

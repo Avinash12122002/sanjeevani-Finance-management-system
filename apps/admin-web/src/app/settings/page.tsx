@@ -30,8 +30,10 @@ import {
   EditOutlined,
   DeleteOutlined,
   AppstoreAddOutlined,
+  ShoppingOutlined,
 } from '@ant-design/icons';
 import { fetchApi, postApi, patchApi, deleteApi } from '@/lib/api-client';
+import { FinancialEngine } from '@sanjeevani/financial-engine';
 
 export default function SettingsPage() {
   const [branches, setBranches] = useState<any[]>([]);
@@ -48,12 +50,18 @@ export default function SettingsPage() {
   const [editBranchModal, setEditBranchModal] = useState(false);
   const [selectedBranch, setSelectedBranch] = useState<any>(null);
 
+  const [addProductModal, setAddProductModal] = useState(false);
+  const [editProductModal, setEditProductModal] = useState(false);
+  const [selectedProduct, setSelectedProduct] = useState<any>(null);
+
   const [submitting, setSubmitting] = useState(false);
 
   const [staffForm] = Form.useForm();
   const [editStaffForm] = Form.useForm();
   const [branchForm] = Form.useForm();
   const [editBranchForm] = Form.useForm();
+  const [productForm] = Form.useForm();
+  const [editProductForm] = Form.useForm();
 
   // Feature Flags (SRS §43)
   const [featureFlags, setFeatureFlags] = useState({
@@ -224,17 +232,93 @@ export default function SettingsPage() {
     }
   };
 
+  // Product CRUD Handlers
+  const handleAddProduct = async (values: any) => {
+    setSubmitting(true);
+    try {
+      const res = await postApi('/products', values);
+      if (res.success) {
+        message.success(`Financial Product [${values.productName}] created successfully!`);
+        setAddProductModal(false);
+        productForm.resetFields();
+        loadSettingsData();
+      } else {
+        message.error(res.message || 'Failed to create financial product.');
+      }
+    } catch (err: any) {
+      message.error('An error occurred while creating product.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleOpenEditProduct = (record: any) => {
+    setSelectedProduct(record);
+    editProductForm.setFieldsValue({
+      productName: record.productName,
+      productType: record.productType,
+      interestRate: record.interestRate,
+      minimumAmount: record.minimumAmount,
+      maximumAmount: record.maximumAmount,
+      minimumTenureMonths: record.minimumTenureMonths,
+      maximumTenureMonths: record.maximumTenureMonths,
+      isEnabled: record.isEnabled ?? true,
+    });
+    setEditProductModal(true);
+  };
+
+  const handleUpdateProduct = async (values: any) => {
+    if (!selectedProduct) return;
+    setSubmitting(true);
+    try {
+      const res = await patchApi(`/products/${selectedProduct.id}`, values);
+      if (res.success) {
+        message.success(`Product [${values.productName}] updated successfully!`);
+        setEditProductModal(false);
+        editProductForm.resetFields();
+        loadSettingsData();
+      } else {
+        message.error(res.message || 'Failed to update product.');
+      }
+    } catch (err: any) {
+      message.error('An error occurred while updating product.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleDeleteProduct = async (id: string, name: string) => {
+    try {
+      const res = await deleteApi(`/products/${id}`);
+      if (res.success) {
+        message.success(`Product [${name}] removed.`);
+        loadSettingsData();
+      } else {
+        message.error(res.message || 'Failed to remove product.');
+      }
+    } catch (err: any) {
+      message.error('Error removing product.');
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Header Banner */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900 m-0">System Configuration & Management Master</h1>
+          <h1 className="text-2xl font-bold text-slate-900 m-0">System Configuration & Master Control</h1>
           <p className="text-slate-500 text-sm mt-1 m-0">
-            Full admin control: Add, edit, or delete staff, operating branches, compliance switches, and global parameters.
+            Full admin power: Manage staff logins, branches, financial products, compliance switches, and global parameters without accessing the database.
           </p>
         </div>
         <Space wrap>
+          <Button
+            icon={<ShoppingOutlined />}
+            size="large"
+            onClick={() => setAddProductModal(true)}
+          >
+            + Add Product
+          </Button>
           <Button
             icon={<BankOutlined />}
             size="large"
@@ -320,6 +404,69 @@ export default function SettingsPage() {
                             title="Delete Staff Member"
                             description={`Are you sure you want to delete ${record.name}? Login access will be revoked.`}
                             onConfirm={() => handleDeleteStaff(record.id, record.name)}
+                            okText="Yes, Delete"
+                            cancelText="Cancel"
+                            okButtonProps={{ danger: true }}
+                          >
+                            <Button size="small" danger icon={<DeleteOutlined />}>
+                              Delete
+                            </Button>
+                          </Popconfirm>
+                        </Space>
+                      ),
+                    },
+                  ]}
+                />
+              </Card>
+            ),
+          },
+          {
+            key: 'products',
+            label: `Financial Products Master (${products.length})`,
+            children: (
+              <Card
+                className="glass-card"
+                extra={
+                  <Button
+                    type="primary"
+                    icon={<PlusOutlined />}
+                    style={{ background: '#059669', borderColor: '#059669' }}
+                    onClick={() => setAddProductModal(true)}
+                  >
+                    Create Product
+                  </Button>
+                }
+              >
+                <Table
+                  dataSource={products}
+                  rowKey="id"
+                  loading={loading}
+                  scroll={{ x: 900 }}
+                  columns={[
+                    { title: 'Product Code', dataIndex: 'productCode', key: 'code', render: (c) => <span className="font-mono font-bold text-emerald-700">{c}</span> },
+                    { title: 'Product Name', dataIndex: 'productName', key: 'name' },
+                    { title: 'Category', dataIndex: 'productType', key: 'type', render: (t) => <Tag color="blue">{t}</Tag> },
+                    { title: 'Interest Rate', dataIndex: 'interestRate', key: 'rate', render: (r) => <span className="font-bold text-indigo-700">{r}% p.a.</span> },
+                    { title: 'Tenure Range', key: 'tenure', render: (_: any, r: any) => `${r.minimumTenureMonths || 1} - ${r.maximumTenureMonths || 60} Mo` },
+                    { title: 'Min Amount', dataIndex: 'minimumAmount', key: 'min', render: (m) => FinancialEngine.formatINR(m || 500) },
+                    { title: 'Max Amount', dataIndex: 'maximumAmount', key: 'max', render: (m) => FinancialEngine.formatINR(m || 1000000) },
+                    { title: 'Status', dataIndex: 'isEnabled', key: 'st', render: (e) => <Tag color={e ? 'green' : 'default'}>{e ? 'ENABLED' : 'DISABLED'}</Tag> },
+                    {
+                      title: 'Actions',
+                      key: 'actions',
+                      render: (_: any, record: any) => (
+                        <Space>
+                          <Button
+                            size="small"
+                            icon={<EditOutlined />}
+                            onClick={() => handleOpenEditProduct(record)}
+                          >
+                            Edit
+                          </Button>
+                          <Popconfirm
+                            title="Delete Financial Product"
+                            description={`Delete product ${record.productName}?`}
+                            onConfirm={() => handleDeleteProduct(record.id, record.productName)}
                             okText="Yes, Delete"
                             cancelText="Cancel"
                             okButtonProps={{ danger: true }}
@@ -810,6 +957,194 @@ export default function SettingsPage() {
 
           <div className="flex justify-end gap-3 pt-4 border-t border-slate-100">
             <Button onClick={() => setEditBranchModal(false)}>Cancel</Button>
+            <Button
+              type="primary"
+              htmlType="submit"
+              loading={submitting}
+              style={{ background: '#059669', borderColor: '#059669' }}
+            >
+              Save Changes
+            </Button>
+          </div>
+        </Form>
+      </Modal>
+
+      {/* Add New Product Modal */}
+      <Modal
+        title={
+          <div className="flex items-center gap-2 text-slate-800">
+            <ShoppingOutlined className="text-emerald-600" />
+            <span>Create Financial Scheme / Product</span>
+          </div>
+        }
+        open={addProductModal}
+        onCancel={() => setAddProductModal(false)}
+        footer={null}
+        width={600}
+      >
+        <Form form={productForm} layout="vertical" onFinish={handleAddProduct} className="mt-4">
+          <Row gutter={16}>
+            <Col span={16}>
+              <Form.Item
+                label="Product Name"
+                name="productName"
+                rules={[{ required: true, message: 'Enter product name' }]}
+              >
+                <Input placeholder="e.g. Sanjeevani Easy Business Loan" />
+              </Form.Item>
+            </Col>
+            <Col span={8}>
+              <Form.Item
+                label="Product Type"
+                name="productType"
+                rules={[{ required: true, message: 'Select product type' }]}
+                initialValue="PERSONAL_LOAN"
+              >
+                <Select
+                  options={[
+                    { value: 'PERSONAL_LOAN', label: 'Personal Loan' },
+                    { value: 'BUSINESS_LOAN', label: 'Business Loan' },
+                    { value: 'GOLD_LOAN', label: 'Gold Loan' },
+                    { value: 'MICRO_LOAN', label: 'Micro Enterprise Loan' },
+                    { value: 'RECURRING_DEPOSIT', label: 'Recurring Deposit (RD)' },
+                    { value: 'TERM_DEPOSIT', label: 'Term Deposit (FD)' },
+                    { value: 'SAVINGS', label: 'Savings Account' },
+                  ]}
+                />
+              </Form.Item>
+            </Col>
+            <Col span={8}>
+              <Form.Item
+                label="Interest Rate (% p.a.)"
+                name="interestRate"
+                rules={[{ required: true, message: 'Enter rate' }]}
+                initialValue={14}
+              >
+                <InputNumber min={0} max={100} className="w-full" />
+              </Form.Item>
+            </Col>
+            <Col span={8}>
+              <Form.Item label="Min Amount (₹)" name="minimumAmount" initialValue={5000}>
+                <InputNumber min={100} className="w-full" />
+              </Form.Item>
+            </Col>
+            <Col span={8}>
+              <Form.Item label="Max Amount (₹)" name="maximumAmount" initialValue={500000}>
+                <InputNumber min={1000} className="w-full" />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item label="Min Tenure (Months)" name="minimumTenureMonths" initialValue={6}>
+                <InputNumber min={1} className="w-full" />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item label="Max Tenure (Months)" name="maximumTenureMonths" initialValue={36}>
+                <InputNumber min={1} className="w-full" />
+              </Form.Item>
+            </Col>
+          </Row>
+
+          <div className="flex justify-end gap-3 pt-4 border-t border-slate-100">
+            <Button onClick={() => setAddProductModal(false)}>Cancel</Button>
+            <Button
+              type="primary"
+              htmlType="submit"
+              loading={submitting}
+              style={{ background: '#059669', borderColor: '#059669' }}
+            >
+              Create Product
+            </Button>
+          </div>
+        </Form>
+      </Modal>
+
+      {/* Edit Product Modal */}
+      <Modal
+        title={
+          <div className="flex items-center gap-2 text-slate-800">
+            <EditOutlined className="text-emerald-600" />
+            <span>Edit Product: {selectedProduct?.productName}</span>
+          </div>
+        }
+        open={editProductModal}
+        onCancel={() => setEditProductModal(false)}
+        footer={null}
+        width={600}
+      >
+        <Form form={editProductForm} layout="vertical" onFinish={handleUpdateProduct} className="mt-4">
+          <Row gutter={16}>
+            <Col span={16}>
+              <Form.Item
+                label="Product Name"
+                name="productName"
+                rules={[{ required: true, message: 'Enter product name' }]}
+              >
+                <Input />
+              </Form.Item>
+            </Col>
+            <Col span={8}>
+              <Form.Item
+                label="Product Type"
+                name="productType"
+                rules={[{ required: true, message: 'Select product type' }]}
+              >
+                <Select
+                  options={[
+                    { value: 'PERSONAL_LOAN', label: 'Personal Loan' },
+                    { value: 'BUSINESS_LOAN', label: 'Business Loan' },
+                    { value: 'GOLD_LOAN', label: 'Gold Loan' },
+                    { value: 'MICRO_LOAN', label: 'Micro Enterprise Loan' },
+                    { value: 'RECURRING_DEPOSIT', label: 'Recurring Deposit (RD)' },
+                    { value: 'TERM_DEPOSIT', label: 'Term Deposit (FD)' },
+                    { value: 'SAVINGS', label: 'Savings Account' },
+                  ]}
+                />
+              </Form.Item>
+            </Col>
+            <Col span={8}>
+              <Form.Item
+                label="Interest Rate (% p.a.)"
+                name="interestRate"
+                rules={[{ required: true, message: 'Enter rate' }]}
+              >
+                <InputNumber min={0} max={100} className="w-full" />
+              </Form.Item>
+            </Col>
+            <Col span={8}>
+              <Form.Item label="Min Amount (₹)" name="minimumAmount">
+                <InputNumber min={100} className="w-full" />
+              </Form.Item>
+            </Col>
+            <Col span={8}>
+              <Form.Item label="Max Amount (₹)" name="maximumAmount">
+                <InputNumber min={1000} className="w-full" />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item label="Min Tenure (Months)" name="minimumTenureMonths">
+                <InputNumber min={1} className="w-full" />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item label="Max Tenure (Months)" name="maximumTenureMonths">
+                <InputNumber min={1} className="w-full" />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item label="Status" name="isEnabled">
+                <Select
+                  options={[
+                    { value: true, label: 'Enabled / Offering to Customers' },
+                    { value: false, label: 'Disabled / Suspended' },
+                  ]}
+                />
+              </Form.Item>
+            </Col>
+          </Row>
+
+          <div className="flex justify-end gap-3 pt-4 border-t border-slate-100">
+            <Button onClick={() => setEditProductModal(false)}>Cancel</Button>
             <Button
               type="primary"
               htmlType="submit"

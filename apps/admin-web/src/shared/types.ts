@@ -666,6 +666,7 @@ export interface IChartOfAccount {
   parentId?: string;
   isActive: boolean;
   currentBalance: number;
+  description?: string;
 }
 
 export interface IJournalEntry {
