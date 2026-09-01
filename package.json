@@ -1,0 +1,38 @@
+{
+  "name": "sanjeevani-finance-management-system",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Enterprise Financial Operations, Member Management, Loan Origination & Accounting System",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "concurrently -n \"API,WEB\" -c \"cyan,green\" \"npm --workspace=apps/api run start\" \"npm --workspace=apps/admin-web run dev\"",
+    "start": "concurrently -n \"API,WEB\" -c \"cyan,green\" \"npm --workspace=apps/api run start\" \"npm --workspace=apps/admin-web run start\"",
+    "dev:api": "npm --workspace=apps/api run start:dev",
+    "dev:web": "npm --workspace=apps/admin-web run dev",
+    "build:packages": "npm --workspace=packages/shared-types run build && npm --workspace=packages/financial-engine run build",
+    "build:api": "npm --workspace=apps/api run build",
+    "build:web": "npm --workspace=apps/admin-web run build",
+    "build": "npm run build:packages && npm run build:api && npm run build:web",
+    "lint": "npm run --workspaces lint"
+  },
+  "keywords": [
+    "finance",
+    "banking",
+    "microfinance",
+    "loan-management",
+    "accounting",
+    "double-entry",
+    "sanjeevani"
+  ],
+  "author": "Sanjeevani Finance Operations",
+  "license": "UNLICENSED",
+  "dependencies": {
+    "decimal.js": "^10.6.0"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}

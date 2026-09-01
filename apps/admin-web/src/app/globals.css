@@ -1,0 +1,168 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --primary-brand: #059669;
+  --primary-navy: #0f172a;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+  background-color: #f8fafc;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  color: #1e293b;
+  -webkit-font-smoothing: antialiased;
+  scroll-behavior: smooth;
+}
+
+/* Custom Scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f5f9;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+/* Sider Scrollbar */
+.ant-layout-sider-children::-webkit-scrollbar {
+  width: 4px;
+}
+
+.ant-layout-sider-children::-webkit-scrollbar-track {
+  background: #0f172a;
+}
+
+.ant-layout-sider-children::-webkit-scrollbar-thumb {
+  background: #334155;
+  border-radius: 2px;
+}
+
+/* Glassmorphic & Modern Cards */
+.glass-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.04), 0 1px 2px -1px rgba(0, 0, 0, 0.04);
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  overflow: hidden;
+}
+
+.glass-card:hover {
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.06), 0 2px 4px -2px rgba(0, 0, 0, 0.04);
+}
+
+.kpi-card {
+  border-radius: 14px;
+  padding: 18px 20px;
+  position: relative;
+  overflow: hidden;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  border: 1px solid #e2e8f0;
+}
+
+.kpi-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 16px -4px rgba(0, 0, 0, 0.08);
+}
+
+/* Ant Design Table Polish */
+.ant-table-wrapper {
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.ant-table {
+  background: transparent !important;
+}
+
+.ant-table-thead > tr > th {
+  background: #f8fafc !important;
+  color: #475569 !important;
+  font-weight: 600 !important;
+  font-size: 12px !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.05em !important;
+  border-bottom: 1px solid #e2e8f0 !important;
+}
+
+.ant-table-tbody > tr > td {
+  border-bottom: 1px solid #f1f5f9 !important;
+  font-size: 13px !important;
+}
+
+.ant-table-tbody > tr:hover > td {
+  background: #f8fafc !important;
+}
+
+/* Sidebar Nav Item Styling - Permanent Vibrant Emerald Active State */
+.ant-menu-dark .ant-menu-item {
+  color: #cbd5e1 !important;
+  border-radius: 8px !important;
+  margin: 4px 8px !important;
+  width: calc(100% - 16px) !important;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
+.ant-menu-dark .ant-menu-item:hover {
+  background-color: rgba(30, 41, 59, 0.9) !important;
+  color: #34d399 !important;
+}
+
+.ant-menu-dark .ant-menu-item:hover .anticon,
+.ant-menu-dark .ant-menu-item:hover .ant-menu-title-content {
+  color: #34d399 !important;
+}
+
+/* Selected Active Menu Item - Always Vibrant Emerald */
+.ant-menu-dark .ant-menu-item-selected,
+.ant-menu-dark.ant-menu-inline .ant-menu-item-selected,
+.ant-menu-dark .ant-menu-item.ant-menu-item-selected,
+li.ant-menu-item.ant-menu-item-selected {
+  background: linear-gradient(135deg, #059669 0%, #047857 100%) !important;
+  color: #ffffff !important;
+  font-weight: 700 !important;
+  box-shadow: 0 4px 14px -2px rgba(5, 150, 105, 0.5) !important;
+}
+
+.ant-menu-dark .ant-menu-item-selected .anticon,
+.ant-menu-dark .ant-menu-item-selected .ant-menu-title-content,
+.ant-menu-dark.ant-menu-inline .ant-menu-item-selected .anticon,
+.ant-menu-dark.ant-menu-inline .ant-menu-item-selected .ant-menu-title-content,
+li.ant-menu-item.ant-menu-item-selected .anticon,
+li.ant-menu-item.ant-menu-item-selected .ant-menu-title-content {
+  color: #ffffff !important;
+  font-weight: 700 !important;
+}
+
+/* Printable Official Receipt */
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  #printable-receipt, #printable-receipt * {
+    visibility: visible;
+  }
+  #printable-receipt {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+  }
+}

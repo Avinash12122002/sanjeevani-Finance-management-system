@@ -1,0 +1,3 @@
+# Sanjeevani Finance Management System - Production Robots Policy
+User-agent: *
+Disallow: /
