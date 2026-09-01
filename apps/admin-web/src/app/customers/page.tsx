@@ -17,6 +17,7 @@ import {
   Card,
   Row,
   Col,
+  Popconfirm,
   message,
   Divider,
 } from 'antd';
@@ -24,13 +25,15 @@ import {
   UserAddOutlined,
   SearchOutlined,
   EyeOutlined,
+  EditOutlined,
+  DeleteOutlined,
   SafetyCertificateOutlined,
   PhoneOutlined,
   HomeOutlined,
   CheckCircleOutlined,
   ClockCircleOutlined,
 } from '@ant-design/icons';
-import { fetchApi, postApi } from '@/lib/api-client';
+import { fetchApi, postApi, patchApi, deleteApi } from '@/lib/api-client';
 import { FinancialEngine } from '@sanjeevani/financial-engine';
 import { ICustomer } from '@sanjeevani/shared-types';
 
@@ -39,9 +42,14 @@ export default function CustomersPage() {
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState('');
   const [createModalVisible, setCreateModalVisible] = useState(false);
+  const [editModalVisible, setEditModalVisible] = useState(false);
+  const [selectedCustomer, setSelectedCustomer] = useState<ICustomer | null>(null);
   const [drawerVisible, setDrawerVisible] = useState(false);
   const [selectedCustomer360, setSelectedCustomer360] = useState<any>(null);
+  const [submitting, setSubmitting] = useState(false);
+
   const [form] = Form.useForm();
+  const [editForm] = Form.useForm();
 
   useEffect(() => {
     loadCustomers();
@@ -65,15 +73,77 @@ export default function CustomersPage() {
   };
 
   const handleCreateCustomer = async (values: any) => {
-    const res = await postApi('/customers', values);
+    setSubmitting(true);
+    try {
+      const res = await postApi('/customers', values);
 
-    if (res.success) {
-      message.success(`Member registered successfully: ${res.data?.customerNumber || 'Registered'}`);
-      setCreateModalVisible(false);
-      form.resetFields();
-      loadCustomers();
-    } else {
-      message.error(res.message || res.error || 'Failed to register customer');
+      if (res.success) {
+        message.success(`Member registered successfully: ${res.data?.customerNumber || 'Registered'}`);
+        setCreateModalVisible(false);
+        form.resetFields();
+        loadCustomers();
+      } else {
+        message.error(res.message || res.error || 'Failed to register customer');
+      }
+    } catch (err: any) {
+      message.error('An error occurred while creating member.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleOpenEditCustomer = (record: ICustomer) => {
+    setSelectedCustomer(record);
+    editForm.setFieldsValue({
+      firstName: record.firstName,
+      middleName: record.middleName,
+      lastName: record.lastName,
+      fatherOrSpouseName: record.fatherOrSpouseName,
+      mobile: record.mobile,
+      email: record.email,
+      dateOfBirth: record.dateOfBirth,
+      gender: record.gender || 'MALE',
+      addressLine1: record.addressLine1,
+      city: record.city,
+      state: record.state,
+      postalCode: record.postalCode,
+      status: record.status || 'ACTIVE',
+      kycStatus: record.kycStatus || 'VERIFIED',
+    });
+    setEditModalVisible(true);
+  };
+
+  const handleUpdateCustomer = async (values: any) => {
+    if (!selectedCustomer) return;
+    setSubmitting(true);
+    try {
+      const res = await patchApi(`/customers/${selectedCustomer.id}`, values);
+      if (res.success) {
+        message.success(`Member ${values.firstName} ${values.lastName} updated successfully!`);
+        setEditModalVisible(false);
+        editForm.resetFields();
+        loadCustomers();
+      } else {
+        message.error(res.message || 'Failed to update member.');
+      }
+    } catch (err: any) {
+      message.error('An error occurred while updating member.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleDeleteCustomer = async (id: string, name: string) => {
+    try {
+      const res = await deleteApi(`/customers/${id}`);
+      if (res.success) {
+        message.success(`Member [${name}] removed.`);
+        loadCustomers();
+      } else {
+        message.error(res.message || 'Failed to delete member.');
+      }
+    } catch (err: any) {
+      message.error('Error deleting member.');
     }
   };
 
@@ -100,20 +170,20 @@ export default function CustomersPage() {
       ),
     },
     {
-      title: 'Mobile',
+      title: 'Contact',
       dataIndex: 'mobile',
       key: 'mobile',
-      render: (m: string) => <span className="font-mono">{m}</span>,
-    },
-    {
-      title: 'City / Branch',
-      key: 'location',
-      render: (_: any, r: ICustomer) => (
+      render: (m: string) => (
         <div>
-          <div>{r.city}</div>
-          <div className="text-xs text-slate-500">{r.branchName}</div>
+          <div className="font-medium text-slate-700">{m}</div>
+          <span className="text-xs text-slate-400">Mobile Verified</span>
         </div>
       ),
+    },
+    {
+      title: 'Branch',
+      dataIndex: 'branchName',
+      key: 'branch',
     },
     {
       title: 'KYC Status',
@@ -134,15 +204,36 @@ export default function CustomersPage() {
       title: 'Actions',
       key: 'actions',
       render: (_: any, r: ICustomer) => (
-        <Button
-          type="primary"
-          ghost
-          icon={<EyeOutlined />}
-          size="small"
-          onClick={() => handleOpen360(r.id)}
-        >
-          View 360°
-        </Button>
+        <Space>
+          <Button
+            type="primary"
+            ghost
+            icon={<EyeOutlined />}
+            size="small"
+            onClick={() => handleOpen360(r.id)}
+          >
+            360°
+          </Button>
+          <Button
+            size="small"
+            icon={<EditOutlined />}
+            onClick={() => handleOpenEditCustomer(r)}
+          >
+            Edit
+          </Button>
+          <Popconfirm
+            title="Delete Customer Member"
+            description={`Are you sure you want to remove member ${r.firstName} ${r.lastName}?`}
+            onConfirm={() => handleDeleteCustomer(r.id, `${r.firstName} ${r.lastName}`)}
+            okText="Yes, Delete"
+            cancelText="Cancel"
+            okButtonProps={{ danger: true }}
+          >
+            <Button size="small" danger icon={<DeleteOutlined />}>
+              Delete
+            </Button>
+          </Popconfirm>
+        </Space>
       ),
     },
   ];
@@ -195,7 +286,7 @@ export default function CustomersPage() {
           dataSource={filtered}
           rowKey="id"
           loading={loading}
-          scroll={{ x: 850 }}
+          scroll={{ x: 900 }}
           pagination={{ pageSize: 10 }}
         />
       </Card>
@@ -306,8 +397,108 @@ export default function CustomersPage() {
 
           <div className="flex justify-end gap-2 mt-4 pt-4 border-t border-slate-100">
             <Button onClick={() => setCreateModalVisible(false)}>Cancel</Button>
-            <Button type="primary" htmlType="submit" style={{ background: '#059669', borderColor: '#059669' }}>
+            <Button type="primary" htmlType="submit" loading={submitting} style={{ background: '#059669', borderColor: '#059669' }}>
               Create Member Account
+            </Button>
+          </div>
+        </Form>
+      </Modal>
+
+      {/* EDIT MEMBER PROFILE MODAL */}
+      <Modal
+        title={
+          <div className="flex items-center gap-2 text-emerald-700 font-bold">
+            <EditOutlined /> Edit Member Profile: {selectedCustomer?.firstName} {selectedCustomer?.lastName}
+          </div>
+        }
+        open={editModalVisible}
+        onCancel={() => setEditModalVisible(false)}
+        footer={null}
+        width={680}
+      >
+        <Form form={editForm} layout="vertical" onFinish={handleUpdateCustomer}>
+          <Row gutter={16}>
+            <Col span={12}>
+              <Form.Item name="firstName" label="First Name" rules={[{ required: true, message: 'First name is required' }]}>
+                <Input />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item name="lastName" label="Last Name" rules={[{ required: true, message: 'Last name is required' }]}>
+                <Input />
+              </Form.Item>
+            </Col>
+          </Row>
+
+          <Row gutter={16}>
+            <Col span={12}>
+              <Form.Item name="fatherOrSpouseName" label="Father / Spouse Name" rules={[{ required: true }]}>
+                <Input />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item name="mobile" label="Primary Mobile" rules={[{ required: true, pattern: /^[0-9]{10}$/, message: 'Valid 10-digit mobile required' }]}>
+                <Input />
+              </Form.Item>
+            </Col>
+          </Row>
+
+          <Row gutter={16}>
+            <Col span={8}>
+              <Form.Item name="gender" label="Gender">
+                <Select
+                  options={[
+                    { label: 'Male', value: 'MALE' },
+                    { label: 'Female', value: 'FEMALE' },
+                    { label: 'Other', value: 'OTHER' },
+                  ]}
+                />
+              </Form.Item>
+            </Col>
+            <Col span={8}>
+              <Form.Item name="dateOfBirth" label="Date of Birth">
+                <Input type="date" />
+              </Form.Item>
+            </Col>
+            <Col span={8}>
+              <Form.Item name="email" label="Email Address">
+                <Input />
+              </Form.Item>
+            </Col>
+          </Row>
+
+          <Form.Item name="addressLine1" label="Residential Address" rules={[{ required: true }]}>
+            <Input />
+          </Form.Item>
+
+          <Row gutter={16}>
+            <Col span={8}>
+              <Form.Item name="city" label="City / District">
+                <Input />
+              </Form.Item>
+            </Col>
+            <Col span={8}>
+              <Form.Item name="postalCode" label="PIN Code">
+                <Input />
+              </Form.Item>
+            </Col>
+            <Col span={8}>
+              <Form.Item name="kycStatus" label="KYC Status">
+                <Select
+                  options={[
+                    { label: 'VERIFIED', value: 'VERIFIED' },
+                    { label: 'PENDING', value: 'PENDING' },
+                    { label: 'REJECTED', value: 'REJECTED' },
+                  ]}
+                />
+              </Form.Item>
+            </Col>
+          </Row>
+
+          <div className="flex justify-end gap-2 mt-4 pt-4 border-t border-slate-100">
+            <Button onClick={() => setEditModalVisible(false)}>Cancel</Button>
+            <Button type="primary" htmlType="submit" loading={submitting} style={{ background: '#059669', borderColor: '#059669' }}>
+              Save Changes
             </Button>
           </div>
         </Form>
@@ -398,27 +589,16 @@ export default function CustomersPage() {
                           <div className="text-xs text-slate-400 italic">No KYC documents uploaded yet.</div>
                         ) : (
                           selectedCustomer360.kycDocuments.map((k: any, idx: number) => (
-                            <div key={idx} className="flex items-center justify-between p-2.5 bg-slate-50 rounded border border-slate-200">
+                            <div key={idx} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg border border-slate-200">
                               <div className="flex items-center gap-2">
                                 <SafetyCertificateOutlined className="text-emerald-600" />
-                                <div>
-                                  <span className="font-semibold text-xs text-slate-800">{k.documentType}: </span>
-                                  <span className="font-mono text-xs">{k.documentNumber}</span>
-                                </div>
+                                <span className="font-semibold text-xs text-slate-800">{k.documentType}:</span>
+                                <span className="font-mono text-xs text-slate-600">{k.documentNumber}</span>
                               </div>
                               <Tag color="success">VERIFIED</Tag>
                             </div>
                           ))
                         )}
-                      </div>
-
-                      <div className="font-bold text-slate-800 text-sm mt-4">Nominee Details (§11)</div>
-                      <div className="space-y-2">
-                        {selectedCustomer360.nominees.map((n: any, idx: number) => (
-                          <div key={idx} className="p-2.5 bg-slate-50 rounded border border-slate-200 text-xs">
-                            <span className="font-semibold text-slate-800">{n.name}</span> ({n.relationship}) - Share: {n.percentage}% | Mobile: {n.mobile}
-                          </div>
-                        ))}
                       </div>
                     </div>
                   ),
@@ -427,68 +607,37 @@ export default function CustomersPage() {
                   key: 'loans',
                   label: `Loans (${selectedCustomer360.loans.length})`,
                   children: (
-                    <div className="space-y-3">
-                      {selectedCustomer360.loans.length === 0 ? (
-                        <div className="text-xs text-slate-400 py-4 text-center">No active loans for this member.</div>
-                      ) : (
-                        selectedCustomer360.loans.map((ln: any, idx: number) => (
-                          <Card key={idx} size="small" className="border border-slate-200">
-                            <div className="flex items-center justify-between">
-                              <span className="font-mono font-bold text-blue-700">{ln.loanNumber}</span>
-                              <Tag color="blue">{ln.status}</Tag>
-                            </div>
-                            <div className="grid grid-cols-2 gap-2 mt-2 text-xs">
-                              <div>Principal: <b>{FinancialEngine.formatINR(ln.principal)}</b></div>
-                              <div>Outstanding: <b className="text-red-600">{FinancialEngine.formatINR(ln.outstandingPrincipal)}</b></div>
-                              <div>Monthly EMI: <b>{FinancialEngine.formatINR(ln.emiAmount)}</b></div>
-                              <div>Interest Rate: <b>{ln.annualInterestRate}% p.a.</b></div>
-                            </div>
-                          </Card>
-                        ))
-                      )}
-                    </div>
+                    <Table
+                      dataSource={selectedCustomer360.loans}
+                      rowKey="id"
+                      pagination={false}
+                      size="small"
+                      columns={[
+                        { title: 'Loan Number', dataIndex: 'loanNumber', render: (n) => <span className="font-mono font-bold text-emerald-700">{n}</span> },
+                        { title: 'Principal', dataIndex: 'principal', render: (p) => FinancialEngine.formatINR(p) },
+                        { title: 'EMI', dataIndex: 'emiAmount', render: (e) => FinancialEngine.formatINR(e) },
+                        { title: 'Outstanding', dataIndex: 'outstandingPrincipal', render: (o) => <span className="text-red-600 font-bold">{FinancialEngine.formatINR(o)}</span> },
+                        { title: 'Status', dataIndex: 'status', render: (s) => <Tag color="green">{s}</Tag> },
+                      ]}
+                    />
                   ),
                 },
                 {
-                  key: 'accounts',
+                  key: 'deposits',
                   label: `Deposits (${selectedCustomer360.accounts.length})`,
                   children: (
-                    <div className="space-y-3">
-                      {selectedCustomer360.accounts.map((acc: any, idx: number) => (
-                        <Card key={idx} size="small" className="border border-slate-200">
-                          <div className="flex items-center justify-between">
-                            <span className="font-mono font-bold text-emerald-700">{acc.accountNumber}</span>
-                            <Tag color="green">{acc.productType}</Tag>
-                          </div>
-                          <div className="grid grid-cols-2 gap-2 mt-2 text-xs">
-                            <div>Product: <b>{acc.productName}</b></div>
-                            <div>Current Balance: <b className="text-emerald-700">{FinancialEngine.formatINR(acc.currentBalance)}</b></div>
-                            <div>Interest Rate: <b>{acc.interestRate}%</b></div>
-                            <div>Maturity Amount: <b>{FinancialEngine.formatINR(acc.maturityAmount || 0)}</b></div>
-                          </div>
-                        </Card>
-                      ))}
-                    </div>
-                  ),
-                },
-                {
-                  key: 'payments',
-                  label: 'Payment History',
-                  children: (
-                    <div className="space-y-2">
-                      {selectedCustomer360.recentTransactions.map((tx: any, idx: number) => (
-                        <div key={idx} className="flex items-center justify-between p-2.5 bg-slate-50 rounded border border-slate-200 text-xs">
-                          <div>
-                            <div className="font-mono font-semibold text-slate-800">{tx.transactionNumber}</div>
-                            <div className="text-slate-500">{tx.remarks || tx.transactionType} ({tx.transactionDate})</div>
-                          </div>
-                          <div className="text-right">
-                            <div className="font-bold text-emerald-700">{FinancialEngine.formatINR(tx.amount)}</div>
-                            <Tag color="green" className="m-0 text-[10px]">{tx.paymentMode}</Tag>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
+                    <Table
+                      dataSource={selectedCustomer360.accounts}
+                      rowKey="id"
+                      pagination={false}
+                      size="small"
+                      columns={[
+                        { title: 'Account Number', dataIndex: 'accountNumber', render: (a) => <span className="font-mono font-bold text-blue-700">{a}</span> },
+                        { title: 'Product', dataIndex: 'productType' },
+                        { title: 'Balance', dataIndex: 'currentBalance', render: (b) => <span className="text-emerald-700 font-bold">{FinancialEngine.formatINR(b)}</span> },
+                        { title: 'Maturity Date', dataIndex: 'maturityDate' },
+                      ]}
+                    />
                   ),
                 },
               ]}

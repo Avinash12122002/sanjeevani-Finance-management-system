@@ -17,6 +17,7 @@ import {
   Row,
   Col,
   Descriptions,
+  Popconfirm,
   message,
 } from 'antd';
 import {
@@ -26,9 +27,11 @@ import {
   UserAddOutlined,
   PlusOutlined,
   BankOutlined,
+  EditOutlined,
+  DeleteOutlined,
   AppstoreAddOutlined,
 } from '@ant-design/icons';
-import { fetchApi, postApi } from '@/lib/api-client';
+import { fetchApi, postApi, patchApi, deleteApi } from '@/lib/api-client';
 
 export default function SettingsPage() {
   const [branches, setBranches] = useState<any[]>([]);
@@ -38,11 +41,19 @@ export default function SettingsPage() {
 
   // Modals
   const [addStaffModal, setAddStaffModal] = useState(false);
+  const [editStaffModal, setEditStaffModal] = useState(false);
+  const [selectedStaff, setSelectedStaff] = useState<any>(null);
+
   const [addBranchModal, setAddBranchModal] = useState(false);
+  const [editBranchModal, setEditBranchModal] = useState(false);
+  const [selectedBranch, setSelectedBranch] = useState<any>(null);
+
   const [submitting, setSubmitting] = useState(false);
 
   const [staffForm] = Form.useForm();
+  const [editStaffForm] = Form.useForm();
   const [branchForm] = Form.useForm();
+  const [editBranchForm] = Form.useForm();
 
   // Feature Flags (SRS §43)
   const [featureFlags, setFeatureFlags] = useState({
@@ -78,6 +89,7 @@ export default function SettingsPage() {
     message.success(`Compliance Feature Flag [${key}] updated to ${checked ? 'ENABLED' : 'DISABLED'}`);
   };
 
+  // Staff CRUD Handlers
   const handleAddStaff = async (values: any) => {
     setSubmitting(true);
     try {
@@ -97,6 +109,55 @@ export default function SettingsPage() {
     }
   };
 
+  const handleOpenEditStaff = (record: any) => {
+    setSelectedStaff(record);
+    editStaffForm.setFieldsValue({
+      name: record.name,
+      mobile: record.mobile,
+      email: record.email,
+      designation: record.designation,
+      branchId: record.branchId,
+      salary: record.salary,
+      employmentStatus: record.employmentStatus || 'ACTIVE',
+    });
+    setEditStaffModal(true);
+  };
+
+  const handleUpdateStaff = async (values: any) => {
+    if (!selectedStaff) return;
+    setSubmitting(true);
+    try {
+      const res = await patchApi(`/employees/${selectedStaff.id}`, values);
+      if (res.success) {
+        message.success(`Staff member [${values.name}] updated successfully!`);
+        setEditStaffModal(false);
+        editStaffForm.resetFields();
+        loadSettingsData();
+      } else {
+        message.error(res.message || 'Failed to update staff member.');
+      }
+    } catch (err: any) {
+      message.error('An error occurred while updating staff member.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleDeleteStaff = async (id: string, name: string) => {
+    try {
+      const res = await deleteApi(`/employees/${id}`);
+      if (res.success) {
+        message.success(`Staff member [${name}] deleted.`);
+        loadSettingsData();
+      } else {
+        message.error(res.message || 'Failed to delete staff member.');
+      }
+    } catch (err: any) {
+      message.error('Error deleting staff member.');
+    }
+  };
+
+  // Branch CRUD Handlers
   const handleAddBranch = async (values: any) => {
     setSubmitting(true);
     try {
@@ -116,6 +177,53 @@ export default function SettingsPage() {
     }
   };
 
+  const handleOpenEditBranch = (record: any) => {
+    setSelectedBranch(record);
+    editBranchForm.setFieldsValue({
+      name: record.name,
+      address: record.address,
+      city: record.city,
+      state: record.state,
+      phone: record.phone,
+      status: record.status || 'ACTIVE',
+    });
+    setEditBranchModal(true);
+  };
+
+  const handleUpdateBranch = async (values: any) => {
+    if (!selectedBranch) return;
+    setSubmitting(true);
+    try {
+      const res = await patchApi(`/branches/${selectedBranch.id}`, values);
+      if (res.success) {
+        message.success(`Branch [${values.name}] updated successfully!`);
+        setEditBranchModal(false);
+        editBranchForm.resetFields();
+        loadSettingsData();
+      } else {
+        message.error(res.message || 'Failed to update branch.');
+      }
+    } catch (err: any) {
+      message.error('An error occurred while updating branch.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleDeleteBranch = async (id: string, name: string) => {
+    try {
+      const res = await deleteApi(`/branches/${id}`);
+      if (res.success) {
+        message.success(`Branch [${name}] removed.`);
+        loadSettingsData();
+      } else {
+        message.error(res.message || 'Failed to remove branch.');
+      }
+    } catch (err: any) {
+      message.error('Error removing branch.');
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Header Banner */}
@@ -123,7 +231,7 @@ export default function SettingsPage() {
         <div>
           <h1 className="text-2xl font-bold text-slate-900 m-0">System Configuration & Management Master</h1>
           <p className="text-slate-500 text-sm mt-1 m-0">
-            Multi-branch network, staff role authorizations, product master and regulatory feature gating (SRS §43, §104).
+            Full admin control: Add, edit, or delete staff, operating branches, compliance switches, and global parameters.
           </p>
         </div>
         <Space wrap>
@@ -170,7 +278,7 @@ export default function SettingsPage() {
                   dataSource={employees}
                   rowKey="id"
                   loading={loading}
-                  scroll={{ x: 800 }}
+                  scroll={{ x: 900 }}
                   columns={[
                     { title: 'Employee ID', dataIndex: 'employeeNumber', key: 'emp', render: (e) => <span className="font-mono font-bold text-emerald-700">{e}</span> },
                     { title: 'Staff Name', dataIndex: 'name', key: 'name' },
@@ -183,13 +291,46 @@ export default function SettingsPage() {
                         if (r?.includes('MANAGER')) color = 'purple';
                         else if (r?.includes('CASHIER')) color = 'green';
                         else if (r?.includes('RECOVERY')) color = 'orange';
+                        else if (r?.includes('ADMIN')) color = 'red';
                         return <Tag color={color}>{r}</Tag>;
                       },
                     },
                     { title: 'Mobile / Login ID', dataIndex: 'mobile', key: 'mob' },
                     { title: 'Email', dataIndex: 'email', key: 'email' },
                     { title: 'Assigned Branch', dataIndex: 'branchName', key: 'br' },
-                    { title: 'Status', dataIndex: 'employmentStatus', key: 'st', render: (s) => <Tag color="green">{s}</Tag> },
+                    {
+                      title: 'Status',
+                      dataIndex: 'employmentStatus',
+                      key: 'st',
+                      render: (s) => <Tag color={s === 'ACTIVE' ? 'green' : 'default'}>{s || 'ACTIVE'}</Tag>,
+                    },
+                    {
+                      title: 'Actions',
+                      key: 'actions',
+                      render: (_: any, record: any) => (
+                        <Space>
+                          <Button
+                            size="small"
+                            icon={<EditOutlined />}
+                            onClick={() => handleOpenEditStaff(record)}
+                          >
+                            Edit
+                          </Button>
+                          <Popconfirm
+                            title="Delete Staff Member"
+                            description={`Are you sure you want to delete ${record.name}? Login access will be revoked.`}
+                            onConfirm={() => handleDeleteStaff(record.id, record.name)}
+                            okText="Yes, Delete"
+                            cancelText="Cancel"
+                            okButtonProps={{ danger: true }}
+                          >
+                            <Button size="small" danger icon={<DeleteOutlined />}>
+                              Delete
+                            </Button>
+                          </Popconfirm>
+                        </Space>
+                      ),
+                    },
                   ]}
                 />
               </Card>
@@ -216,7 +357,7 @@ export default function SettingsPage() {
                   dataSource={branches}
                   rowKey="id"
                   loading={loading}
-                  scroll={{ x: 800 }}
+                  scroll={{ x: 900 }}
                   columns={[
                     { title: 'Branch Code', dataIndex: 'branchCode', key: 'code', render: (c) => <span className="font-mono font-bold text-emerald-700">{c}</span> },
                     { title: 'Branch Name', dataIndex: 'name', key: 'name' },
@@ -224,7 +365,34 @@ export default function SettingsPage() {
                     { title: 'City', dataIndex: 'city', key: 'city' },
                     { title: 'State', dataIndex: 'state', key: 'state' },
                     { title: 'Phone', dataIndex: 'phone', key: 'phone' },
-                    { title: 'Status', dataIndex: 'status', key: 'st', render: (s) => <Tag color="success">{s}</Tag> },
+                    { title: 'Status', dataIndex: 'status', key: 'st', render: (s) => <Tag color={s === 'ACTIVE' ? 'success' : 'default'}>{s || 'ACTIVE'}</Tag> },
+                    {
+                      title: 'Actions',
+                      key: 'actions',
+                      render: (_: any, record: any) => (
+                        <Space>
+                          <Button
+                            size="small"
+                            icon={<EditOutlined />}
+                            onClick={() => handleOpenEditBranch(record)}
+                          >
+                            Edit
+                          </Button>
+                          <Popconfirm
+                            title="Delete Branch"
+                            description={`Delete operating branch ${record.name}?`}
+                            onConfirm={() => handleDeleteBranch(record.id, record.name)}
+                            okText="Yes, Delete"
+                            cancelText="Cancel"
+                            okButtonProps={{ danger: true }}
+                          >
+                            <Button size="small" danger icon={<DeleteOutlined />}>
+                              Delete
+                            </Button>
+                          </Popconfirm>
+                        </Space>
+                      ),
+                    },
                   ]}
                 />
               </Card>
@@ -394,6 +562,111 @@ export default function SettingsPage() {
         </Form>
       </Modal>
 
+      {/* Edit Staff Modal */}
+      <Modal
+        title={
+          <div className="flex items-center gap-2 text-slate-800">
+            <EditOutlined className="text-emerald-600" />
+            <span>Edit Staff Member: {selectedStaff?.name}</span>
+          </div>
+        }
+        open={editStaffModal}
+        onCancel={() => setEditStaffModal(false)}
+        footer={null}
+        width={600}
+      >
+        <Form form={editStaffForm} layout="vertical" onFinish={handleUpdateStaff} className="mt-4">
+          <Row gutter={16}>
+            <Col span={24}>
+              <Form.Item
+                label="Full Staff Name"
+                name="name"
+                rules={[{ required: true, message: 'Please enter full name' }]}
+              >
+                <Input />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item
+                label="Mobile Number (Login ID)"
+                name="mobile"
+                rules={[
+                  { required: true, message: 'Please enter mobile number' },
+                  { pattern: /^[0-9]{10}$/, message: 'Must be 10 digits' },
+                ]}
+              >
+                <Input />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item label="Official Email" name="email">
+                <Input />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item
+                label="Staff Role / Designation"
+                name="designation"
+                rules={[{ required: true, message: 'Select role' }]}
+              >
+                <Select
+                  options={[
+                    { value: 'SUPER_ADMIN', label: 'Super Admin / Director (Full System Access)' },
+                    { value: 'BRANCH_MANAGER', label: 'Branch Manager (Approvals & Operations)' },
+                    { value: 'CASHIER', label: 'Cashier / Teller (Counter Cash & Vault)' },
+                    { value: 'LOAN_OFFICER', label: 'Loan Officer (Origination & Appraisal)' },
+                    { value: 'ACCOUNTANT', label: 'Accountant (General Ledger & Reconciliation)' },
+                    { value: 'RECOVERY_OFFICER', label: 'Recovery & Field Officer' },
+                    { value: 'CUSTOMER_SERVICE', label: 'Customer Service Executive' },
+                  ]}
+                />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item
+                label="Assigned Branch"
+                name="branchId"
+                rules={[{ required: true, message: 'Select branch' }]}
+              >
+                <Select
+                  options={branches.map((b) => ({
+                    value: b.id,
+                    label: `${b.name} (${b.branchCode})`,
+                  }))}
+                />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item label="Monthly Salary (₹)" name="salary">
+                <InputNumber min={0} className="w-full" />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item label="Employment Status" name="employmentStatus">
+                <Select
+                  options={[
+                    { value: 'ACTIVE', label: 'Active (Permitted Login)' },
+                    { value: 'INACTIVE', label: 'Inactive / Suspended' },
+                  ]}
+                />
+              </Form.Item>
+            </Col>
+          </Row>
+
+          <div className="flex justify-end gap-3 pt-4 border-t border-slate-100">
+            <Button onClick={() => setEditStaffModal(false)}>Cancel</Button>
+            <Button
+              type="primary"
+              htmlType="submit"
+              loading={submitting}
+              style={{ background: '#059669', borderColor: '#059669' }}
+            >
+              Save Changes
+            </Button>
+          </div>
+        </Form>
+      </Modal>
+
       {/* Add New Branch Modal */}
       <Modal
         title={
@@ -462,6 +735,88 @@ export default function SettingsPage() {
               style={{ background: '#059669', borderColor: '#059669' }}
             >
               Register Branch
+            </Button>
+          </div>
+        </Form>
+      </Modal>
+
+      {/* Edit Branch Modal */}
+      <Modal
+        title={
+          <div className="flex items-center gap-2 text-slate-800">
+            <EditOutlined className="text-emerald-600" />
+            <span>Edit Operating Branch: {selectedBranch?.name}</span>
+          </div>
+        }
+        open={editBranchModal}
+        onCancel={() => setEditBranchModal(false)}
+        footer={null}
+        width={550}
+      >
+        <Form form={editBranchForm} layout="vertical" onFinish={handleUpdateBranch} className="mt-4">
+          <Row gutter={16}>
+            <Col span={24}>
+              <Form.Item
+                label="Branch Name"
+                name="name"
+                rules={[{ required: true, message: 'Enter branch name' }]}
+              >
+                <Input />
+              </Form.Item>
+            </Col>
+            <Col span={24}>
+              <Form.Item
+                label="Physical Address"
+                name="address"
+                rules={[{ required: true, message: 'Enter branch address' }]}
+              >
+                <Input />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item
+                label="City"
+                name="city"
+                rules={[{ required: true, message: 'Enter city' }]}
+              >
+                <Input />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item
+                label="State"
+                name="state"
+                rules={[{ required: true, message: 'Enter state' }]}
+              >
+                <Input />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item label="Contact Phone" name="phone">
+                <Input />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item label="Branch Status" name="status">
+                <Select
+                  options={[
+                    { value: 'ACTIVE', label: 'Active' },
+                    { value: 'INACTIVE', label: 'Inactive / Closed' },
+                  ]}
+                />
+              </Form.Item>
+            </Col>
+          </Row>
+
+          <div className="flex justify-end gap-3 pt-4 border-t border-slate-100">
+            <Button onClick={() => setEditBranchModal(false)}>Cancel</Button>
+            <Button
+              type="primary"
+              htmlType="submit"
+              loading={submitting}
+              style={{ background: '#059669', borderColor: '#059669' }}
+            >
+              Save Changes
             </Button>
           </div>
         </Form>

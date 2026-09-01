@@ -3,6 +3,7 @@ import {
   Get,
   Post,
   Patch,
+  Delete,
   Param,
   Query,
   Body,
@@ -284,5 +285,28 @@ export class CustomersController {
     );
 
     return newKyc;
+  }
+
+  @Delete(':id')
+  deleteCustomer(@Param('id') id: string, @CurrentUser() user: IUser) {
+    const index = this.dataStore.customers.findIndex((c) => c.id === id || c.customerNumber === id);
+    if (index === -1) {
+      throw new NotFoundException(`Customer not found: ${id}`);
+    }
+
+    const removed = this.dataStore.customers.splice(index, 1)[0];
+
+    this.dataStore.logAudit(
+      user.id || 'USR-001',
+      user.employeeName || 'Admin',
+      'CUSTOMER_DELETED',
+      'Customer',
+      removed.id,
+      removed,
+      undefined,
+      `Deleted customer ${removed.firstName} ${removed.lastName} (${removed.customerNumber})`,
+    );
+
+    return { message: `Customer ${removed.firstName} ${removed.lastName} removed successfully.`, id: removed.id };
   }
 }

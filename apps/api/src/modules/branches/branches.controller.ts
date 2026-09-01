@@ -1,4 +1,14 @@
-import { Controller, Get, Post, Body, Param, UseGuards, NotFoundException } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Patch,
+  Delete,
+  Body,
+  Param,
+  UseGuards,
+  NotFoundException,
+} from '@nestjs/common';
 import { DataStoreService } from '../../database/data-store.service';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
@@ -50,5 +60,63 @@ export class BranchesController {
     );
 
     return newBranch;
+  }
+
+  @Patch(':id')
+  updateBranch(
+    @Param('id') id: string,
+    @Body() body: Partial<IBranch>,
+    @CurrentUser() user: IUser,
+  ) {
+    const branchIndex = this.dataStore.branches.findIndex((b) => b.id === id || b.branchCode === id);
+    if (branchIndex === -1) {
+      throw new NotFoundException(`Branch not found: ${id}`);
+    }
+
+    const currentBranch = this.dataStore.branches[branchIndex];
+    const oldVal = { ...currentBranch };
+
+    if (body.name) currentBranch.name = body.name;
+    if (body.address) currentBranch.address = body.address;
+    if (body.city) currentBranch.city = body.city;
+    if (body.state) currentBranch.state = body.state;
+    if (body.phone) currentBranch.phone = body.phone;
+    if (body.status) currentBranch.status = body.status;
+
+    this.dataStore.logAudit(
+      user.id,
+      user.employeeName || 'Admin',
+      'BRANCH_UPDATED',
+      'Branch',
+      currentBranch.id,
+      oldVal,
+      currentBranch,
+      `Updated Branch ${currentBranch.name} (${currentBranch.branchCode})`,
+    );
+
+    return currentBranch;
+  }
+
+  @Delete(':id')
+  deleteBranch(@Param('id') id: string, @CurrentUser() user: IUser) {
+    const branchIndex = this.dataStore.branches.findIndex((b) => b.id === id || b.branchCode === id);
+    if (branchIndex === -1) {
+      throw new NotFoundException(`Branch not found: ${id}`);
+    }
+
+    const removed = this.dataStore.branches.splice(branchIndex, 1)[0];
+
+    this.dataStore.logAudit(
+      user.id,
+      user.employeeName || 'Admin',
+      'BRANCH_DELETED',
+      'Branch',
+      removed.id,
+      removed,
+      undefined,
+      `Deleted Branch ${removed.name} (${removed.branchCode})`,
+    );
+
+    return { message: `Branch ${removed.name} deleted successfully.`, id: removed.id };
   }
 }
