@@ -68,27 +68,27 @@ export default function LoginPage() {
             <Title level={3} style={{ color: '#ffffff', marginBottom: 12 }}>
               Enterprise Financial Operations & Core Banking Portal
             </Title>
-            <Text className="text-slate-400 text-sm leading-relaxed block mb-6">
+            <p style={{ color: '#cbd5e1' }} className="text-sm leading-relaxed mb-6 font-normal">
               Official operating console for Members, KYC 360°, Precision Reducing Balance Loans, Recurring Deposits, Vault Balancing & Double-Entry Ledgers.
-            </Text>
+            </p>
 
             <div className="space-y-3">
-              <div className="flex items-center gap-2.5 text-xs text-slate-300">
+              <div className="flex items-center gap-2.5 text-xs text-slate-200" style={{ color: '#e2e8f0' }}>
                 <CheckCircleOutlined className="text-emerald-400" />
                 <span>Argon2id + RS256 Asymmetric JWT Authentication</span>
               </div>
-              <div className="flex items-center gap-2.5 text-xs text-slate-300">
+              <div className="flex items-center gap-2.5 text-xs text-slate-200" style={{ color: '#e2e8f0' }}>
                 <CheckCircleOutlined className="text-emerald-400" />
                 <span>Maker-Checker Hierarchy & Branch-Scoped Isolation</span>
               </div>
-              <div className="flex items-center gap-2.5 text-xs text-slate-300">
+              <div className="flex items-center gap-2.5 text-xs text-slate-200" style={{ color: '#e2e8f0' }}>
                 <CheckCircleOutlined className="text-emerald-400" />
                 <span>Decimal.js Precision Financial Math & Double-Entry Accounting</span>
               </div>
             </div>
           </div>
 
-          <div className="mt-8 pt-6 border-t border-slate-800 text-[11px] text-slate-500">
+          <div className="mt-8 pt-6 border-t border-slate-800 text-[11px]" style={{ color: '#94a3b8' }}>
             © 2026 Sanjeevani Finance Management System • Banking Grade Security
           </div>
         </div>
