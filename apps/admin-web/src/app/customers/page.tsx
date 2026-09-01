@@ -280,6 +280,30 @@ export default function CustomersPage() {
             </Col>
           </Row>
 
+          <Divider orientation="left" className="text-xs text-slate-500 font-semibold m-0 mb-3">
+            KYC Identity Document (Optional)
+          </Divider>
+          <Row gutter={16}>
+            <Col span={10}>
+              <Form.Item name="kycDocumentType" label="Document Type" initialValue="AADHAAR">
+                <Select
+                  options={[
+                    { label: 'Aadhaar Card (UIDAI)', value: 'AADHAAR' },
+                    { label: 'PAN Card (Income Tax)', value: 'PAN' },
+                    { label: 'Voter ID Card', value: 'VOTER_ID' },
+                    { label: 'Driving License', value: 'DRIVING_LICENSE' },
+                    { label: 'Passport', value: 'PASSPORT' },
+                  ]}
+                />
+              </Form.Item>
+            </Col>
+            <Col span={14}>
+              <Form.Item name="kycDocumentNumber" label="Document / Card Number">
+                <Input placeholder="e.g. 12-digit Aadhaar / 10-char PAN" />
+              </Form.Item>
+            </Col>
+          </Row>
+
           <div className="flex justify-end gap-2 mt-4 pt-4 border-t border-slate-100">
             <Button onClick={() => setCreateModalVisible(false)}>Cancel</Button>
             <Button type="primary" htmlType="submit" style={{ background: '#059669', borderColor: '#059669' }}>

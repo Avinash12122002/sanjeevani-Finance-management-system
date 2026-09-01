@@ -85,6 +85,7 @@ export class CustomersController {
     const customerNumber = this.dataStore.nextCustomerNumber();
     const branch = this.dataStore.branches.find((b) => b.id === (body.branchId || user.branchId || 'BR-001'));
 
+    const hasKyc = !!(body as any).kycDocumentNumber;
     const newCustomer: ICustomer = {
       id: `CUS-${Date.now()}`,
       customerNumber,
@@ -107,13 +108,27 @@ export class CustomersController {
       photoUrl: body.photoUrl || undefined,
       joiningDate: new Date().toISOString().split('T')[0],
       status: CustomerStatus.ACTIVE,
-      kycStatus: KYCStatus.PENDING,
+      kycStatus: hasKyc ? KYCStatus.VERIFIED : KYCStatus.PENDING,
       createdBy: user.id || 'USR-001',
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
 
     this.dataStore.customers.unshift(newCustomer);
+
+    if (hasKyc) {
+      this.dataStore.kycDocuments.push({
+        id: `KYC-${Date.now()}`,
+        customerId: newCustomer.id,
+        documentType: (body as any).kycDocumentType || KYCDocumentType.AADHAAR,
+        documentNumber: (body as any).kycDocumentNumber,
+        documentUrl: 'https://storage.sanjeevanifinance.com/kyc/doc.pdf',
+        verificationStatus: KYCStatus.VERIFIED,
+        verifiedBy: user.id || 'USR-001',
+        verifiedAt: new Date().toISOString(),
+        createdAt: new Date().toISOString(),
+      });
+    }
 
     this.dataStore.logAudit(
       user.id || 'USR-001',
@@ -123,7 +138,7 @@ export class CustomersController {
       newCustomer.id,
       undefined,
       newCustomer,
-      `New Member Registered: ${newCustomer.customerNumber}`,
+      `New Member Registered: ${newCustomer.customerNumber} (${newCustomer.firstName} ${newCustomer.lastName})`,
     );
 
     return newCustomer;

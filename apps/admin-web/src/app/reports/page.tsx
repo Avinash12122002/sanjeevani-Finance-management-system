@@ -63,6 +63,16 @@ export default function ReportsPage() {
     document.body.removeChild(link);
   };
 
+  const getActiveData = () => {
+    switch (activeReport) {
+      case 'daily_collection': return transactions;
+      case 'loans': return loans;
+      case 'customers': return customers;
+      case 'audit': return auditLogs;
+      default: return transactions;
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Header Banner */}
@@ -81,7 +91,7 @@ export default function ReportsPage() {
             type="primary"
             icon={<DownloadOutlined />}
             style={{ background: '#059669', borderColor: '#059669' }}
-            onClick={() => exportCSV(transactions, 'sanjeevani_financial_report')}
+            onClick={() => exportCSV(getActiveData(), `sanjeevani_${activeReport}`)}
           >
             Export CSV
           </Button>
