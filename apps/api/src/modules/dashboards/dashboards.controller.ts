@@ -63,16 +63,21 @@ export class DashboardsController {
       staff: this.dataStore.employees.filter((e) => e.branchId === b.id).length,
     }));
 
+    const interestIncome = this.dataStore.chartOfAccounts.find((a) => a.accountCode === 'COA-4010')?.currentBalance || 0;
+    const feeIncome = this.dataStore.chartOfAccounts.find((a) => a.accountCode === 'COA-4020')?.currentBalance || 0;
+    const interestExpense = this.dataStore.chartOfAccounts.find((a) => a.accountCode === 'COA-5010')?.currentBalance || 0;
+    const salaryExpense = this.dataStore.chartOfAccounts.find((a) => a.accountCode === 'COA-5020')?.currentBalance || 0;
+
     return {
       monthlyCollectionTrend,
       overdueAgingBuckets,
       productDistribution,
       branchPerformance,
       incomeVsExpense: [
-        { category: 'Interest Income', amount: 0, type: 'INCOME' },
-        { category: 'Processing & Doc Fees', amount: 0, type: 'INCOME' },
-        { category: 'Deposit Interest Paid', amount: 0, type: 'EXPENSE' },
-        { category: 'Salaries & Branch Rent', amount: 0, type: 'EXPENSE' },
+        { category: 'Interest Income', amount: interestIncome, type: 'INCOME' },
+        { category: 'Processing & Doc Fees', amount: feeIncome, type: 'INCOME' },
+        { category: 'Deposit Interest Paid', amount: interestExpense, type: 'EXPENSE' },
+        { category: 'Salaries & Branch Rent', amount: salaryExpense, type: 'EXPENSE' },
       ],
     };
   }

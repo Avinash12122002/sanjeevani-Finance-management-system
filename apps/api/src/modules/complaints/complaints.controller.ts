@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Patch, Body, Param, UseGuards, NotFoundException } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Delete, Body, Param, UseGuards, NotFoundException } from '@nestjs/common';
 import { DataStoreService } from '../../database/data-store.service';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
@@ -59,5 +59,14 @@ export class ComplaintsController {
     complaint.resolvedAt = new Date().toISOString();
 
     return complaint;
+  }
+
+  @Delete(':id')
+  deleteComplaint(@Param('id') id: string, @CurrentUser() user: IUser) {
+    const index = this.dataStore.complaints.findIndex((c) => c.id === id || c.complaintNumber === id);
+    if (index === -1) throw new NotFoundException('Complaint not found');
+
+    const removed = this.dataStore.complaints.splice(index, 1)[0];
+    return { message: `Complaint ${removed.complaintNumber} deleted.`, id: removed.id };
   }
 }
