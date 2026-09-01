@@ -18,6 +18,7 @@ import {
   Slider,
   message,
   Descriptions,
+  Popconfirm,
 } from 'antd';
 import {
   DollarCircleOutlined,
@@ -26,8 +27,9 @@ import {
   CheckCircleOutlined,
   EyeOutlined,
   SendOutlined,
+  DeleteOutlined,
 } from '@ant-design/icons';
-import { fetchApi, postApi } from '@/lib/api-client';
+import { fetchApi, postApi, deleteApi } from '@/lib/api-client';
 import { FinancialEngine } from '@sanjeevani/financial-engine';
 import { ILoan, ILoanApplication, InterestMethod } from '@sanjeevani/shared-types';
 
@@ -134,6 +136,26 @@ export default function LoansPage() {
     }
   };
 
+  const handleDeleteLoan = async (id: string, loanNo: string) => {
+    const res = await deleteApi(`/loans/${id}`);
+    if (res.success) {
+      message.success(`Loan [${loanNo}] removed.`);
+      loadLoanData();
+    } else {
+      message.error(res.message || 'Failed to remove loan.');
+    }
+  };
+
+  const handleDeleteApp = async (id: string, appNo: string) => {
+    const res = await deleteApi(`/loan-applications/${id}`);
+    if (res.success) {
+      message.success(`Application [${appNo}] removed.`);
+      loadLoanData();
+    } else {
+      message.error(res.message || 'Failed to remove application.');
+    }
+  };
+
   const loanColumns = [
     {
       title: 'Loan Number',
@@ -185,6 +207,26 @@ export default function LoansPage() {
       dataIndex: 'status',
       key: 'status',
       render: (st: string) => <Tag color={st === 'ACTIVE' ? 'blue' : 'success'}>{st}</Tag>,
+    },
+    {
+      title: 'Actions',
+      key: 'actions',
+      render: (_: any, r: ILoan) => (
+        <Space>
+          <Popconfirm
+            title="Delete Loan Account"
+            description={`Delete loan ${r.loanNumber}?`}
+            onConfirm={() => handleDeleteLoan(r.id, r.loanNumber)}
+            okText="Yes, Delete"
+            cancelText="Cancel"
+            okButtonProps={{ danger: true }}
+          >
+            <Button size="small" danger icon={<DeleteOutlined />}>
+              Delete
+            </Button>
+          </Popconfirm>
+        </Space>
+      ),
     },
   ];
 
@@ -267,6 +309,18 @@ export default function LoansPage() {
               Disburse Funds
             </Button>
           )}
+          <Popconfirm
+            title="Delete Loan Application"
+            description={`Delete application ${r.applicationNumber}?`}
+            onConfirm={() => handleDeleteApp(r.id, r.applicationNumber)}
+            okText="Yes, Delete"
+            cancelText="Cancel"
+            okButtonProps={{ danger: true }}
+          >
+            <Button size="small" danger icon={<DeleteOutlined />}>
+              Delete
+            </Button>
+          </Popconfirm>
         </Space>
       ),
     },

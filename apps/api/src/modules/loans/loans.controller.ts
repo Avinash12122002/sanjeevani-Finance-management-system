@@ -3,6 +3,7 @@ import {
   Get,
   Post,
   Patch,
+  Delete,
   Param,
   Query,
   Body,
@@ -445,5 +446,54 @@ export class LoansController {
       schedule,
       transactions,
     };
+  }
+
+  @Delete('loan-applications/:id')
+  deleteLoanApplication(@Param('id') id: string, @CurrentUser() user: IUser) {
+    const index = this.dataStore.loanApplications.findIndex((a) => a.id === id || a.applicationNumber === id);
+    if (index === -1) {
+      throw new NotFoundException(`Loan application not found: ${id}`);
+    }
+
+    const removed = this.dataStore.loanApplications.splice(index, 1)[0];
+
+    this.dataStore.logAudit(
+      user.id,
+      user.employeeName || 'Admin',
+      'LOAN_APPLICATION_DELETED',
+      'LoanApplication',
+      removed.id,
+      removed,
+      undefined,
+      `Deleted loan application ${removed.applicationNumber}`,
+    );
+
+    return { message: `Loan application ${removed.applicationNumber} deleted successfully.`, id: removed.id };
+  }
+
+  @Delete('loans/:id')
+  deleteLoan(@Param('id') id: string, @CurrentUser() user: IUser) {
+    const index = this.dataStore.loans.findIndex((l) => l.id === id || l.loanNumber === id);
+    if (index === -1) {
+      throw new NotFoundException(`Loan not found: ${id}`);
+    }
+
+    const removed = this.dataStore.loans.splice(index, 1)[0];
+
+    // Remove associated installments
+    this.dataStore.loanInstallments = this.dataStore.loanInstallments.filter((i) => i.loanId !== removed.id);
+
+    this.dataStore.logAudit(
+      user.id,
+      user.employeeName || 'Admin',
+      'LOAN_DELETED',
+      'Loan',
+      removed.id,
+      removed,
+      undefined,
+      `Deleted loan account ${removed.loanNumber}`,
+    );
+
+    return { message: `Loan ${removed.loanNumber} removed successfully.`, id: removed.id };
   }
 }

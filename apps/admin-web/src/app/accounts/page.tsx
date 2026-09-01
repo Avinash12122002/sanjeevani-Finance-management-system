@@ -14,13 +14,16 @@ import {
   Row,
   Col,
   Tabs,
+  Popconfirm,
   message,
 } from 'antd';
 import {
   BankOutlined,
   PlusOutlined,
+  EditOutlined,
+  DeleteOutlined,
 } from '@ant-design/icons';
-import { fetchApi, postApi } from '@/lib/api-client';
+import { fetchApi, postApi, patchApi, deleteApi } from '@/lib/api-client';
 import { FinancialEngine } from '@sanjeevani/financial-engine';
 import { IAccount, ProductType } from '@sanjeevani/shared-types';
 
@@ -30,7 +33,11 @@ export default function AccountsPage() {
   const [customers, setCustomers] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [openModalVisible, setOpenModalVisible] = useState(false);
+  const [editModalVisible, setEditModalVisible] = useState(false);
+  const [selectedAccount, setSelectedAccount] = useState<IAccount | null>(null);
+
   const [form] = Form.useForm();
+  const [editForm] = Form.useForm();
 
   useEffect(() => {
     loadData();
@@ -63,20 +70,51 @@ export default function AccountsPage() {
     }
   };
 
+  const handleOpenEdit = (record: IAccount) => {
+    setSelectedAccount(record);
+    editForm.setFieldsValue({
+      status: record.status,
+      currentBalance: record.currentBalance,
+    });
+    setEditModalVisible(true);
+  };
+
+  const handleUpdateAccount = async (values: any) => {
+    if (!selectedAccount) return;
+    const res = await patchApi(`/accounts/${selectedAccount.id}`, values);
+    if (res.success) {
+      message.success(`Account ${selectedAccount.accountNumber} updated.`);
+      setEditModalVisible(false);
+      loadData();
+    } else {
+      message.error(res.message || 'Failed to update account.');
+    }
+  };
+
+  const handleDeleteAccount = async (id: string, accNo: string) => {
+    const res = await deleteApi(`/accounts/${id}`);
+    if (res.success) {
+      message.success(`Account [${accNo}] deleted.`);
+      loadData();
+    } else {
+      message.error(res.message || 'Failed to delete account.');
+    }
+  };
+
   const columns = [
     {
       title: 'Account Number',
       dataIndex: 'accountNumber',
       key: 'accountNumber',
-      render: (num: string) => <span className="font-mono font-bold text-emerald-700">{num}</span>,
+      render: (acc: string) => <span className="font-mono font-bold text-blue-700">{acc}</span>,
     },
     {
-      title: 'Member / Customer',
+      title: 'Customer Name',
       key: 'customer',
       render: (_: any, r: IAccount) => (
         <div>
           <div className="font-semibold text-slate-800">{r.customerName}</div>
-          <div className="text-xs text-slate-500 font-mono">{r.customerNumber}</div>
+          <div className="font-mono text-xs text-slate-400">{r.customerNumber}</div>
         </div>
       ),
     },
@@ -115,6 +153,29 @@ export default function AccountsPage() {
       key: 'status',
       render: (st: string) => <Tag color={st === 'ACTIVE' ? 'success' : 'default'}>{st}</Tag>,
     },
+    {
+      title: 'Actions',
+      key: 'actions',
+      render: (_: any, r: IAccount) => (
+        <Space>
+          <Button size="small" icon={<EditOutlined />} onClick={() => handleOpenEdit(r)}>
+            Edit
+          </Button>
+          <Popconfirm
+            title="Delete Deposit Account"
+            description={`Delete account ${r.accountNumber}?`}
+            onConfirm={() => handleDeleteAccount(r.id, r.accountNumber)}
+            okText="Yes, Delete"
+            cancelText="Cancel"
+            okButtonProps={{ danger: true }}
+          >
+            <Button size="small" danger icon={<DeleteOutlined />}>
+              Delete
+            </Button>
+          </Popconfirm>
+        </Space>
+      ),
+    },
   ];
 
   return (
@@ -138,21 +199,23 @@ export default function AccountsPage() {
       </div>
 
       <Card className="glass-card">
-        <Table columns={columns} dataSource={accounts} rowKey="id" loading={loading} scroll={{ x: 850 }} />
+        <Table columns={columns} dataSource={accounts} rowKey="id" loading={loading} scroll={{ x: 900 }} />
       </Card>
 
-      {/* OPEN ACCOUNT MODAL */}
+      {/* OPEN DEPOSIT ACCOUNT MODAL */}
       <Modal
-        title="Open Deposit / RD Account"
+        title="Open New Deposit Account (RD / Term Deposit)"
         open={openModalVisible}
         onCancel={() => setOpenModalVisible(false)}
         footer={null}
-        width={580}
+        width={600}
       >
         <Form form={form} layout="vertical" onFinish={handleOpenAccount}>
-          <Form.Item name="customerId" label="Select Member" rules={[{ required: true }]}>
+          <Form.Item name="customerId" label="Select Registered Member" rules={[{ required: true }]}>
             <Select
-              placeholder="Search member by Name or ID"
+              showSearch
+              placeholder="Search member by name or ID"
+              optionFilterProp="children"
               options={customers.map((c) => ({
                 label: `${c.customerNumber} - ${c.firstName} ${c.lastName} (${c.mobile})`,
                 value: c.id,
@@ -160,11 +223,11 @@ export default function AccountsPage() {
             />
           </Form.Item>
 
-          <Form.Item name="productId" label="Select Deposit Product" rules={[{ required: true }]}>
+          <Form.Item name="productId" label="Deposit Scheme / Product" rules={[{ required: true }]}>
             <Select
-              placeholder="Choose Product"
+              placeholder="Select deposit product"
               options={products
-                .filter((p) => p.productType === 'RD' || p.productType === 'TERM_DEPOSIT' || p.productType === 'SAVINGS')
+                .filter((p) => p.productType === ProductType.RD || p.productType === ProductType.TERM_DEPOSIT)
                 .map((p) => ({
                   label: `${p.productName} (${p.productType}) - ${p.interestRate}% p.a.`,
                   value: p.id,
@@ -174,13 +237,25 @@ export default function AccountsPage() {
 
           <Row gutter={16}>
             <Col span={12}>
-              <Form.Item name="principalAmount" label="Deposit / Monthly Amount (₹)" initialValue={5000} rules={[{ required: true }]}>
-                <InputNumber min={500} max={5000000} className="w-full" />
+              <Form.Item
+                name="principalAmount"
+                label="Monthly Installment / Deposit Amount (₹)"
+                rules={[{ required: true }]}
+              >
+                <InputNumber min={500} step={500} style={{ width: '100%' }} />
               </Form.Item>
             </Col>
             <Col span={12}>
-              <Form.Item name="tenureMonths" label="Tenure (Months)" initialValue={24} rules={[{ required: true }]}>
-                <InputNumber min={6} max={120} className="w-full" />
+              <Form.Item name="tenureMonths" label="Tenure (Months)" initialValue={12} rules={[{ required: true }]}>
+                <Select
+                  options={[
+                    { label: '6 Months', value: 6 },
+                    { label: '12 Months (1 Year)', value: 12 },
+                    { label: '24 Months (2 Years)', value: 24 },
+                    { label: '36 Months (3 Years)', value: 36 },
+                    { label: '60 Months (5 Years)', value: 60 },
+                  ]}
+                />
               </Form.Item>
             </Col>
           </Row>
@@ -188,7 +263,39 @@ export default function AccountsPage() {
           <div className="flex justify-end gap-2 mt-4 pt-4 border-t border-slate-100">
             <Button onClick={() => setOpenModalVisible(false)}>Cancel</Button>
             <Button type="primary" htmlType="submit" style={{ background: '#059669', borderColor: '#059669' }}>
-              Authorize & Open Account
+              Open Account
+            </Button>
+          </div>
+        </Form>
+      </Modal>
+
+      {/* EDIT ACCOUNT MODAL */}
+      <Modal
+        title={`Edit Deposit Account: ${selectedAccount?.accountNumber}`}
+        open={editModalVisible}
+        onCancel={() => setEditModalVisible(false)}
+        footer={null}
+        width={500}
+      >
+        <Form form={editForm} layout="vertical" onFinish={handleUpdateAccount}>
+          <Form.Item name="status" label="Account Status" rules={[{ required: true }]}>
+            <Select
+              options={[
+                { label: 'ACTIVE', value: 'ACTIVE' },
+                { label: 'MATURED', value: 'MATURED' },
+                { label: 'CLOSED', value: 'CLOSED' },
+                { label: 'FROZEN', value: 'FROZEN' },
+              ]}
+            />
+          </Form.Item>
+          <Form.Item name="currentBalance" label="Current Balance (₹)">
+            <InputNumber min={0} className="w-full" />
+          </Form.Item>
+
+          <div className="flex justify-end gap-2 mt-4 pt-4 border-t border-slate-100">
+            <Button onClick={() => setEditModalVisible(false)}>Cancel</Button>
+            <Button type="primary" htmlType="submit" style={{ background: '#059669', borderColor: '#059669' }}>
+              Save Changes
             </Button>
           </div>
         </Form>

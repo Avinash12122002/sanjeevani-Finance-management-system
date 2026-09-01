@@ -3,6 +3,7 @@ import {
   Get,
   Post,
   Patch,
+  Delete,
   Param,
   Query,
   Body,
@@ -166,5 +167,60 @@ export class AccountsController {
     );
 
     return newAccount;
+  }
+
+  @Patch(':id')
+  updateAccount(
+    @Param('id') id: string,
+    @Body() body: Partial<IAccount>,
+    @CurrentUser() user: IUser,
+  ) {
+    const accIndex = this.dataStore.accounts.findIndex((a) => a.id === id || a.accountNumber === id);
+    if (accIndex === -1) {
+      throw new NotFoundException(`Account not found: ${id}`);
+    }
+
+    const currentAcc = this.dataStore.accounts[accIndex];
+    const oldVal = { ...currentAcc };
+
+    if (body.status) currentAcc.status = body.status;
+    if (body.currentBalance !== undefined) currentAcc.currentBalance = Number(body.currentBalance);
+    currentAcc.updatedAt = new Date().toISOString();
+
+    this.dataStore.logAudit(
+      user.id || 'USR-001',
+      user.employeeName || 'Admin',
+      'ACCOUNT_UPDATED',
+      'Account',
+      currentAcc.id,
+      oldVal,
+      currentAcc,
+      `Account ${currentAcc.accountNumber} status updated to ${currentAcc.status}`,
+    );
+
+    return currentAcc;
+  }
+
+  @Delete(':id')
+  deleteAccount(@Param('id') id: string, @CurrentUser() user: IUser) {
+    const accIndex = this.dataStore.accounts.findIndex((a) => a.id === id || a.accountNumber === id);
+    if (accIndex === -1) {
+      throw new NotFoundException(`Account not found: ${id}`);
+    }
+
+    const removed = this.dataStore.accounts.splice(accIndex, 1)[0];
+
+    this.dataStore.logAudit(
+      user.id || 'USR-001',
+      user.employeeName || 'Admin',
+      'ACCOUNT_DELETED',
+      'Account',
+      removed.id,
+      removed,
+      undefined,
+      `Deleted deposit account ${removed.accountNumber}`,
+    );
+
+    return { message: `Account ${removed.accountNumber} removed successfully.`, id: removed.id };
   }
 }
