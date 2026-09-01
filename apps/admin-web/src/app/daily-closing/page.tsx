@@ -20,7 +20,7 @@ import {
   UnlockOutlined,
   CheckCircleOutlined,
 } from '@ant-design/icons';
-import { fetchApi } from '@/lib/api-client';
+import { fetchApi, postApi } from '@/lib/api-client';
 import { FinancialEngine } from '@sanjeevani/financial-engine';
 import { BusinessDateStatus, IBusinessDayClosure } from '@sanjeevani/shared-types';
 
@@ -48,24 +48,18 @@ export default function DailyClosingPage() {
   };
 
   const handleExecuteClosing = async () => {
-    const res = await fetchApi('/daily-closing/execute', {
-      method: 'POST',
-      body: JSON.stringify({}),
-    });
+    const res = await postApi('/daily-closing/execute', {});
 
     if (res.success) {
       message.success('Business Date successfully LOCKED! Operations closed for the day.');
       loadClosingData();
     } else {
-      message.error(res.error || 'Failed to lock business date');
+      message.error(res.message || res.error || 'Failed to lock business date');
     }
   };
 
   const handleReopenDate = async (values: any) => {
-    const res = await fetchApi('/daily-closing/reopen', {
-      method: 'POST',
-      body: JSON.stringify(values),
-    });
+    const res = await postApi('/daily-closing/reopen', values);
 
     if (res.success) {
       message.success('Business Date reopened with Super Admin audit logging.');
@@ -73,7 +67,7 @@ export default function DailyClosingPage() {
       form.resetFields();
       loadClosingData();
     } else {
-      message.error(res.error || 'Failed to reopen date');
+      message.error(res.message || res.error || 'Failed to reopen date');
     }
   };
 

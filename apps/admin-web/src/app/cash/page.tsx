@@ -23,7 +23,7 @@ import {
   WarningOutlined,
   LockOutlined,
 } from '@ant-design/icons';
-import { fetchApi } from '@/lib/api-client';
+import { fetchApi, postApi } from '@/lib/api-client';
 import { FinancialEngine } from '@sanjeevani/financial-engine';
 import { ICashDrawer, CashDrawerStatus } from '@sanjeevani/shared-types';
 
@@ -76,26 +76,24 @@ export default function CashDrawerPage() {
   const handleReconcileClose = async (values: any) => {
     const totalPhysical = calculateTotalDenomination();
 
-    const res = await fetchApi('/cash-drawers/reconcile-close', {
-      method: 'POST',
-      body: JSON.stringify({
-        drawerId: currentDrawer?.id,
-        physicalCashCount: totalPhysical,
-        denominationDetails: denominations,
-        reconciliationNotes: values.notes,
-      }),
+    const res = await postApi('/cash-drawers/reconcile-close', {
+      drawerId: currentDrawer?.id,
+      physicalCashCount: totalPhysical,
+      denominationDetails: denominations,
+      reconciliationNotes: values.notes,
     });
 
     if (res.success && res.data) {
-      if (res.data.drawer.status === 'MATCHED') {
+      const st = res.data?.drawer?.status || res.data?.status;
+      if (st === 'MATCHED') {
         message.success('Cash Drawer perfectly MATCHED and closed.');
       } else {
-        message.warning(`Cash Drawer closed with difference: ₹ ${res.data.drawer.difference}`);
+        message.warning(`Cash Drawer closed with difference: ₹ ${res.data?.drawer?.difference || 0}`);
       }
       setReconcileModalVisible(false);
       loadCashData();
     } else {
-      message.error(res.error || 'Failed to reconcile drawer');
+      message.error(res.message || res.error || 'Failed to reconcile drawer');
     }
   };
 

@@ -30,7 +30,7 @@ import {
   CheckCircleOutlined,
   ClockCircleOutlined,
 } from '@ant-design/icons';
-import { fetchApi } from '@/lib/api-client';
+import { fetchApi, postApi } from '@/lib/api-client';
 import { FinancialEngine } from '@sanjeevani/financial-engine';
 import { ICustomer } from '@sanjeevani/shared-types';
 
@@ -65,18 +65,15 @@ export default function CustomersPage() {
   };
 
   const handleCreateCustomer = async (values: any) => {
-    const res = await fetchApi('/customers', {
-      method: 'POST',
-      body: JSON.stringify(values),
-    });
+    const res = await postApi('/customers', values);
 
     if (res.success) {
-      message.success(`Member registered successfully: ${res.data.customerNumber}`);
+      message.success(`Member registered successfully: ${res.data?.customerNumber || 'Registered'}`);
       setCreateModalVisible(false);
       form.resetFields();
       loadCustomers();
     } else {
-      message.error(res.error || 'Failed to register customer');
+      message.error(res.message || res.error || 'Failed to register customer');
     }
   };
 

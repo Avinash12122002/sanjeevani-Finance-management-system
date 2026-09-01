@@ -91,6 +91,29 @@ export class AccountingController {
 
     this.dataStore.journalEntries.unshift(newJournal);
 
+    // Update Chart of Account balances (BR-016)
+    formattedLines.forEach((line) => {
+      const coa = this.dataStore.chartOfAccounts.find(
+        (c) => c.id === line.ledgerAccountId || c.accountCode === line.ledgerAccountCode,
+      );
+      if (coa) {
+        const isDebitNature =
+          coa.accountType === AccountClassification.ASSET ||
+          coa.accountType === AccountClassification.EXPENSE;
+        if (isDebitNature) {
+          coa.currentBalance = FinancialEngine.subtract(
+            FinancialEngine.add(coa.currentBalance, line.debitAmount),
+            line.creditAmount,
+          );
+        } else {
+          coa.currentBalance = FinancialEngine.subtract(
+            FinancialEngine.add(coa.currentBalance, line.creditAmount),
+            line.debitAmount,
+          );
+        }
+      }
+    });
+
     this.dataStore.logAudit(
       user.id,
       user.employeeName || 'Accountant',

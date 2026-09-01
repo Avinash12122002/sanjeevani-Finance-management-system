@@ -20,7 +20,7 @@ import {
   BankOutlined,
   PlusOutlined,
 } from '@ant-design/icons';
-import { fetchApi } from '@/lib/api-client';
+import { fetchApi, postApi } from '@/lib/api-client';
 import { FinancialEngine } from '@sanjeevani/financial-engine';
 import { IAccount, ProductType } from '@sanjeevani/shared-types';
 
@@ -51,18 +51,15 @@ export default function AccountsPage() {
   };
 
   const handleOpenAccount = async (values: any) => {
-    const res = await fetchApi('/accounts', {
-      method: 'POST',
-      body: JSON.stringify(values),
-    });
+    const res = await postApi('/accounts', values);
 
     if (res.success) {
-      message.success(`Account opened successfully: ${res.data.accountNumber}`);
+      message.success(`Account opened successfully: ${res.data?.accountNumber || 'Opened'}`);
       setOpenModalVisible(false);
       form.resetFields();
       loadData();
     } else {
-      message.error(res.error || 'Failed to open account');
+      message.error(res.message || res.error || 'Failed to open account');
     }
   };
 

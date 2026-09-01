@@ -24,7 +24,7 @@ import {
   CheckCircleOutlined,
   MinusCircleOutlined,
 } from '@ant-design/icons';
-import { fetchApi } from '@/lib/api-client';
+import { fetchApi, postApi } from '@/lib/api-client';
 import { FinancialEngine } from '@sanjeevani/financial-engine';
 import { IChartOfAccount, IJournalEntry } from '@sanjeevani/shared-types';
 
@@ -76,20 +76,17 @@ export default function AccountingPage() {
       return;
     }
 
-    const res = await fetchApi('/accounting/journals', {
-      method: 'POST',
-      body: JSON.stringify({
-        description: journalDescription,
-        lines: journalLines,
-      }),
+    const res = await postApi('/accounting/journals', {
+      description: journalDescription,
+      lines: journalLines,
     });
 
     if (res.success) {
-      message.success(`Journal Entry ${res.data.journalNumber} posted successfully!`);
+      message.success(`Journal Entry ${res.data?.journalNumber || 'Posted'} posted successfully!`);
       setJournalModalVisible(false);
       loadAccountingData();
     } else {
-      message.error(res.error || 'Failed to post journal');
+      message.error(res.message || res.error || 'Failed to post journal');
     }
   };
 

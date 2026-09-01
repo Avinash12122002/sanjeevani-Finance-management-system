@@ -27,7 +27,7 @@ import {
   EyeOutlined,
   SendOutlined,
 } from '@ant-design/icons';
-import { fetchApi } from '@/lib/api-client';
+import { fetchApi, postApi } from '@/lib/api-client';
 import { FinancialEngine } from '@sanjeevani/financial-engine';
 import { ILoan, ILoanApplication, InterestMethod } from '@sanjeevani/shared-types';
 
@@ -85,63 +85,52 @@ export default function LoansPage() {
   };
 
   const handleCreateApplication = async (values: any) => {
-    const res = await fetchApi('/loan-applications', {
-      method: 'POST',
-      body: JSON.stringify(values),
-    });
+    const res = await postApi('/loan-applications', values);
 
     if (res.success) {
-      message.success(`Loan Application Submitted: ${res.data.applicationNumber}`);
+      message.success(`Loan Application Submitted: ${res.data?.applicationNumber || 'Submitted'}`);
       setAppModalVisible(false);
       form.resetFields();
       loadLoanData();
     } else {
-      message.error(res.error || 'Failed to submit application');
+      message.error(res.message || res.error || 'Failed to submit application');
     }
   };
 
   const handlePerformAssessment = async (values: any) => {
     if (!selectedApp) return;
-    const res = await fetchApi(`/loan-applications/${selectedApp.id}/credit-assessment`, {
-      method: 'POST',
-      body: JSON.stringify(values),
-    });
+    const res = await postApi(`/loan-applications/${selectedApp.id}/credit-assessment`, values);
 
     if (res.success) {
-      message.success(`Credit assessment completed: Score ${res.data.totalScore}/100 (${res.data.riskCategory} Risk)`);
+      message.success(`Credit assessment completed: Score ${res.data?.totalScore}/100 (${res.data?.riskCategory} Risk)`);
       setAssessmentModalVisible(false);
       assessmentForm.resetFields();
       loadLoanData();
     } else {
-      message.error(res.error || 'Failed to complete credit assessment');
+      message.error(res.message || res.error || 'Failed to complete credit assessment');
     }
   };
 
   const handleApproveLoan = async (appId: string) => {
-    const res = await fetchApi(`/loan-applications/${appId}/approve`, {
-      method: 'POST',
-      body: JSON.stringify({}),
-    });
+    const res = await postApi(`/loan-applications/${appId}/approve`, {});
 
     if (res.success) {
       message.success('Loan sanctioned and marked READY_FOR_DISBURSEMENT.');
       loadLoanData();
     } else {
-      message.error(res.error || 'Loan approval failed');
+      message.error(res.message || res.error || 'Loan approval failed');
     }
   };
 
   const handleDisburseLoan = async (appId: string) => {
-    const res = await fetchApi(`/loan-applications/${appId}/disburse`, {
-      method: 'POST',
-      body: JSON.stringify({ paymentMode: 'BANK_TRANSFER' }),
-    });
+    const res = await postApi(`/loan-applications/${appId}/disburse`, { paymentMode: 'BANK_TRANSFER' });
 
     if (res.success) {
-      message.success(`Loan Disbursed! Activated Loan ID: ${res.data.loan.loanNumber}`);
+      const loanNum = res.data?.loan?.loanNumber || res.data?.loanNumber || 'Active';
+      message.success(`Loan Disbursed! Activated Loan ID: ${loanNum}`);
       loadLoanData();
     } else {
-      message.error(res.error || 'Disbursement failed');
+      message.error(res.message || res.error || 'Disbursement failed');
     }
   };
 

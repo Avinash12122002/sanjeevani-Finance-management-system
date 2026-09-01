@@ -10,11 +10,13 @@ import {
 import { DataStoreService } from '../../database/data-store.service';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { FinancialEngine } from '@sanjeevani/financial-engine';
 import {
   BusinessDateStatus,
   IBusinessDayClosure,
   IUser,
   UserRole,
+  TransactionStatus,
 } from '@sanjeevani/shared-types';
 
 @Controller('api/v1/daily-closing')
@@ -27,20 +29,37 @@ export class DailyClosingController {
     const today = new Date().toISOString().split('T')[0];
     let closure = this.dataStore.businessDayClosures.find((c) => c.businessDate === today);
 
+    // Compute live metrics dynamically
+    const totalCollections = this.dataStore.transactions
+      .filter((t) => t.transactionDate === today && t.status === TransactionStatus.POSTED)
+      .reduce((sum, t) => FinancialEngine.add(sum, t.amount || 0), 0);
+
+    const totalDisbursements = this.dataStore.loans
+      .filter((l) => l.disbursementDate === today)
+      .reduce((sum, l) => FinancialEngine.add(sum, l.principal || 0), 0);
+
+    const cashInHand = this.dataStore.chartOfAccounts.find((c) => c.accountCode === '1010')?.currentBalance || 0;
+    const bankBalance = this.dataStore.chartOfAccounts.find((c) => c.accountCode === '1020')?.currentBalance || 0;
+
     if (!closure) {
       closure = {
         id: `BDC-${Date.now()}`,
         branchId: 'BR-001',
-        branchName: 'Head Office Agra',
+        branchName: 'Head Office - Main Branch',
         businessDate: today,
         status: BusinessDateStatus.OPEN,
-        totalCollections: 78500,
-        totalDisbursements: 0,
-        cashInHand: 178500,
-        bankBalance: 3250000,
+        totalCollections,
+        totalDisbursements,
+        cashInHand,
+        bankBalance,
         mismatchCount: 0,
       };
       this.dataStore.businessDayClosures.unshift(closure);
+    } else {
+      closure.totalCollections = totalCollections;
+      closure.totalDisbursements = totalDisbursements;
+      closure.cashInHand = cashInHand;
+      closure.bankBalance = bankBalance;
     }
 
     return {
@@ -77,17 +96,28 @@ export class DailyClosingController {
       throw new BadRequestException('Business date for today is already LOCKED.');
     }
 
+    const totalCollections = this.dataStore.transactions
+      .filter((t) => t.transactionDate === today && t.status === TransactionStatus.POSTED)
+      .reduce((sum, t) => FinancialEngine.add(sum, t.amount || 0), 0);
+
+    const totalDisbursements = this.dataStore.loans
+      .filter((l) => l.disbursementDate === today)
+      .reduce((sum, l) => FinancialEngine.add(sum, l.principal || 0), 0);
+
+    const cashInHand = this.dataStore.chartOfAccounts.find((c) => c.accountCode === '1010')?.currentBalance || 0;
+    const bankBalance = this.dataStore.chartOfAccounts.find((c) => c.accountCode === '1020')?.currentBalance || 0;
+
     if (!closure) {
       closure = {
         id: `BDC-${Date.now()}`,
         branchId: user.branchId || 'BR-001',
-        branchName: user.branchName || 'Head Office Agra',
+        branchName: user.branchName || 'Head Office - Main Branch',
         businessDate: today,
         status: BusinessDateStatus.LOCKED,
-        totalCollections: 78500,
-        totalDisbursements: 0,
-        cashInHand: 178500,
-        bankBalance: 3250000,
+        totalCollections,
+        totalDisbursements,
+        cashInHand,
+        bankBalance,
         mismatchCount: 0,
         closedBy: user.id,
         approvedBy: user.id,
@@ -96,6 +126,10 @@ export class DailyClosingController {
       this.dataStore.businessDayClosures.unshift(closure);
     } else {
       closure.status = BusinessDateStatus.LOCKED;
+      closure.totalCollections = totalCollections;
+      closure.totalDisbursements = totalDisbursements;
+      closure.cashInHand = cashInHand;
+      closure.bankBalance = bankBalance;
       closure.closedBy = user.id;
       closure.approvedBy = user.id;
       closure.closedAt = new Date().toISOString();

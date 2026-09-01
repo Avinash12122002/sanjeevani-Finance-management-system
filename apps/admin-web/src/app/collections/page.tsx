@@ -23,7 +23,7 @@ import {
   PrinterOutlined,
   CheckCircleOutlined,
 } from '@ant-design/icons';
-import { fetchApi } from '@/lib/api-client';
+import { fetchApi, postApi } from '@/lib/api-client';
 import { FinancialEngine } from '@sanjeevani/financial-engine';
 import { IReceipt, PaymentMode } from '@sanjeevani/shared-types';
 
@@ -64,20 +64,17 @@ export default function CollectionsPage() {
   };
 
   const handleRecordPayment = async (values: any) => {
-    const res = await fetchApi('/collections/record', {
-      method: 'POST',
-      body: JSON.stringify(values),
-    });
+    const res = await postApi('/collections/record', values);
 
     if (res.success && res.data) {
       message.success('Payment recorded and Digital Receipt generated!');
       setRecordModalVisible(false);
       form.resetFields();
-      setCurrentReceipt(res.data.receipt);
+      setCurrentReceipt(res.data.receipt || res.data);
       setReceiptModalVisible(true);
       loadData();
     } else {
-      message.error(res.error || 'Failed to record payment');
+      message.error(res.message || res.error || 'Failed to record payment');
     }
   };
 
