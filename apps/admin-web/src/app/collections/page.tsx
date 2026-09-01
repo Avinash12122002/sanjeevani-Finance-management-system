@@ -233,7 +233,11 @@ export default function CollectionsPage() {
             <div className="p-4 bg-purple-50 rounded-xl border border-purple-200">
               <div className="text-xs text-purple-800 font-semibold uppercase">VAULT CASH INFLOW</div>
               <div className="text-2xl font-bold text-purple-900 mt-1">
-                {FinancialEngine.formatINR(78500)}
+                {FinancialEngine.formatINR(
+                  receipts
+                    .filter((r) => r.paymentMode === PaymentMode.CASH || !r.paymentMode)
+                    .reduce((sum, r) => sum + (r.amount || 0), 0),
+                )}
               </div>
               <div className="text-xs text-purple-700 mt-1">
                 Cashier Drawer Active
