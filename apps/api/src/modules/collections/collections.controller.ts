@@ -246,6 +246,20 @@ export class CollectionsController {
       ],
     });
 
+    // Update Chart of Account balances in real time
+    const debitCoa = this.dataStore.chartOfAccounts.find((c) => c.id === debitAccount || c.accountCode === (isCash ? '1010' : '1020'));
+    if (debitCoa) debitCoa.currentBalance = FinancialEngine.add(debitCoa.currentBalance, amount);
+
+    const creditAccountId = body.loanId ? 'COA-1030' : 'COA-2010';
+    const creditCoa = this.dataStore.chartOfAccounts.find((c) => c.id === creditAccountId || c.accountCode === (body.loanId ? '1030' : '2010'));
+    if (creditCoa) {
+      if (body.loanId) {
+        creditCoa.currentBalance = FinancialEngine.subtract(creditCoa.currentBalance, amount);
+      } else {
+        creditCoa.currentBalance = FinancialEngine.add(creditCoa.currentBalance, amount);
+      }
+    }
+
     this.dataStore.logAudit(
       user.id || 'USR-006',
       user.employeeName || 'Staff',

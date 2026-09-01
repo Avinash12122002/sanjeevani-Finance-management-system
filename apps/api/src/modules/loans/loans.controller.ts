@@ -380,6 +380,14 @@ export class LoansController {
       ],
     });
 
+    // Update Chart of Accounts balances in real time
+    const loanReceivableCoa = this.dataStore.chartOfAccounts.find((c) => c.id === 'COA-1030' || c.accountCode === '1030');
+    if (loanReceivableCoa) loanReceivableCoa.currentBalance = FinancialEngine.add(loanReceivableCoa.currentBalance, principal);
+
+    const disburseSourceId = body.paymentMode === 'CASH' ? 'COA-1010' : 'COA-1020';
+    const disburseSourceCoa = this.dataStore.chartOfAccounts.find((c) => c.id === disburseSourceId || c.accountCode === (body.paymentMode === 'CASH' ? '1010' : '1020'));
+    if (disburseSourceCoa) disburseSourceCoa.currentBalance = FinancialEngine.subtract(disburseSourceCoa.currentBalance, principal);
+
     this.dataStore.logAudit(
       user.id,
       user.employeeName || 'Disbursement Officer',
