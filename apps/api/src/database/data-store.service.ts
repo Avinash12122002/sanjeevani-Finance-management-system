@@ -66,11 +66,11 @@ export class DataStoreService implements OnModuleInit {
   recoveryCases: IRecoveryCase[] = [];
   redAlerts: IRedAlert[] = [];
 
-  // ID Counters
+  // ID Counters (Clean Initial Production State)
   private counters = {
     customer: 0,
-    employee: 6,
-    branch: 3,
+    employee: 1,
+    branch: 1,
     account: 0,
     loan: 0,
     loanApp: 0,
