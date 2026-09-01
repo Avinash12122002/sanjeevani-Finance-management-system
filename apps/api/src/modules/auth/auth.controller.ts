@@ -59,11 +59,11 @@ export class AuthController {
     // Find user in database
     const user = this.dataStore.users.find(
       (u) =>
-        u.username.toLowerCase() === usernameOrMobile ||
-        u.mobile === usernameOrMobile ||
+        u.username?.toLowerCase() === usernameOrMobile ||
+        u.mobile?.toLowerCase() === usernameOrMobile ||
         u.email?.toLowerCase() === usernameOrMobile ||
-        (usernameOrMobile === 'admin' && u.roles.includes(UserRole.SUPER_ADMIN)) ||
-        (usernameOrMobile === 'admin@sanjeevani.com' && u.roles.includes(UserRole.SUPER_ADMIN)),
+        (usernameOrMobile === 'admin' && u.roles?.includes(UserRole.SUPER_ADMIN)) ||
+        (usernameOrMobile === 'admin@sanjeevani.com' && u.roles?.includes(UserRole.SUPER_ADMIN)),
     );
 
     // Support configured password or standard setup master password

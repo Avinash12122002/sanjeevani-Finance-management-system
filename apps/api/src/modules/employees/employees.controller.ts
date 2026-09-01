@@ -135,6 +135,10 @@ export class EmployeesController {
         associatedUser.isActive = currentEmp.employmentStatus === 'ACTIVE';
       }
 
+      if (body.password) {
+        associatedUser.passwordHash = body.password;
+      }
+
       if (body.designation) {
         let assignedRole: UserRole = UserRole.LOAN_OFFICER;
         const des = body.designation.toUpperCase();
