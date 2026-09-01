@@ -1,8 +1,6 @@
 const nextConfig = {
   reactStrictMode: true,
   transpilePackages: [
-    '@sanjeevani/shared-types',
-    '@sanjeevani/financial-engine',
     'antd',
     '@ant-design/icons',
     '@ant-design/nextjs-registry',
