@@ -25,6 +25,8 @@ import {
   TeamOutlined,
   UserAddOutlined,
   PlusOutlined,
+  BankOutlined,
+  AppstoreAddOutlined,
 } from '@ant-design/icons';
 import { fetchApi, postApi } from '@/lib/api-client';
 
@@ -33,9 +35,14 @@ export default function SettingsPage() {
   const [employees, setEmployees] = useState<any[]>([]);
   const [products, setProducts] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
+
+  // Modals
   const [addStaffModal, setAddStaffModal] = useState(false);
+  const [addBranchModal, setAddBranchModal] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+
   const [staffForm] = Form.useForm();
+  const [branchForm] = Form.useForm();
 
   // Feature Flags (SRS §43)
   const [featureFlags, setFeatureFlags] = useState({
@@ -90,25 +97,53 @@ export default function SettingsPage() {
     }
   };
 
+  const handleAddBranch = async (values: any) => {
+    setSubmitting(true);
+    try {
+      const res = await postApi('/branches', values);
+      if (res.success) {
+        message.success(`Branch [${values.name}] created successfully!`);
+        setAddBranchModal(false);
+        branchForm.resetFields();
+        loadSettingsData();
+      } else {
+        message.error(res.message || 'Failed to create branch.');
+      }
+    } catch (err: any) {
+      message.error('An error occurred while creating branch.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Header Banner */}
-      <div className="flex items-center justify-between bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900 m-0">System Configuration & Staff Master</h1>
+          <h1 className="text-2xl font-bold text-slate-900 m-0">System Configuration & Management Master</h1>
           <p className="text-slate-500 text-sm mt-1 m-0">
-            System settings, multi-branch network, staff user role authorizations and regulatory feature gating (SRS §43, §104).
+            Multi-branch network, staff role authorizations, product master and regulatory feature gating (SRS §43, §104).
           </p>
         </div>
-        <Button
-          type="primary"
-          icon={<UserAddOutlined />}
-          size="large"
-          style={{ background: '#059669', borderColor: '#059669' }}
-          onClick={() => setAddStaffModal(true)}
-        >
-          Add New Staff User
-        </Button>
+        <Space wrap>
+          <Button
+            icon={<BankOutlined />}
+            size="large"
+            onClick={() => setAddBranchModal(true)}
+          >
+            + Add Branch
+          </Button>
+          <Button
+            type="primary"
+            icon={<UserAddOutlined />}
+            size="large"
+            style={{ background: '#059669', borderColor: '#059669' }}
+            onClick={() => setAddStaffModal(true)}
+          >
+            + Add Staff User
+          </Button>
+        </Space>
       </div>
 
       <Tabs
@@ -155,6 +190,41 @@ export default function SettingsPage() {
                     { title: 'Email', dataIndex: 'email', key: 'email' },
                     { title: 'Assigned Branch', dataIndex: 'branchName', key: 'br' },
                     { title: 'Status', dataIndex: 'employmentStatus', key: 'st', render: (s) => <Tag color="green">{s}</Tag> },
+                  ]}
+                />
+              </Card>
+            ),
+          },
+          {
+            key: 'branches',
+            label: `Operating Branches (${branches.length})`,
+            children: (
+              <Card
+                className="glass-card"
+                extra={
+                  <Button
+                    type="primary"
+                    icon={<PlusOutlined />}
+                    style={{ background: '#059669', borderColor: '#059669' }}
+                    onClick={() => setAddBranchModal(true)}
+                  >
+                    Add Branch
+                  </Button>
+                }
+              >
+                <Table
+                  dataSource={branches}
+                  rowKey="id"
+                  loading={loading}
+                  scroll={{ x: 800 }}
+                  columns={[
+                    { title: 'Branch Code', dataIndex: 'branchCode', key: 'code', render: (c) => <span className="font-mono font-bold text-emerald-700">{c}</span> },
+                    { title: 'Branch Name', dataIndex: 'name', key: 'name' },
+                    { title: 'Address', dataIndex: 'address', key: 'address' },
+                    { title: 'City', dataIndex: 'city', key: 'city' },
+                    { title: 'State', dataIndex: 'state', key: 'state' },
+                    { title: 'Phone', dataIndex: 'phone', key: 'phone' },
+                    { title: 'Status', dataIndex: 'status', key: 'st', render: (s) => <Tag color="success">{s}</Tag> },
                   ]}
                 />
               </Card>
@@ -212,28 +282,6 @@ export default function SettingsPage() {
                   <Descriptions.Item label="Maker-Checker Limit">₹ 1,00,000 (Branch Manager)</Descriptions.Item>
                   <Descriptions.Item label="Director Approval Limit">&gt; ₹ 3,00,000</Descriptions.Item>
                 </Descriptions>
-              </Card>
-            ),
-          },
-          {
-            key: 'branches',
-            label: `Branches (${branches.length})`,
-            children: (
-              <Card className="glass-card">
-                <Table
-                  dataSource={branches}
-                  rowKey="id"
-                  loading={loading}
-                  scroll={{ x: 800 }}
-                  columns={[
-                    { title: 'Branch Code', dataIndex: 'branchCode', key: 'code', render: (c) => <span className="font-mono font-bold text-emerald-700">{c}</span> },
-                    { title: 'Branch Name', dataIndex: 'name', key: 'name' },
-                    { title: 'City', dataIndex: 'city', key: 'city' },
-                    { title: 'State', dataIndex: 'state', key: 'state' },
-                    { title: 'Phone', dataIndex: 'phone', key: 'phone' },
-                    { title: 'Status', dataIndex: 'status', key: 'st', render: (s) => <Tag color="success">{s}</Tag> },
-                  ]}
-                />
               </Card>
             ),
           },
@@ -341,6 +389,79 @@ export default function SettingsPage() {
               style={{ background: '#059669', borderColor: '#059669' }}
             >
               Create Staff User
+            </Button>
+          </div>
+        </Form>
+      </Modal>
+
+      {/* Add New Branch Modal */}
+      <Modal
+        title={
+          <div className="flex items-center gap-2 text-slate-800">
+            <BankOutlined className="text-emerald-600" />
+            <span>Register New Operating Branch</span>
+          </div>
+        }
+        open={addBranchModal}
+        onCancel={() => setAddBranchModal(false)}
+        footer={null}
+        width={550}
+      >
+        <Form form={branchForm} layout="vertical" onFinish={handleAddBranch} className="mt-4">
+          <Row gutter={16}>
+            <Col span={24}>
+              <Form.Item
+                label="Branch Name"
+                name="name"
+                rules={[{ required: true, message: 'Enter branch name' }]}
+              >
+                <Input placeholder="e.g. South Agra City Branch" />
+              </Form.Item>
+            </Col>
+            <Col span={24}>
+              <Form.Item
+                label="Physical Address"
+                name="address"
+                rules={[{ required: true, message: 'Enter branch address' }]}
+              >
+                <Input placeholder="e.g. Shop 12, Main Market" />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item
+                label="City"
+                name="city"
+                rules={[{ required: true, message: 'Enter city' }]}
+              >
+                <Input placeholder="e.g. Agra" />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item
+                label="State"
+                name="state"
+                rules={[{ required: true, message: 'Enter state' }]}
+                initialValue="Uttar Pradesh"
+              >
+                <Input placeholder="State" />
+              </Form.Item>
+            </Col>
+            <Col span={24}>
+              <Form.Item label="Contact Phone" name="phone">
+                <Input placeholder="e.g. +91 562 2520102" />
+              </Form.Item>
+            </Col>
+          </Row>
+
+          <div className="flex justify-end gap-3 pt-4 border-t border-slate-100">
+            <Button onClick={() => setAddBranchModal(false)}>Cancel</Button>
+            <Button
+              type="primary"
+              htmlType="submit"
+              loading={submitting}
+              style={{ background: '#059669', borderColor: '#059669' }}
+            >
+              Register Branch
             </Button>
           </div>
         </Form>
