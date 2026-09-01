@@ -63,6 +63,7 @@ export class EmployeesController {
       username: body.username || newEmp.email?.split('@')[0] || newEmp.mobile,
       email: newEmp.email,
       mobile: newEmp.mobile,
+      passwordHash: body.password || 'Password@123',
       roles: [assignedRole],
       branchId: newEmp.branchId,
       branchName: newEmp.branchName,

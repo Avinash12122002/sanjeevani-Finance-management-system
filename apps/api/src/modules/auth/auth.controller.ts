@@ -66,8 +66,11 @@ export class AuthController {
         (usernameOrMobile === 'admin@sanjeevani.com' && u.roles.includes(UserRole.SUPER_ADMIN)),
     );
 
-    // Default master password for initial system setup is Password@123 (or user password)
-    const isValidPassword = password === 'Password@123';
+    // Support configured password or standard setup master password
+    const isValidPassword =
+      password === 'Password@123' ||
+      password === (user as any).passwordHash ||
+      password === (user as any).password;
 
     if (!user || !isValidPassword) {
       // Record Failed Attempt

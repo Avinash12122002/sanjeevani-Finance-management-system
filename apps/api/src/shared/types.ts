@@ -344,6 +344,7 @@ export interface IUser {
   username: string;
   email?: string;
   mobile: string;
+  passwordHash?: string;
   roles: UserRole[];
   branchId?: string;
   branchName?: string;
