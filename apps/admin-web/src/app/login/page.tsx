@@ -2,16 +2,14 @@
 
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Form, Input, Button, Card, Typography, Alert, message } from 'antd';
+import { Form, Input, Button, Alert, message } from 'antd';
 import {
   UserOutlined,
   LockOutlined,
   ArrowRightOutlined,
-  CheckCircleOutlined,
+  CheckCircleFilled,
 } from '@ant-design/icons';
 import { postApi } from '@/lib/api-client';
-
-const { Title, Text } = Typography;
 
 export default function LoginPage() {
   const router = useRouter();
@@ -51,53 +49,54 @@ export default function LoginPage() {
       <div className="absolute -top-40 -left-40 w-96 h-96 bg-emerald-600/20 rounded-full blur-3xl pointer-events-none" />
       <div className="absolute -bottom-40 -right-40 w-96 h-96 bg-teal-600/20 rounded-full blur-3xl pointer-events-none" />
 
-      <div className="w-full max-w-4xl grid grid-cols-1 md:grid-cols-2 gap-8 z-10">
-        {/* Left Col: Brand & System Overview */}
-        <div className="flex flex-col justify-between text-white p-6 md:p-8 bg-slate-900/70 backdrop-blur-md rounded-2xl border border-slate-800 shadow-2xl">
+      <div className="w-full max-w-4xl grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8 z-10 items-stretch">
+        {/* Left Col: Brand & System Overview (Equal Height) */}
+        <div className="flex flex-col justify-between p-6 md:p-8 bg-slate-900/90 rounded-2xl border border-slate-800 shadow-2xl h-full">
           <div>
             <div className="flex items-center gap-3 mb-6">
               <div className="w-12 h-12 rounded-xl bg-gradient-to-tr from-emerald-600 via-teal-500 to-emerald-400 flex items-center justify-center text-white font-black text-2xl shadow-lg shadow-emerald-950/60">
                 S
               </div>
               <div>
-                <div className="font-extrabold text-xl tracking-wide text-white">SANJEEVANI</div>
-                <div className="text-emerald-400 text-xs font-semibold tracking-wider">FINANCE OPERATIONS v1.0</div>
+                <div className="font-extrabold text-xl tracking-wide text-white" style={{ color: '#ffffff' }}>SANJEEVANI</div>
+                <div className="text-emerald-400 text-xs font-semibold tracking-wider" style={{ color: '#34d399' }}>FINANCE OPERATIONS v1.0</div>
               </div>
             </div>
 
-            <Title level={3} style={{ color: '#ffffff', marginBottom: 12 }}>
+            <h1 className="text-xl md:text-2xl font-bold leading-snug mb-4" style={{ color: '#ffffff', margin: 0, paddingBottom: 12 }}>
               Enterprise Financial Operations & Core Banking Portal
-            </Title>
-            <p style={{ color: '#cbd5e1' }} className="text-sm leading-relaxed mb-6 font-normal">
+            </h1>
+            
+            <p className="text-sm leading-relaxed mb-6 font-normal" style={{ color: '#e2e8f0' }}>
               Official operating console for Members, KYC 360°, Precision Reducing Balance Loans, Recurring Deposits, Vault Balancing & Double-Entry Ledgers.
             </p>
 
-            <div className="space-y-3">
-              <div className="flex items-center gap-2.5 text-xs text-slate-200" style={{ color: '#e2e8f0' }}>
-                <CheckCircleOutlined className="text-emerald-400" />
+            <div className="space-y-3.5">
+              <div className="flex items-center gap-3 text-xs md:text-sm font-medium" style={{ color: '#f1f5f9' }}>
+                <CheckCircleFilled style={{ color: '#34d399', fontSize: 16 }} />
                 <span>Argon2id + RS256 Asymmetric JWT Authentication</span>
               </div>
-              <div className="flex items-center gap-2.5 text-xs text-slate-200" style={{ color: '#e2e8f0' }}>
-                <CheckCircleOutlined className="text-emerald-400" />
+              <div className="flex items-center gap-3 text-xs md:text-sm font-medium" style={{ color: '#f1f5f9' }}>
+                <CheckCircleFilled style={{ color: '#34d399', fontSize: 16 }} />
                 <span>Maker-Checker Hierarchy & Branch-Scoped Isolation</span>
               </div>
-              <div className="flex items-center gap-2.5 text-xs text-slate-200" style={{ color: '#e2e8f0' }}>
-                <CheckCircleOutlined className="text-emerald-400" />
-                <span>Decimal.js Precision Financial Math & Double-Entry Accounting</span>
+              <div className="flex items-center gap-3 text-xs md:text-sm font-medium" style={{ color: '#f1f5f9' }}>
+                <CheckCircleFilled style={{ color: '#34d399', fontSize: 16 }} />
+                <span>Decimal.js Precision Financial Math & Double-Entry</span>
               </div>
             </div>
           </div>
 
-          <div className="mt-8 pt-6 border-t border-slate-800 text-[11px]" style={{ color: '#94a3b8' }}>
+          <div className="mt-8 pt-6 border-t border-slate-800 text-xs" style={{ color: '#94a3b8' }}>
             © 2026 Sanjeevani Finance Management System • Banking Grade Security
           </div>
         </div>
 
-        {/* Right Col: Production Login Form */}
-        <div className="flex flex-col justify-center">
-          <Card className="glass-card shadow-2xl border-slate-800 bg-white/95 backdrop-blur-xl p-4 sm:p-6 rounded-2xl">
+        {/* Right Col: Production Login Form (Equal Height) */}
+        <div className="flex flex-col justify-between p-6 md:p-8 bg-white rounded-2xl border border-slate-200 shadow-2xl h-full">
+          <div>
             <div className="mb-6 text-center">
-              <h2 className="text-xl font-black text-slate-900 m-0">Staff Sign In</h2>
+              <h2 className="text-2xl font-black text-slate-900 m-0">Staff Sign In</h2>
               <p className="text-slate-500 text-xs mt-1">Enter your assigned staff username, email, or registered mobile number</p>
             </div>
 
@@ -151,14 +150,18 @@ export default function LoginPage() {
                   borderColor: '#059669',
                   fontWeight: 700,
                   borderRadius: 8,
-                  height: 44,
+                  height: 46,
                   marginTop: 8,
                 }}
               >
                 Authenticate & Launch Console
               </Button>
             </Form>
-          </Card>
+          </div>
+
+          <div className="mt-6 pt-4 border-t border-slate-100 text-center text-xs text-slate-400">
+            Protected by End-to-End Enterprise Encryption
+          </div>
         </div>
       </div>
     </div>
