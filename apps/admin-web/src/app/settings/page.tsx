@@ -10,6 +10,9 @@ import {
   Space,
   Form,
   Input,
+  Select,
+  InputNumber,
+  Modal,
   Switch,
   Row,
   Col,
@@ -20,21 +23,26 @@ import {
   SettingOutlined,
   BranchesOutlined,
   TeamOutlined,
+  UserAddOutlined,
+  PlusOutlined,
 } from '@ant-design/icons';
-import { fetchApi } from '@/lib/api-client';
+import { fetchApi, postApi } from '@/lib/api-client';
 
 export default function SettingsPage() {
   const [branches, setBranches] = useState<any[]>([]);
   const [employees, setEmployees] = useState<any[]>([]);
   const [products, setProducts] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
+  const [addStaffModal, setAddStaffModal] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [staffForm] = Form.useForm();
 
   // Feature Flags (SRS §43)
   const [featureFlags, setFeatureFlags] = useState({
     RD_PRODUCT: true,
     TERM_DEPOSIT: true,
-    COMMITTEE: false, // Committee / Chit disabled by default
-    LUCKY_DRAW: false, // Lucky draw disabled by default
+    COMMITTEE: false,
+    LUCKY_DRAW: false,
     PREMATURE_WITHDRAWAL: true,
     LOAN_GUARANTOR: true,
     CASH_DISBURSEMENT: true,
@@ -63,21 +71,95 @@ export default function SettingsPage() {
     message.success(`Compliance Feature Flag [${key}] updated to ${checked ? 'ENABLED' : 'DISABLED'}`);
   };
 
+  const handleAddStaff = async (values: any) => {
+    setSubmitting(true);
+    try {
+      const res = await postApi('/employees', values);
+      if (res.success) {
+        message.success(`Staff member [${values.name}] added successfully! Login credentials created.`);
+        setAddStaffModal(false);
+        staffForm.resetFields();
+        loadSettingsData();
+      } else {
+        message.error(res.message || 'Failed to add staff member.');
+      }
+    } catch (err: any) {
+      message.error('An error occurred while creating staff member.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Header Banner */}
       <div className="flex items-center justify-between bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900 m-0">System Configuration & Compliance Master</h1>
+          <h1 className="text-2xl font-bold text-slate-900 m-0">System Configuration & Staff Master</h1>
           <p className="text-slate-500 text-sm mt-1 m-0">
-            System settings, multi-branch network, staff role authorizations and regulatory feature gating (SRS §43, §104).
+            System settings, multi-branch network, staff user role authorizations and regulatory feature gating (SRS §43, §104).
           </p>
         </div>
+        <Button
+          type="primary"
+          icon={<UserAddOutlined />}
+          size="large"
+          style={{ background: '#059669', borderColor: '#059669' }}
+          onClick={() => setAddStaffModal(true)}
+        >
+          Add New Staff User
+        </Button>
       </div>
 
       <Tabs
-        defaultActiveKey="flags"
+        defaultActiveKey="staff"
         items={[
+          {
+            key: 'staff',
+            label: `Staff Users & Roles (${employees.length})`,
+            children: (
+              <Card
+                className="glass-card"
+                extra={
+                  <Button
+                    type="primary"
+                    icon={<PlusOutlined />}
+                    style={{ background: '#059669', borderColor: '#059669' }}
+                    onClick={() => setAddStaffModal(true)}
+                  >
+                    Add Staff Member
+                  </Button>
+                }
+              >
+                <Table
+                  dataSource={employees}
+                  rowKey="id"
+                  loading={loading}
+                  scroll={{ x: 800 }}
+                  columns={[
+                    { title: 'Employee ID', dataIndex: 'employeeNumber', key: 'emp', render: (e) => <span className="font-mono font-bold text-emerald-700">{e}</span> },
+                    { title: 'Staff Name', dataIndex: 'name', key: 'name' },
+                    {
+                      title: 'Role / Designation',
+                      dataIndex: 'designation',
+                      key: 'role',
+                      render: (r) => {
+                        let color = 'blue';
+                        if (r?.includes('MANAGER')) color = 'purple';
+                        else if (r?.includes('CASHIER')) color = 'green';
+                        else if (r?.includes('RECOVERY')) color = 'orange';
+                        return <Tag color={color}>{r}</Tag>;
+                      },
+                    },
+                    { title: 'Mobile / Login ID', dataIndex: 'mobile', key: 'mob' },
+                    { title: 'Email', dataIndex: 'email', key: 'email' },
+                    { title: 'Assigned Branch', dataIndex: 'branchName', key: 'br' },
+                    { title: 'Status', dataIndex: 'employmentStatus', key: 'st', render: (s) => <Tag color="green">{s}</Tag> },
+                  ]}
+                />
+              </Card>
+            ),
+          },
           {
             key: 'flags',
             label: 'Compliance Feature Flags (§43, BR-019)',
@@ -155,30 +237,114 @@ export default function SettingsPage() {
               </Card>
             ),
           },
-          {
-            key: 'staff',
-            label: `Employees & Roles (${employees.length})`,
-            children: (
-              <Card className="glass-card">
-                <Table
-                  dataSource={employees}
-                  rowKey="id"
-                  loading={loading}
-                  scroll={{ x: 800 }}
-                  columns={[
-                    { title: 'Employee ID', dataIndex: 'employeeNumber', key: 'emp', render: (e) => <span className="font-mono font-bold">{e}</span> },
-                    { title: 'Staff Name', dataIndex: 'name', key: 'name' },
-                    { title: 'Designation / Role', dataIndex: 'designation', key: 'role', render: (r) => <Tag color="blue">{r}</Tag> },
-                    { title: 'Mobile', dataIndex: 'mobile', key: 'mob' },
-                    { title: 'Assigned Branch', dataIndex: 'branchName', key: 'br' },
-                    { title: 'Status', dataIndex: 'employmentStatus', key: 'st', render: (s) => <Tag color="green">{s}</Tag> },
-                  ]}
-                />
-              </Card>
-            ),
-          },
         ]}
       />
+
+      {/* Add New Staff Modal */}
+      <Modal
+        title={
+          <div className="flex items-center gap-2 text-slate-800">
+            <UserAddOutlined className="text-emerald-600" />
+            <span>Create Staff Member & Login User Account</span>
+          </div>
+        }
+        open={addStaffModal}
+        onCancel={() => setAddStaffModal(false)}
+        footer={null}
+        width={600}
+      >
+        <Form form={staffForm} layout="vertical" onFinish={handleAddStaff} className="mt-4">
+          <Row gutter={16}>
+            <Col span={24}>
+              <Form.Item
+                label="Full Staff Name"
+                name="name"
+                rules={[{ required: true, message: 'Please enter full name' }]}
+              >
+                <Input placeholder="e.g. Ramesh Sharma" />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item
+                label="Mobile Number (Login ID)"
+                name="mobile"
+                rules={[
+                  { required: true, message: 'Please enter mobile number' },
+                  { pattern: /^[0-9]{10}$/, message: 'Must be 10 digits' },
+                ]}
+              >
+                <Input placeholder="10-digit mobile" />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item label="Official Email" name="email">
+                <Input placeholder="e.g. ramesh@sanjeevanifinance.com" />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item
+                label="Staff Role / Designation"
+                name="designation"
+                rules={[{ required: true, message: 'Select role' }]}
+                initialValue="LOAN_OFFICER"
+              >
+                <Select
+                  options={[
+                    { value: 'BRANCH_MANAGER', label: 'Branch Manager (Approvals & Operations)' },
+                    { value: 'CASHIER', label: 'Cashier / Teller (Counter Cash & Vault)' },
+                    { value: 'LOAN_OFFICER', label: 'Loan Officer (Origination & Appraisal)' },
+                    { value: 'ACCOUNTANT', label: 'Accountant (General Ledger & Reconciliation)' },
+                    { value: 'RECOVERY_OFFICER', label: 'Recovery & Field Officer' },
+                    { value: 'CUSTOMER_SERVICE', label: 'Customer Service Executive' },
+                  ]}
+                />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item
+                label="Assigned Branch"
+                name="branchId"
+                rules={[{ required: true, message: 'Select branch' }]}
+                initialValue={branches[0]?.id || 'BR-001'}
+              >
+                <Select
+                  options={branches.map((b) => ({
+                    value: b.id,
+                    label: `${b.name} (${b.branchCode})`,
+                  }))}
+                />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item label="Monthly Salary (₹)" name="salary" initialValue={25000}>
+                <InputNumber min={0} className="w-full" />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item
+                label="Initial Password"
+                name="password"
+                initialValue="Password@123"
+                extra="Default setup password is Password@123"
+              >
+                <Input.Password placeholder="Password@123" />
+              </Form.Item>
+            </Col>
+          </Row>
+
+          <div className="flex justify-end gap-3 pt-4 border-t border-slate-100">
+            <Button onClick={() => setAddStaffModal(false)}>Cancel</Button>
+            <Button
+              type="primary"
+              htmlType="submit"
+              loading={submitting}
+              style={{ background: '#059669', borderColor: '#059669' }}
+            >
+              Create Staff User
+            </Button>
+          </div>
+        </Form>
+      </Modal>
     </div>
   );
 }
