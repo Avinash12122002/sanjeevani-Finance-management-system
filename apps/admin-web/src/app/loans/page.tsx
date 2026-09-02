@@ -55,6 +55,7 @@ export default function LoansPage() {
   useEffect(() => {
     loadLoanData();
     recalculateEmi(calcPrincipal, calcRate, calcTenure, calcMethod);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const loadLoanData = async () => {

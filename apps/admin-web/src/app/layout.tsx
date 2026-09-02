@@ -1,6 +1,6 @@
 import React from 'react';
 import type { Metadata } from 'next';
-import { ConfigProvider } from 'antd';
+import { ConfigProvider, App } from 'antd';
 import { AntdRegistry } from '@ant-design/nextjs-registry';
 import AppShell from '@/components/layout/AppShell';
 import './globals.css';
@@ -45,7 +45,9 @@ export default function RootLayout({
               },
             }}
           >
-            <AppShell>{children}</AppShell>
+            <App>
+              <AppShell>{children}</AppShell>
+            </App>
           </ConfigProvider>
         </AntdRegistry>
       </body>

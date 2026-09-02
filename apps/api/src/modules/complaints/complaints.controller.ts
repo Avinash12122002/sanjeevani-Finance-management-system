@@ -14,6 +14,13 @@ export class ComplaintsController {
     return this.dataStore.complaints;
   }
 
+  @Get(':id')
+  getComplaintById(@Param('id') id: string) {
+    const complaint = this.dataStore.complaints.find((c) => c.id === id || c.complaintNumber === id);
+    if (!complaint) throw new NotFoundException(`Complaint not found: ${id}`);
+    return complaint;
+  }
+
   @Post()
   createComplaint(
     @Body()

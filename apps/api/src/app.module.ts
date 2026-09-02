@@ -3,6 +3,7 @@ import { JwtModule } from '@nestjs/jwt';
 import { ConfigModule } from '@nestjs/config';
 
 import { DataStoreService } from './database/data-store.service';
+import { AppController } from './app.controller';
 import { AuthController } from './modules/auth/auth.controller';
 import { CustomersController } from './modules/customers/customers.controller';
 import { ProductsController } from './modules/products/products.controller';
@@ -28,6 +29,7 @@ import { ComplaintsController } from './modules/complaints/complaints.controller
     }),
   ],
   controllers: [
+    AppController,
     AuthController,
     CustomersController,
     ProductsController,

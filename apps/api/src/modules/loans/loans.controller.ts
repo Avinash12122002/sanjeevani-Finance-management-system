@@ -457,6 +457,74 @@ export class LoansController {
   }
 
   @Delete('loan-applications/:id')
+  @Patch('loan-applications/:id')
+  updateLoanApplication(
+    @Param('id') id: string,
+    @Body() body: Partial<ILoanApplication>,
+    @CurrentUser() user: IUser,
+  ) {
+    const index = this.dataStore.loanApplications.findIndex((a) => a.id === id || a.applicationNumber === id);
+    if (index === -1) {
+      throw new NotFoundException(`Loan application not found: ${id}`);
+    }
+
+    const currentApp = this.dataStore.loanApplications[index];
+    const oldVal = { ...currentApp };
+
+    if (body.requestedAmount !== undefined) currentApp.requestedAmount = Number(body.requestedAmount);
+    if (body.requestedTenureMonths !== undefined) currentApp.requestedTenureMonths = Number(body.requestedTenureMonths);
+    if (body.purpose) currentApp.purpose = body.purpose;
+    if (body.status) currentApp.status = body.status;
+
+    this.dataStore.logAudit(
+      user.id,
+      user.employeeName || 'Admin',
+      'LOAN_APPLICATION_UPDATED',
+      'LoanApplication',
+      currentApp.id,
+      oldVal,
+      currentApp,
+      `Updated loan application ${currentApp.applicationNumber}`,
+    );
+
+    return currentApp;
+  }
+
+  @Patch('loans/:id')
+  updateLoan(
+    @Param('id') id: string,
+    @Body() body: Partial<ILoan>,
+    @CurrentUser() user: IUser,
+  ) {
+    const index = this.dataStore.loans.findIndex((l) => l.id === id || l.loanNumber === id);
+    if (index === -1) {
+      throw new NotFoundException(`Loan not found: ${id}`);
+    }
+
+    const currentLoan = this.dataStore.loans[index];
+    const oldVal = { ...currentLoan };
+
+    if (body.status) currentLoan.status = body.status;
+    if (body.recoveryBucket) currentLoan.recoveryBucket = body.recoveryBucket;
+    if (body.outstandingPrincipal !== undefined) currentLoan.outstandingPrincipal = Number(body.outstandingPrincipal);
+    if (body.overdueAmount !== undefined) currentLoan.overdueAmount = Number(body.overdueAmount);
+    if (body.daysPastDue !== undefined) currentLoan.daysPastDue = Number(body.daysPastDue);
+
+    this.dataStore.logAudit(
+      user.id,
+      user.employeeName || 'Admin',
+      'LOAN_UPDATED',
+      'Loan',
+      currentLoan.id,
+      oldVal,
+      currentLoan,
+      `Updated loan ${currentLoan.loanNumber} status to ${currentLoan.status}`,
+    );
+
+    return currentLoan;
+  }
+
+  @Delete('loan-applications/:id')
   deleteLoanApplication(@Param('id') id: string, @CurrentUser() user: IUser) {
     const index = this.dataStore.loanApplications.findIndex((a) => a.id === id || a.applicationNumber === id);
     if (index === -1) {

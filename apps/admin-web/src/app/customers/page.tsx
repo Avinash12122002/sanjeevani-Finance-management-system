@@ -150,7 +150,7 @@ export default function CustomersPage() {
   const columns = [
     {
       title: 'Member ID',
-      dataKey: 'customerNumber',
+      dataIndex: 'customerNumber',
       key: 'customerNumber',
       render: (_: any, r: ICustomer) => (
         <span className="font-mono font-bold text-emerald-700">{r.customerNumber}</span>

@@ -25,6 +25,13 @@ export class EmployeesController {
     return this.dataStore.employees;
   }
 
+  @Get(':id')
+  getEmployeeById(@Param('id') id: string) {
+    const emp = this.dataStore.employees.find((e) => e.id === id || e.employeeNumber === id);
+    if (!emp) throw new NotFoundException(`Employee not found: ${id}`);
+    return emp;
+  }
+
   @Post()
   createEmployee(@Body() body: any, @CurrentUser() user: IUser) {
     const employeeNumber = this.dataStore.nextEmployeeNumber();
