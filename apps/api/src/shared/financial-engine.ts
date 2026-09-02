@@ -81,6 +81,16 @@ export class FinancialEngine {
 
     const baseDate = req.startDate ? new Date(req.startDate) : new Date();
 
+    const addMonthsClamped = (date: Date, months: number): Date => {
+      const d = new Date(date);
+      const originalDay = d.getDate();
+      d.setDate(1);
+      d.setMonth(d.getMonth() + months);
+      const daysInTargetMonth = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
+      d.setDate(Math.min(originalDay, daysInTargetMonth));
+      return d;
+    };
+
     if (req.interestMethod === 'REDUCING_BALANCE') {
       if (monthlyRate.isZero()) {
         emi = P.dividedBy(n).toDecimalPlaces(2);
@@ -99,8 +109,7 @@ export class FinancialEngine {
       let currentPrincipal = P;
 
       for (let i = 1; i <= req.tenureMonths; i++) {
-        const dueDate = new Date(baseDate);
-        dueDate.setMonth(dueDate.getMonth() + i);
+        const dueDate = addMonthsClamped(baseDate, i);
 
         const interestForMonth = currentPrincipal.times(monthlyRate).toDecimalPlaces(2);
         let principalForMonth = emi.minus(interestForMonth).toDecimalPlaces(2);
@@ -142,8 +151,7 @@ export class FinancialEngine {
       let currentPrincipal = P;
 
       for (let i = 1; i <= req.tenureMonths; i++) {
-        const dueDate = new Date(baseDate);
-        dueDate.setMonth(dueDate.getMonth() + i);
+        const dueDate = addMonthsClamped(baseDate, i);
 
         let pDue = principalPerMonth;
         let iDue = interestPerMonth;

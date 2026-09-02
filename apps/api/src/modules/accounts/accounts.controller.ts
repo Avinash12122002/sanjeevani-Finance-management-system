@@ -111,14 +111,23 @@ export class AccountsController {
       );
     }
 
+    const openingDateStr = new Date().toISOString().split('T')[0];
+    if (this.dataStore.isDateLocked(openingDateStr)) {
+      throw new BadRequestException(
+        `Business Date Locked (BR-009): Date ${openingDateStr} is locked. New accounts cannot be opened without reopening.`,
+      );
+    }
+
     const tenure = body.tenureMonths || product.minimumTenureMonths || 12;
     const branch = this.dataStore.branches.find((b) => b.id === (body.branchId || customer.branchId || user.branchId || 'BR-001'));
     const accountNumber = this.dataStore.nextAccountNumber(product.productType);
 
     let maturityAmount = principal;
     const openingDate = new Date();
-    const maturityDate = new Date(openingDate);
-    maturityDate.setMonth(maturityDate.getMonth() + tenure);
+    const targetMonth = openingDate.getMonth() + tenure;
+    const maturityDate = new Date(openingDate.getFullYear(), targetMonth, 1);
+    const daysInTargetMonth = new Date(maturityDate.getFullYear(), maturityDate.getMonth() + 1, 0).getDate();
+    maturityDate.setDate(Math.min(openingDate.getDate(), daysInTargetMonth));
 
     if (product.productType === ProductType.RD) {
       const rdCalc = FinancialEngine.calculateRDMaturity(principal, product.interestRate, tenure);
@@ -139,7 +148,7 @@ export class AccountsController {
       productType: product.productType,
       branchId: branch?.id || 'BR-001',
       branchName: branch?.name || 'Head Office Agra',
-      openingDate: openingDate.toISOString().split('T')[0],
+      openingDate: openingDateStr,
       principalAmount: principal,
       interestRate: product.interestRate,
       tenureMonths: tenure,

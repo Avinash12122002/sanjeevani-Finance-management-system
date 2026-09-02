@@ -7,6 +7,7 @@ import cors from 'cors';
 import { AppModule } from './app.module';
 import { AllExceptionsFilter } from './common/filters/http-exception.filter';
 import { TransformInterceptor } from './common/interceptors/transform.interceptor';
+import { SanitizeEmojiPipe } from './common/pipes/sanitize-emoji.pipe';
 
 async function bootstrap() {
   const logger = new Logger('SanjeevaniFinanceBootstrap');
@@ -26,23 +27,27 @@ async function bootstrap() {
   // 2. Performance Compression
   app.use(compression());
 
-  // 3. CORS Configuration
-  const configuredOrigin = process.env.CORS_ORIGIN;
-  const allowedOrigins = configuredOrigin
-    ? configuredOrigin.split(',').map((o) => o.trim())
-    : true;
+  // 3. CORS Configuration (Full Preflight & Credentials Support)
+  app.enableCors({
+    origin: (origin, callback) => {
+      callback(null, true); // Dynamically reflects origin so credentials: true works cleanly
+    },
+    credentials: true,
+    methods: ['GET', 'POST', 'PATCH', 'PUT', 'DELETE', 'OPTIONS', 'HEAD'],
+    allowedHeaders: [
+      'Content-Type',
+      'Authorization',
+      'X-Request-ID',
+      'Idempotency-Key',
+      'Accept',
+      'Origin',
+      'X-Requested-With',
+    ],
+  });
 
-  app.use(
-    cors({
-      origin: allowedOrigins,
-      credentials: true,
-      methods: ['GET', 'POST', 'PATCH', 'PUT', 'DELETE', 'OPTIONS'],
-      allowedHeaders: ['Content-Type', 'Authorization', 'X-Request-ID', 'Idempotency-Key'],
-    }),
-  );
-
-  // 4. Global Validation Pipeline
+  // 4. Global Validation & Emoji Sanitization Pipeline
   app.useGlobalPipes(
+    new SanitizeEmojiPipe(),
     new ValidationPipe({
       whitelist: true,
       transform: true,

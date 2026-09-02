@@ -2,7 +2,7 @@
  * Sanjeevani Finance Management System - Client API Service
  */
 
-const API_BASE = typeof window !== 'undefined' ? '/api/v1' : (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api/v1');
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api/v1';
 
 export async function fetchApi<T = any>(
   endpoint: string,
@@ -10,8 +10,13 @@ export async function fetchApi<T = any>(
 ): Promise<{ success: boolean; data?: T; message?: string; error?: string }> {
   const token = typeof window !== 'undefined' ? localStorage.getItem('sfms_access_token') || localStorage.getItem('sjf_auth_token') : null;
 
+  const isMutating = options.method && ['POST', 'PUT', 'PATCH', 'DELETE'].includes(options.method.toUpperCase());
+  const requestId = `REQ-${Date.now()}-${Math.random().toString(36).substring(2, 8)}`;
+
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
+    'X-Request-ID': requestId,
+    ...(isMutating ? { 'Idempotency-Key': `IDEM-${Date.now()}-${Math.random().toString(36).substring(2, 9)}` } : {}),
     ...(options.headers as any),
   };
 
@@ -39,12 +44,20 @@ export async function fetchApi<T = any>(
       };
     }
 
-    const json = await res.json();
+    let json: any = {};
+    const text = await res.text();
+    try {
+      json = text ? JSON.parse(text) : {};
+    } catch {
+      json = { message: text || `HTTP ${res.status}: Failed request` };
+    }
+
     if (!res.ok) {
+      const errorMsg = json.error?.message || json.message || `Error ${res.status}: Server request failed`;
       return {
         success: false,
-        error: json.error?.message || json.message || `Error ${res.status}: Failed request`,
-        message: json.message || json.error?.message,
+        error: errorMsg,
+        message: errorMsg,
       };
     }
 
@@ -57,32 +70,37 @@ export async function fetchApi<T = any>(
     console.error(`API Error on ${endpoint}:`, err);
     return {
       success: false,
-      error: err.message || 'Failed to connect to backend server',
-      message: err.message || 'Failed to connect to backend server',
+      error: err.message || 'Failed to connect to backend server. Please verify the API is running on port 4000.',
+      message: err.message || 'Failed to connect to backend server. Please verify the API is running on port 4000.',
     };
   }
 }
 
+import { sanitizeFormData } from './emoji-sanitizer';
+
 export async function postApi<T = any>(endpoint: string, body?: any, options: RequestInit = {}) {
+  const sanitizedBody = body !== undefined ? sanitizeFormData(body) : undefined;
   return fetchApi<T>(endpoint, {
     method: 'POST',
-    body: body ? JSON.stringify(body) : undefined,
+    body: sanitizedBody ? JSON.stringify(sanitizedBody) : undefined,
     ...options,
   });
 }
 
 export async function patchApi<T = any>(endpoint: string, body?: any, options: RequestInit = {}) {
+  const sanitizedBody = body !== undefined ? sanitizeFormData(body) : undefined;
   return fetchApi<T>(endpoint, {
     method: 'PATCH',
-    body: body ? JSON.stringify(body) : undefined,
+    body: sanitizedBody ? JSON.stringify(sanitizedBody) : undefined,
     ...options,
   });
 }
 
 export async function putApi<T = any>(endpoint: string, body?: any, options: RequestInit = {}) {
+  const sanitizedBody = body !== undefined ? sanitizeFormData(body) : undefined;
   return fetchApi<T>(endpoint, {
     method: 'PUT',
-    body: body ? JSON.stringify(body) : undefined,
+    body: sanitizedBody ? JSON.stringify(sanitizedBody) : undefined,
     ...options,
   });
 }
@@ -93,3 +111,4 @@ export async function deleteApi<T = any>(endpoint: string, options: RequestInit 
     ...options,
   });
 }
+

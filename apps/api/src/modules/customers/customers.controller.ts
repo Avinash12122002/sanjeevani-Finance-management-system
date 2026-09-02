@@ -14,6 +14,7 @@ import {
 import { DataStoreService } from '../../database/data-store.service';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { FinancialEngine } from '@sanjeevani/financial-engine';
 import {
   CustomerStatus,
   KYCStatus,
@@ -75,6 +76,13 @@ export class CustomersController {
       throw new BadRequestException('First Name, Last Name and Mobile are required');
     }
 
+    const today = new Date().toISOString().split('T')[0];
+    if (this.dataStore.isDateLocked(today)) {
+      throw new BadRequestException(
+        `Business Date Locked (BR-009): Business date ${today} is closed and locked. Member registrations are blocked.`,
+      );
+    }
+
     // Duplicate Check (§90)
     const existingMobile = this.dataStore.customers.find((c) => c.mobile === body.mobile);
     if (existingMobile) {
@@ -107,7 +115,7 @@ export class CustomersController {
       state: body.state?.trim() || 'Uttar Pradesh',
       postalCode: body.postalCode?.trim() || '282001',
       photoUrl: body.photoUrl || undefined,
-      joiningDate: new Date().toISOString().split('T')[0],
+      joiningDate: today,
       status: CustomerStatus.ACTIVE,
       kycStatus: hasKyc ? KYCStatus.VERIFIED : KYCStatus.PENDING,
       createdBy: user.id || 'USR-001',
@@ -163,10 +171,10 @@ export class CustomersController {
     const transactions = this.dataStore.transactions.filter((t) => t.customerId === customer.id);
     const complaints = this.dataStore.complaints.filter((c) => c.customerId === customer.id);
 
-    // Calculate aggregated totals
+    // Calculate aggregated totals with Decimal.js precision
     let totalDeposits = 0;
     for (const acc of accounts) {
-      totalDeposits += acc.currentBalance || 0;
+      totalDeposits = FinancialEngine.add(totalDeposits, acc.currentBalance || 0);
     }
 
     let totalLoanOutstanding = 0;
@@ -174,13 +182,13 @@ export class CustomersController {
     let nextDueDate: string | undefined = undefined;
 
     for (const ln of loans) {
-      totalLoanOutstanding += ln.outstandingPrincipal || 0;
+      totalLoanOutstanding = FinancialEngine.add(totalLoanOutstanding, ln.outstandingPrincipal || 0);
       const nextInst = this.dataStore.loanInstallments.find(
         (i) => i.loanId === ln.id && (i.status === 'DUE' || i.status === 'UPCOMING'),
       );
-      if (nextInst) {
-        nextEmiAmount = nextInst.totalDue;
+      if (nextInst && !nextDueDate) {
         nextDueDate = nextInst.dueDate;
+        nextEmiAmount = nextInst.totalDue;
       }
     }
 

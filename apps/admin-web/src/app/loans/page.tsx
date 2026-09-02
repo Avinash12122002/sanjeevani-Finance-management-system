@@ -18,6 +18,7 @@ import {
   Slider,
   message,
   Descriptions,
+  Drawer,
   Popconfirm,
 } from 'antd';
 import {
@@ -41,6 +42,22 @@ export default function LoansPage() {
   const [appModalVisible, setAppModalVisible] = useState(false);
   const [assessmentModalVisible, setAssessmentModalVisible] = useState(false);
   const [selectedApp, setSelectedApp] = useState<ILoanApplication | null>(null);
+
+  // View Details Drawer State
+  const [viewLoan, setViewLoan] = useState<ILoan | null>(null);
+  const [viewLoanDrawerOpen, setViewLoanDrawerOpen] = useState(false);
+  const [viewApp, setViewApp] = useState<ILoanApplication | null>(null);
+  const [viewAppDrawerOpen, setViewAppDrawerOpen] = useState(false);
+
+  const handleOpenViewLoan = (loan: ILoan) => {
+    setViewLoan(loan);
+    setViewLoanDrawerOpen(true);
+  };
+
+  const handleOpenViewApp = (app: ILoanApplication) => {
+    setViewApp(app);
+    setViewAppDrawerOpen(true);
+  };
 
   // Live EMI Calculator State
   const [calcPrincipal, setCalcPrincipal] = useState<number>(100000);
@@ -87,8 +104,12 @@ export default function LoansPage() {
     }
   };
 
+  const [submitting, setSubmitting] = useState(false);
+
   const handleCreateApplication = async (values: any) => {
+    setSubmitting(true);
     const res = await postApi('/loan-applications', values);
+    setSubmitting(false);
 
     if (res.success) {
       message.success(`Loan Application Submitted: ${res.data?.applicationNumber || 'Submitted'}`);
@@ -102,7 +123,9 @@ export default function LoansPage() {
 
   const handlePerformAssessment = async (values: any) => {
     if (!selectedApp) return;
+    setSubmitting(true);
     const res = await postApi(`/loan-applications/${selectedApp.id}/credit-assessment`, values);
+    setSubmitting(false);
 
     if (res.success) {
       message.success(`Credit assessment completed: Score ${res.data?.totalScore}/100 (${res.data?.riskCategory} Risk)`);
@@ -167,6 +190,7 @@ export default function LoansPage() {
     {
       title: 'Member / Customer',
       key: 'customer',
+      ellipsis: true,
       render: (_: any, r: ILoan) => (
         <div>
           <div className="font-semibold text-slate-800">{r.customerName}</div>
@@ -213,7 +237,10 @@ export default function LoansPage() {
       title: 'Actions',
       key: 'actions',
       render: (_: any, r: ILoan) => (
-        <Space>
+        <Space size="small">
+          <Button size="small" icon={<EyeOutlined />} onClick={() => handleOpenViewLoan(r)}>
+            View
+          </Button>
           <Popconfirm
             title="Delete Loan Account"
             description={`Delete loan ${r.loanNumber}?`}
@@ -241,6 +268,7 @@ export default function LoansPage() {
     {
       title: 'Applicant',
       key: 'customerName',
+      ellipsis: true,
       render: (_: any, r: ILoanApplication) => (
         <div>
           <div className="font-semibold">{r.customerName}</div>
@@ -281,6 +309,13 @@ export default function LoansPage() {
       key: 'actions',
       render: (_: any, r: ILoanApplication) => (
         <Space size="small">
+          <Button
+            size="small"
+            icon={<EyeOutlined />}
+            onClick={() => handleOpenViewApp(r)}
+          >
+            View
+          </Button>
           {r.status === 'SUBMITTED' && (
             <Button
               size="small"
@@ -352,25 +387,68 @@ export default function LoansPage() {
         items={[
           {
             key: 'loans',
-            label: `Active Loan Book (${loans.length})`,
+            label: (
+              <span className="flex items-center gap-1.5">
+                <DollarCircleOutlined />
+                <span>Active Loan Book ({loans.length})</span>
+              </span>
+            ),
             children: (
               <Card className="glass-card">
-                <Table columns={loanColumns} dataSource={loans} rowKey="id" loading={loading} scroll={{ x: 900 }} />
+                <Table
+                  size="small"
+                  columns={loanColumns}
+                  dataSource={loans}
+                  rowKey="id"
+                  loading={loading}
+                  pagination={{ pageSize: 10 }}
+                  onRow={(record) => ({
+                    onClick: (e: any) => {
+                      if (e.target.closest('button') || e.target.closest('.ant-popconfirm') || e.target.closest('.ant-popover')) return;
+                      handleOpenViewLoan(record);
+                    },
+                    className: 'cursor-pointer hover:bg-emerald-50/50 transition-colors',
+                  })}
+                />
               </Card>
             ),
           },
           {
             key: 'applications',
-            label: `Applications & Approvals Queue (${applications.length})`,
+            label: (
+              <span className="flex items-center gap-1.5">
+                <FileProtectOutlined />
+                <span>Applications & Approvals Queue ({applications.length})</span>
+              </span>
+            ),
             children: (
               <Card className="glass-card">
-                <Table columns={appColumns} dataSource={applications} rowKey="id" loading={loading} scroll={{ x: 900 }} />
+                <Table
+                  size="small"
+                  columns={appColumns}
+                  dataSource={applications}
+                  rowKey="id"
+                  loading={loading}
+                  pagination={{ pageSize: 10 }}
+                  onRow={(record) => ({
+                    onClick: (e: any) => {
+                      if (e.target.closest('button') || e.target.closest('.ant-popconfirm') || e.target.closest('.ant-popover')) return;
+                      handleOpenViewApp(record);
+                    },
+                    className: 'cursor-pointer hover:bg-emerald-50/50 transition-colors',
+                  })}
+                />
               </Card>
             ),
           },
           {
             key: 'calculator',
-            label: 'Interactive Precision EMI Calculator (§26)',
+            label: (
+              <span className="flex items-center gap-1.5">
+                <CalculatorOutlined />
+                <span>Interactive Precision EMI Calculator (§26)</span>
+              </span>
+            ),
             children: (
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 <Card className="glass-card lg:col-span-1" title="EMI Calculation Parameters">
@@ -591,7 +669,7 @@ export default function LoansPage() {
 
           <div className="flex justify-end gap-2 mt-4 pt-4 border-t border-slate-100">
             <Button onClick={() => setAppModalVisible(false)}>Cancel</Button>
-            <Button type="primary" htmlType="submit" style={{ background: '#059669', borderColor: '#059669' }}>
+            <Button type="primary" htmlType="submit" loading={submitting} style={{ background: '#059669', borderColor: '#059669' }}>
               Submit for Credit Review
             </Button>
           </div>
@@ -659,12 +737,132 @@ export default function LoansPage() {
 
           <div className="flex justify-end gap-2 mt-4 pt-4 border-t border-slate-100">
             <Button onClick={() => setAssessmentModalVisible(false)}>Cancel</Button>
-            <Button type="primary" htmlType="submit" style={{ background: '#059669', borderColor: '#059669' }}>
+            <Button type="primary" htmlType="submit" loading={submitting} style={{ background: '#059669', borderColor: '#059669' }}>
               Save Assessment & Forward to BM
             </Button>
           </div>
         </Form>
       </Modal>
+
+      {/* LOAN DETAILS & REPAYMENT SCHEDULE DRAWER */}
+      <Drawer
+        title={
+          <div className="flex items-center gap-2">
+            <EyeOutlined className="text-emerald-600 text-lg" />
+            <span className="font-bold text-slate-800 text-base">
+              Loan Account Details: {viewLoan?.loanNumber}
+            </span>
+          </div>
+        }
+        open={viewLoanDrawerOpen}
+        onClose={() => {
+          setViewLoanDrawerOpen(false);
+          setViewLoan(null);
+        }}
+        width={600}
+      >
+        {viewLoan && (
+          <div className="space-y-6">
+            <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center justify-between">
+              <div>
+                <div className="text-xs text-emerald-700 font-semibold uppercase">Outstanding Balance</div>
+                <div className="text-2xl font-bold font-mono text-red-600">
+                  {FinancialEngine.formatINR(viewLoan.outstandingPrincipal)}
+                </div>
+              </div>
+              <Tag color={viewLoan.status === 'ACTIVE' ? 'blue' : 'success'} className="px-3 py-1 text-sm font-semibold">
+                {viewLoan.status}
+              </Tag>
+            </div>
+
+            <Descriptions bordered column={1} size="middle">
+              <Descriptions.Item label="Loan Number">
+                <span className="font-mono font-bold text-emerald-700">{viewLoan.loanNumber}</span>
+              </Descriptions.Item>
+              <Descriptions.Item label="Member Name">{viewLoan.customerName || 'N/A'}</Descriptions.Item>
+              <Descriptions.Item label="Member ID">
+                <span className="font-mono">{viewLoan.customerNumber || 'N/A'}</span>
+              </Descriptions.Item>
+              <Descriptions.Item label="Sanctioned Principal">
+                <span className="font-bold">{FinancialEngine.formatINR(viewLoan.principal)}</span>
+              </Descriptions.Item>
+              <Descriptions.Item label="Monthly EMI">
+                <span className="font-bold text-emerald-700">{FinancialEngine.formatINR(viewLoan.emiAmount)}</span>
+              </Descriptions.Item>
+              <Descriptions.Item label="Total Payable (P + I)">
+                {FinancialEngine.formatINR(viewLoan.totalPayable)}
+              </Descriptions.Item>
+              <Descriptions.Item label="Annual Interest Rate">{viewLoan.annualInterestRate}% p.a. ({viewLoan.interestMethod || 'REDUCING_BALANCE'})</Descriptions.Item>
+              <Descriptions.Item label="Tenure">{viewLoan.tenureMonths} Months</Descriptions.Item>
+              <Descriptions.Item label="Total Paid So Far">
+                <span className="font-bold text-green-700">{FinancialEngine.formatINR(viewLoan.totalPaid || 0)}</span>
+              </Descriptions.Item>
+              <Descriptions.Item label="Overdue Amount">
+                <span className="font-bold text-red-500">{FinancialEngine.formatINR(viewLoan.overdueAmount || 0)}</span>
+              </Descriptions.Item>
+              <Descriptions.Item label="Disbursement Date">{viewLoan.disbursementDate || 'N/A'}</Descriptions.Item>
+              <Descriptions.Item label="Final Maturity Due Date">{viewLoan.finalDueDate || 'N/A'}</Descriptions.Item>
+            </Descriptions>
+          </div>
+        )}
+      </Drawer>
+
+      {/* LOAN APPLICATION DETAILS DRAWER */}
+      <Drawer
+        title={
+          <div className="flex items-center gap-2">
+            <EyeOutlined className="text-emerald-600 text-lg" />
+            <span className="font-bold text-slate-800 text-base">
+              Loan Application Details: {viewApp?.applicationNumber}
+            </span>
+          </div>
+        }
+        open={viewAppDrawerOpen}
+        onClose={() => {
+          setViewAppDrawerOpen(false);
+          setViewApp(null);
+        }}
+        width={580}
+      >
+        {viewApp && (
+          <div className="space-y-6">
+            <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center justify-between">
+              <div>
+                <div className="text-xs text-emerald-700 font-semibold uppercase">Requested Sanction</div>
+                <div className="text-2xl font-bold font-mono text-emerald-950">
+                  {FinancialEngine.formatINR(viewApp.requestedAmount)}
+                </div>
+              </div>
+              <Tag color={viewApp.status === 'READY_FOR_DISBURSEMENT' ? 'success' : viewApp.status === 'MANAGER_REVIEW' ? 'purple' : 'orange'} className="px-3 py-1 text-sm font-semibold">
+                {viewApp.status}
+              </Tag>
+            </div>
+
+            <Descriptions bordered column={1} size="middle">
+              <Descriptions.Item label="Application Number">
+                <span className="font-mono font-bold text-emerald-700">{viewApp.applicationNumber}</span>
+              </Descriptions.Item>
+              <Descriptions.Item label="Applicant Name">{viewApp.customerName || 'N/A'}</Descriptions.Item>
+              <Descriptions.Item label="Applicant Mobile">{viewApp.customerMobile || 'N/A'}</Descriptions.Item>
+              <Descriptions.Item label="Loan Purpose">{viewApp.purpose || 'Business Expansion'}</Descriptions.Item>
+              <Descriptions.Item label="Requested Tenure">{viewApp.requestedTenureMonths} Months</Descriptions.Item>
+              <Descriptions.Item label="Credit Risk Score">
+                {viewApp.internalCreditScore ? (
+                  <Tag color={viewApp.internalCreditScore >= 70 ? 'green' : 'orange'}>
+                    {viewApp.internalCreditScore}/100 ({viewApp.riskCategory})
+                  </Tag>
+                ) : 'Pending Assessment'}
+              </Descriptions.Item>
+              <Descriptions.Item label="Monthly Stated Income">
+                {FinancialEngine.formatINR((viewApp as any).monthlyIncome || 35000)}
+              </Descriptions.Item>
+              <Descriptions.Item label="Application Submission Date">
+                {(viewApp as any).applicationDate || (viewApp.createdAt ? new Date(viewApp.createdAt).toLocaleDateString('en-IN') : 'N/A')}
+              </Descriptions.Item>
+            </Descriptions>
+          </div>
+        )}
+      </Drawer>
     </div>
   );
 }

@@ -15,6 +15,8 @@ import {
   Row,
   Col,
   Tabs,
+  Descriptions,
+  Drawer,
   Popconfirm,
   message,
   Divider,
@@ -26,6 +28,7 @@ import {
   DeleteOutlined,
   CheckCircleOutlined,
   MinusCircleOutlined,
+  EyeOutlined,
 } from '@ant-design/icons';
 import { fetchApi, postApi, patchApi, deleteApi } from '@/lib/api-client';
 import { FinancialEngine } from '@sanjeevani/financial-engine';
@@ -39,6 +42,22 @@ export default function AccountingPage() {
   const [bs, setBs] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const [journalModalVisible, setJournalModalVisible] = useState(false);
+
+  // View Details Drawer State
+  const [viewCoa, setViewCoa] = useState<IChartOfAccount | null>(null);
+  const [viewCoaDrawerOpen, setViewCoaDrawerOpen] = useState(false);
+  const [viewJournal, setViewJournal] = useState<IJournalEntry | null>(null);
+  const [viewJournalDrawerOpen, setViewJournalDrawerOpen] = useState(false);
+
+  const handleOpenViewCoa = (acc: IChartOfAccount) => {
+    setViewCoa(acc);
+    setViewCoaDrawerOpen(true);
+  };
+
+  const handleOpenViewJournal = (entry: IJournalEntry) => {
+    setViewJournal(entry);
+    setViewJournalDrawerOpen(true);
+  };
 
   // COA Modals
   const [addAccountModal, setAddAccountModal] = useState(false);
@@ -78,6 +97,8 @@ export default function AccountingPage() {
     setLoading(false);
   };
 
+  const [submitting, setSubmitting] = useState(false);
+
   const balanceCheck = FinancialEngine.validateJournalBalance(journalLines);
 
   const handlePostJournal = async () => {
@@ -86,10 +107,12 @@ export default function AccountingPage() {
       return;
     }
 
+    setSubmitting(true);
     const res = await postApi('/accounting/journals', {
       description: journalDescription,
       lines: journalLines,
     });
+    setSubmitting(false);
 
     if (res.success) {
       message.success(`Journal Entry ${res.data?.journalNumber || 'Posted'} posted successfully!`);
@@ -101,7 +124,9 @@ export default function AccountingPage() {
   };
 
   const handleCreateAccount = async (values: any) => {
+    setSubmitting(true);
     const res = await postApi('/accounting/chart-of-accounts', values);
+    setSubmitting(false);
     if (res.success) {
       message.success(`Ledger Account [${values.accountName}] created!`);
       setAddAccountModal(false);
@@ -124,7 +149,9 @@ export default function AccountingPage() {
 
   const handleUpdateAccount = async (values: any) => {
     if (!selectedAccount) return;
+    setSubmitting(true);
     const res = await patchApi(`/accounting/chart-of-accounts/${selectedAccount.id}`, values);
+    setSubmitting(false);
     if (res.success) {
       message.success(`Ledger Account [${values.accountName}] updated!`);
       setEditAccountModal(false);
@@ -156,6 +183,7 @@ export default function AccountingPage() {
       title: 'Ledger Account Name',
       dataIndex: 'accountName',
       key: 'name',
+      ellipsis: true,
       render: (name: string) => <span className="font-semibold">{name}</span>,
     },
     {
@@ -178,7 +206,10 @@ export default function AccountingPage() {
       title: 'Actions',
       key: 'actions',
       render: (_: any, r: IChartOfAccount) => (
-        <Space>
+        <Space size="small">
+          <Button size="small" icon={<EyeOutlined />} onClick={() => handleOpenViewCoa(r)}>
+            View
+          </Button>
           <Button size="small" icon={<EditOutlined />} onClick={() => handleOpenEditAccount(r)}>
             Edit
           </Button>
@@ -215,6 +246,7 @@ export default function AccountingPage() {
       title: 'Description',
       dataIndex: 'description',
       key: 'desc',
+      ellipsis: true,
     },
     {
       title: 'Debit Total',
@@ -234,6 +266,15 @@ export default function AccountingPage() {
       key: 'status',
       render: (s: string) => <Tag color="success">{s}</Tag>,
     },
+    {
+      title: 'Actions',
+      key: 'actions',
+      render: (_: any, r: IJournalEntry) => (
+        <Button size="small" icon={<EyeOutlined />} onClick={() => handleOpenViewJournal(r)}>
+          View
+        </Button>
+      ),
+    },
   ];
 
   return (
@@ -241,8 +282,11 @@ export default function AccountingPage() {
       {/* Header Banner */}
       <div className="flex items-center justify-between bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900 m-0">Double-Entry Accounting & Financial Statements</h1>
-          <p className="text-slate-500 text-sm mt-1 m-0">
+          <div className="flex items-center gap-2 mb-1">
+            <BookOutlined className="text-emerald-600 text-lg" />
+            <h1 className="text-2xl font-bold text-slate-900 m-0">Double-Entry Accounting & Financial Statements</h1>
+          </div>
+          <p className="text-slate-500 text-sm m-0">
             Chart of accounts, balanced journal postings, automated double-entry verification, P&L and Balance Sheet (SRS §38–§41, BR-016).
           </p>
         </div>
@@ -276,7 +320,21 @@ export default function AccountingPage() {
                   </Button>
                 }
               >
-                <Table columns={coaColumns} dataSource={coa} rowKey="id" loading={loading} scroll={{ x: 800 }} />
+                <Table
+                  size="small"
+                  columns={coaColumns}
+                  dataSource={coa}
+                  rowKey="id"
+                  loading={loading}
+                  pagination={{ pageSize: 10 }}
+                  onRow={(record) => ({
+                    onClick: (e: any) => {
+                      if (e.target.closest('button') || e.target.closest('.ant-popconfirm') || e.target.closest('.ant-popover')) return;
+                      handleOpenViewCoa(record);
+                    },
+                    className: 'cursor-pointer hover:bg-emerald-50/50 transition-colors',
+                  })}
+                />
               </Card>
             ),
           },
@@ -285,7 +343,21 @@ export default function AccountingPage() {
             label: `Posted Journals (${journals.length})`,
             children: (
               <Card className="glass-card">
-                <Table columns={journalColumns} dataSource={journals} rowKey="id" loading={loading} scroll={{ x: 800 }} />
+                <Table
+                  size="small"
+                  columns={journalColumns}
+                  dataSource={journals}
+                  rowKey="id"
+                  loading={loading}
+                  pagination={{ pageSize: 10 }}
+                  onRow={(record) => ({
+                    onClick: (e: any) => {
+                      if (e.target.closest('button') || e.target.closest('.ant-popconfirm') || e.target.closest('.ant-popover')) return;
+                      handleOpenViewJournal(record);
+                    },
+                    className: 'cursor-pointer hover:bg-emerald-50/50 transition-colors',
+                  })}
+                />
               </Card>
             ),
           },
@@ -549,6 +621,7 @@ export default function AccountingPage() {
             <Button
               type="primary"
               disabled={!balanceCheck.isValid}
+              loading={submitting}
               onClick={handlePostJournal}
               style={{ background: balanceCheck.isValid ? '#059669' : undefined, borderColor: balanceCheck.isValid ? '#059669' : undefined }}
             >
@@ -609,7 +682,7 @@ export default function AccountingPage() {
 
           <div className="flex justify-end gap-2 pt-4 border-t border-slate-100">
             <Button onClick={() => setAddAccountModal(false)}>Cancel</Button>
-            <Button type="primary" htmlType="submit" style={{ background: '#059669', borderColor: '#059669' }}>
+            <Button type="primary" htmlType="submit" loading={submitting} style={{ background: '#059669', borderColor: '#059669' }}>
               Create Account
             </Button>
           </div>
@@ -661,12 +734,119 @@ export default function AccountingPage() {
 
           <div className="flex justify-end gap-2 pt-4 border-t border-slate-100">
             <Button onClick={() => setEditAccountModal(false)}>Cancel</Button>
-            <Button type="primary" htmlType="submit" style={{ background: '#059669', borderColor: '#059669' }}>
+            <Button type="primary" htmlType="submit" loading={submitting} style={{ background: '#059669', borderColor: '#059669' }}>
               Save Changes
             </Button>
           </div>
         </Form>
       </Modal>
+
+      {/* LEDGER ACCOUNT DETAILS DRAWER */}
+      <Drawer
+        title={
+          <div className="flex items-center gap-2">
+            <EyeOutlined className="text-emerald-600 text-lg" />
+            <span className="font-bold text-slate-800 text-base">
+              Ledger Account: {viewCoa?.accountName} ({viewCoa?.accountCode})
+            </span>
+          </div>
+        }
+        open={viewCoaDrawerOpen}
+        onClose={() => {
+          setViewCoaDrawerOpen(false);
+          setViewCoa(null);
+        }}
+        width={560}
+      >
+        {viewCoa && (
+          <div className="space-y-6">
+            <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center justify-between">
+              <div>
+                <div className="text-xs text-emerald-700 font-semibold uppercase">Current Balance</div>
+                <div className="text-2xl font-bold font-mono text-emerald-950">
+                  {FinancialEngine.formatINR(viewCoa.currentBalance)}
+                </div>
+              </div>
+              <Tag color={viewCoa.accountType === 'ASSET' ? 'blue' : viewCoa.accountType === 'LIABILITY' ? 'purple' : viewCoa.accountType === 'INCOME' ? 'green' : 'orange'} className="px-3 py-1 text-sm font-semibold">
+                {viewCoa.accountType}
+              </Tag>
+            </div>
+
+            <Descriptions bordered column={1} size="middle">
+              <Descriptions.Item label="Account Code">
+                <span className="font-mono font-bold text-emerald-700">{viewCoa.accountCode}</span>
+              </Descriptions.Item>
+              <Descriptions.Item label="Account Name">{viewCoa.accountName}</Descriptions.Item>
+              <Descriptions.Item label="Classification">{viewCoa.accountType}</Descriptions.Item>
+              <Descriptions.Item label="Description">{viewCoa.description || 'General Ledger Account'}</Descriptions.Item>
+              <Descriptions.Item label="Normal Balance Rule">
+                {viewCoa.accountType === 'ASSET' || viewCoa.accountType === 'EXPENSE' ? 'Debit Normal (DR + / CR -)' : 'Credit Normal (CR + / DR -)'}
+              </Descriptions.Item>
+              <Descriptions.Item label="System ID">
+                <span className="font-mono text-xs">{viewCoa.id}</span>
+              </Descriptions.Item>
+            </Descriptions>
+          </div>
+        )}
+      </Drawer>
+
+      {/* JOURNAL ENTRY DETAILS DRAWER */}
+      <Drawer
+        title={
+          <div className="flex items-center gap-2">
+            <EyeOutlined className="text-emerald-600 text-lg" />
+            <span className="font-bold text-slate-800 text-base">
+              Journal Entry Breakdown: {viewJournal?.journalNumber}
+            </span>
+          </div>
+        }
+        open={viewJournalDrawerOpen}
+        onClose={() => {
+          setViewJournalDrawerOpen(false);
+          setViewJournal(null);
+        }}
+        width={650}
+      >
+        {viewJournal && (
+          <div className="space-y-6">
+            <div className="p-4 bg-indigo-50 border border-indigo-200 rounded-xl flex items-center justify-between">
+              <div>
+                <div className="text-xs text-indigo-700 font-semibold uppercase">Total Balanced Volume</div>
+                <div className="text-2xl font-bold font-mono text-indigo-950">
+                  {FinancialEngine.formatINR(viewJournal.totalDebit)}
+                </div>
+              </div>
+              <Tag color="success" className="px-3 py-1 text-sm font-semibold">
+                POSTED & BALANCED
+              </Tag>
+            </div>
+
+            <Descriptions bordered column={2} size="small">
+              <Descriptions.Item label="Journal Number" span={2}>
+                <span className="font-mono font-bold text-indigo-700">{viewJournal.journalNumber}</span>
+              </Descriptions.Item>
+              <Descriptions.Item label="Posting Date">{viewJournal.businessDate}</Descriptions.Item>
+              <Descriptions.Item label="Source Module">{(viewJournal as any).sourceModule || 'GENERAL_JOURNAL'}</Descriptions.Item>
+              <Descriptions.Item label="Description" span={2}>{viewJournal.description}</Descriptions.Item>
+            </Descriptions>
+
+            <div>
+              <div className="font-bold text-slate-800 mb-2">Double-Entry Ledger Lines</div>
+              <Table
+                size="small"
+                pagination={false}
+                dataSource={viewJournal.lines}
+                rowKey="id"
+                columns={[
+                  { title: 'Ledger Account', dataIndex: 'ledgerAccountId', key: 'acc', render: (id) => <span className="font-mono font-semibold">{id}</span> },
+                  { title: 'Debit (DR)', dataIndex: 'debitAmount', key: 'dr', render: (dr) => dr > 0 ? <span className="font-bold text-emerald-700">{FinancialEngine.formatINR(dr)}</span> : '-' },
+                  { title: 'Credit (CR)', dataIndex: 'creditAmount', key: 'cr', render: (cr) => cr > 0 ? <span className="font-bold text-blue-700">{FinancialEngine.formatINR(cr)}</span> : '-' },
+                ]}
+              />
+            </div>
+          </div>
+        )}
+      </Drawer>
     </div>
   );
 }

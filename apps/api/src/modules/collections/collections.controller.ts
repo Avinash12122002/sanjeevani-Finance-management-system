@@ -109,6 +109,12 @@ export class CollectionsController {
     const receiptNumber = this.dataStore.nextReceiptNumber();
     const today = new Date().toISOString().split('T')[0];
 
+    if (this.dataStore.isDateLocked(today)) {
+      throw new BadRequestException(
+        `Business Date Locked (BR-009): Business date ${today} is already closed and locked. Payment collections cannot be posted without reopening.`,
+      );
+    }
+
     let paymentFor = 'General Payment';
     let transactionType = TransactionType.DEPOSIT;
 

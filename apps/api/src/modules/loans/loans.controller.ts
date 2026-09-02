@@ -295,6 +295,12 @@ export class LoansController {
     const loanId = `LN-${Date.now()}`;
     const disburseDate = new Date().toISOString().split('T')[0];
 
+    if (this.dataStore.isDateLocked(disburseDate)) {
+      throw new BadRequestException(
+        `Business Date Locked (BR-009): Business date ${disburseDate} is already closed and locked. Loan disbursements are blocked without reopening.`,
+      );
+    }
+
     const newLoan: ILoan = {
       id: loanId,
       loanNumber,

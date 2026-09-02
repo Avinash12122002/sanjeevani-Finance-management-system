@@ -16,12 +16,15 @@ import {
   message,
   Divider,
   Alert,
+  Descriptions,
+  Drawer,
 } from 'antd';
 import {
   AuditOutlined,
   CheckCircleOutlined,
   WarningOutlined,
   LockOutlined,
+  EyeOutlined,
 } from '@ant-design/icons';
 import { fetchApi, postApi } from '@/lib/api-client';
 import { FinancialEngine } from '@sanjeevani/financial-engine';
@@ -32,6 +35,8 @@ export default function CashDrawerPage() {
   const [history, setHistory] = useState<ICashDrawer[]>([]);
   const [loading, setLoading] = useState(false);
   const [reconcileModalVisible, setReconcileModalVisible] = useState(false);
+  const [selectedDrawer, setSelectedDrawer] = useState<ICashDrawer | null>(null);
+  const [drawerOpen, setDrawerOpen] = useState(false);
   const [form] = Form.useForm();
 
   // Denominations state
@@ -73,15 +78,19 @@ export default function CashDrawerPage() {
     );
   };
 
+  const [submitting, setSubmitting] = useState(false);
+
   const handleReconcileClose = async (values: any) => {
     const totalPhysical = calculateTotalDenomination();
 
+    setSubmitting(true);
     const res = await postApi('/cash-drawers/reconcile-close', {
       drawerId: currentDrawer?.id,
       physicalCashCount: totalPhysical,
       denominationDetails: denominations,
       reconciliationNotes: values.notes,
     });
+    setSubmitting(false);
 
     if (res.success && res.data) {
       const st = res.data?.drawer?.status || res.data?.status;
@@ -148,6 +157,22 @@ export default function CashDrawerPage() {
         </Tag>
       ),
     },
+    {
+      title: 'Action',
+      key: 'action',
+      render: (_: any, r: ICashDrawer) => (
+        <Button
+          size="small"
+          icon={<EyeOutlined />}
+          onClick={() => {
+            setSelectedDrawer(r);
+            setDrawerOpen(true);
+          }}
+        >
+          View
+        </Button>
+      ),
+    },
   ];
 
   return (
@@ -155,8 +180,11 @@ export default function CashDrawerPage() {
       {/* Header Banner */}
       <div className="flex items-center justify-between bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900 m-0">Cashier Drawer Balancing & Vault Control</h1>
-          <p className="text-slate-500 text-sm mt-1 m-0">
+          <div className="flex items-center gap-2 mb-1">
+            <AuditOutlined className="text-emerald-600 text-lg" />
+            <h1 className="text-2xl font-bold text-slate-900 m-0">Cashier Drawer Balancing & Vault Control</h1>
+          </div>
+          <p className="text-slate-500 text-sm m-0">
             Daily physical cash reconciliation, denomination counting, and discrepancy detection (SRS §33, §34, BR-006).
           </p>
         </div>
@@ -178,37 +206,41 @@ export default function CashDrawerPage() {
           <Row gutter={[16, 16]}>
             <Col xs={24} sm={12} md={6}>
               <div className="p-4 bg-slate-50 rounded-xl border border-slate-200">
-                <div className="text-xs text-slate-500 font-semibold uppercase">OPENING BALANCE</div>
-                <div className="text-2xl font-black text-slate-900 mt-1">
-                  {FinancialEngine.formatINR(currentDrawer.openingBalance)}
-                </div>
+                <Statistic
+                  title={<span className="text-xs text-slate-500 font-semibold uppercase">OPENING BALANCE</span>}
+                  value={currentDrawer.openingBalance}
+                  formatter={(val) => <span className="text-2xl font-black text-slate-900">{FinancialEngine.formatINR(Number(val))}</span>}
+                />
                 <div className="text-xs text-slate-500 mt-1">Vault opening</div>
               </div>
             </Col>
             <Col xs={24} sm={12} md={6}>
               <div className="p-4 bg-emerald-50 rounded-xl border border-emerald-200">
-                <div className="text-xs text-emerald-800 font-semibold uppercase">CASH RECEIVED (+)</div>
-                <div className="text-2xl font-black text-emerald-700 mt-1">
-                  {FinancialEngine.formatINR(currentDrawer.cashReceived)}
-                </div>
+                <Statistic
+                  title={<span className="text-xs text-emerald-800 font-semibold uppercase">CASH RECEIVED (+)</span>}
+                  value={currentDrawer.cashReceived}
+                  formatter={(val) => <span className="text-2xl font-black text-emerald-700">{FinancialEngine.formatINR(Number(val))}</span>}
+                />
                 <div className="text-xs text-emerald-700 mt-1">Collections & Deposits</div>
               </div>
             </Col>
             <Col xs={24} sm={12} md={6}>
               <div className="p-4 bg-red-50 rounded-xl border border-red-200">
-                <div className="text-xs text-red-800 font-semibold uppercase">CASH PAID OUT (-)</div>
-                <div className="text-2xl font-black text-red-700 mt-1">
-                  {FinancialEngine.formatINR(currentDrawer.cashPaid)}
-                </div>
+                <Statistic
+                  title={<span className="text-xs text-red-800 font-semibold uppercase">CASH PAID OUT (-)</span>}
+                  value={currentDrawer.cashPaid}
+                  formatter={(val) => <span className="text-2xl font-black text-red-700">{FinancialEngine.formatINR(Number(val))}</span>}
+                />
                 <div className="text-xs text-red-700 mt-1">Disbursements / Withdrawals</div>
               </div>
             </Col>
             <Col xs={24} sm={12} md={6}>
               <div className="p-4 bg-blue-50 rounded-xl border border-blue-200">
-                <div className="text-xs text-blue-800 font-semibold uppercase">EXPECTED CLOSING</div>
-                <div className="text-2xl font-black text-blue-900 mt-1">
-                  {FinancialEngine.formatINR(currentDrawer.expectedClosingBalance)}
-                </div>
+                <Statistic
+                  title={<span className="text-xs text-blue-800 font-semibold uppercase">EXPECTED CLOSING</span>}
+                  value={currentDrawer.expectedClosingBalance}
+                  formatter={(val) => <span className="text-2xl font-black text-blue-900">{FinancialEngine.formatINR(Number(val))}</span>}
+                />
                 <div className="text-xs text-blue-700 mt-1">Status: <Tag color="blue">{currentDrawer.status}</Tag></div>
               </div>
             </Col>
@@ -216,23 +248,48 @@ export default function CashDrawerPage() {
         </Card>
       )}
 
-      {/* Drawer History */}
-      <Card className="glass-card" title="Historical Drawer Closures & Audit Records">
-        <Table columns={historyColumns} dataSource={history} rowKey="id" loading={loading} scroll={{ x: 850 }} />
+      {/* Drawer Closing History Table */}
+      <Card className="glass-card" title="Historical Cash Drawer Closures & Audit Log (SRS §34)">
+        <Table
+          size="small"
+          columns={historyColumns}
+          dataSource={history}
+          rowKey="id"
+          loading={loading}
+          pagination={{ pageSize: 10 }}
+          onRow={(record) => ({
+            onClick: (e: any) => {
+              if (e.target.closest('button') || e.target.closest('.ant-popconfirm') || e.target.closest('.ant-popover')) return;
+              setSelectedDrawer(record);
+              setDrawerOpen(true);
+            },
+            className: 'cursor-pointer hover:bg-emerald-50/50 transition-colors',
+          })}
+        />
       </Card>
 
       {/* PHYSICAL CASH COUNT MODAL (DENOMINATIONS) */}
       <Modal
-        title="Physical Cash Reconciliation & Denomination Count"
+        title={
+          <div className="flex items-center gap-2">
+            <AuditOutlined className="text-emerald-600" />
+            <span>Physical Cash Reconciliation & Denomination Count</span>
+          </div>
+        }
         open={reconcileModalVisible}
         onCancel={() => setReconcileModalVisible(false)}
         footer={null}
         width={620}
       >
         <Form form={form} layout="vertical" onFinish={handleReconcileClose}>
-          <div className="text-xs text-slate-500 mb-4">
-            Count and enter note quantities to calculate total physical vault cash.
-          </div>
+          <Alert
+            message="Vault Cash Count Verification (BR-006)"
+            description="Count and enter all physical note quantities in cashier vault to detect any shortages or overages."
+            type="info"
+            showIcon
+            icon={<WarningOutlined />}
+            className="mb-4 text-xs"
+          />
 
           <div className="grid grid-cols-2 gap-3 p-3 bg-slate-50 rounded-lg border border-slate-200">
             {['500', '200', '100', '50', '20', '10'].map((denom) => (
@@ -282,12 +339,79 @@ export default function CashDrawerPage() {
 
           <div className="flex justify-end gap-2 mt-4 pt-4 border-t border-slate-100">
             <Button onClick={() => setReconcileModalVisible(false)}>Cancel</Button>
-            <Button type="primary" htmlType="submit" style={{ background: '#059669', borderColor: '#059669' }}>
+            <Button type="primary" htmlType="submit" loading={submitting} style={{ background: '#059669', borderColor: '#059669' }}>
               Confirm Reconciliation & Lock Drawer
             </Button>
           </div>
         </Form>
       </Modal>
+
+      {/* CASH DRAWER AUDIT DETAILS DRAWER */}
+      <Drawer
+        title={
+          <div className="flex items-center gap-2">
+            <EyeOutlined className="text-emerald-600 text-lg" />
+            <span className="font-bold text-slate-800 text-base">
+              Cash Drawer Audit: {selectedDrawer?.businessDate} ({selectedDrawer?.cashierName || 'Cashier'})
+            </span>
+          </div>
+        }
+        open={drawerOpen}
+        onClose={() => {
+          setDrawerOpen(false);
+          setSelectedDrawer(null);
+        }}
+        width={560}
+      >
+        {selectedDrawer && (
+          <div className="space-y-6">
+            <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center justify-between">
+              <div>
+                <div className="text-xs text-emerald-700 font-semibold uppercase">Physical Closing Vault Cash</div>
+                <div className="text-2xl font-bold font-mono text-emerald-950">
+                  {FinancialEngine.formatINR(selectedDrawer.physicalClosingBalance || selectedDrawer.expectedClosingBalance || 0)}
+                </div>
+              </div>
+              <Tag color={selectedDrawer.status === 'MATCHED' ? 'success' : selectedDrawer.status === 'OPEN' ? 'blue' : 'error'} className="px-3 py-1 text-sm font-semibold">
+                {selectedDrawer.status}
+              </Tag>
+            </div>
+
+            <Descriptions bordered column={1} size="middle">
+              <Descriptions.Item label="Business Date">
+                <span className="font-mono font-bold">{selectedDrawer.businessDate}</span>
+              </Descriptions.Item>
+              <Descriptions.Item label="Cashier In-Charge">{selectedDrawer.cashierName || 'Assigned Cashier'}</Descriptions.Item>
+              <Descriptions.Item label="Opening Balance">
+                {FinancialEngine.formatINR(selectedDrawer.openingBalance)}
+              </Descriptions.Item>
+              <Descriptions.Item label="Total Cash Received (+)">
+                <span className="font-bold text-emerald-700">{FinancialEngine.formatINR(selectedDrawer.cashReceived)}</span>
+              </Descriptions.Item>
+              <Descriptions.Item label="Total Cash Paid Out (-)">
+                <span className="font-bold text-red-600">{FinancialEngine.formatINR(selectedDrawer.cashPaid)}</span>
+              </Descriptions.Item>
+              <Descriptions.Item label="System Expected Closing">
+                <span className="font-bold">{FinancialEngine.formatINR(selectedDrawer.expectedClosingBalance)}</span>
+              </Descriptions.Item>
+              <Descriptions.Item label="Physical Cash Counted">
+                <span className="font-bold">{selectedDrawer.physicalClosingBalance ? FinancialEngine.formatINR(selectedDrawer.physicalClosingBalance) : 'Not Counted'}</span>
+              </Descriptions.Item>
+              <Descriptions.Item label="Discrepancy / Variance">
+                <span className={selectedDrawer.difference === 0 ? 'text-green-600 font-bold' : 'text-red-600 font-bold'}>
+                  {FinancialEngine.formatINR(selectedDrawer.difference || 0)}
+                </span>
+              </Descriptions.Item>
+              <Descriptions.Item label="Reconciliation Notes">
+                {selectedDrawer.reconciliationNotes || 'Standard shift closure'}
+              </Descriptions.Item>
+              <Descriptions.Item label="Audit Record ID">
+                <span className="font-mono text-xs">{selectedDrawer.id}</span>
+              </Descriptions.Item>
+            </Descriptions>
+          </div>
+        )}
+      </Drawer>
     </div>
   );
 }

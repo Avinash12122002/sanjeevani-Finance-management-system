@@ -14,6 +14,8 @@ import {
   Row,
   Col,
   Tabs,
+  Descriptions,
+  Drawer,
   Popconfirm,
   message,
 } from 'antd';
@@ -22,6 +24,7 @@ import {
   PlusOutlined,
   EditOutlined,
   DeleteOutlined,
+  EyeOutlined,
 } from '@ant-design/icons';
 import { fetchApi, postApi, patchApi, deleteApi } from '@/lib/api-client';
 import { FinancialEngine } from '@sanjeevani/financial-engine';
@@ -35,6 +38,16 @@ export default function AccountsPage() {
   const [openModalVisible, setOpenModalVisible] = useState(false);
   const [editModalVisible, setEditModalVisible] = useState(false);
   const [selectedAccount, setSelectedAccount] = useState<IAccount | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+
+  // View Details Drawer State
+  const [viewAccount, setViewAccount] = useState<IAccount | null>(null);
+  const [viewDrawerOpen, setViewDrawerOpen] = useState(false);
+
+  const handleOpenViewDetails = (account: IAccount) => {
+    setViewAccount(account);
+    setViewDrawerOpen(true);
+  };
 
   const [form] = Form.useForm();
   const [editForm] = Form.useForm();
@@ -58,7 +71,9 @@ export default function AccountsPage() {
   };
 
   const handleOpenAccount = async (values: any) => {
+    setSubmitting(true);
     const res = await postApi('/accounts', values);
+    setSubmitting(false);
 
     if (res.success) {
       message.success(`Account opened successfully: ${res.data?.accountNumber || 'Opened'}`);
@@ -81,7 +96,9 @@ export default function AccountsPage() {
 
   const handleUpdateAccount = async (values: any) => {
     if (!selectedAccount) return;
+    setSubmitting(true);
     const res = await patchApi(`/accounts/${selectedAccount.id}`, values);
+    setSubmitting(false);
     if (res.success) {
       message.success(`Account ${selectedAccount.accountNumber} updated.`);
       setEditModalVisible(false);
@@ -109,12 +126,13 @@ export default function AccountsPage() {
       render: (acc: string) => <span className="font-mono font-bold text-blue-700">{acc}</span>,
     },
     {
-      title: 'Customer Name',
+      title: 'Member / Customer',
       key: 'customer',
+      ellipsis: true,
       render: (_: any, r: IAccount) => (
         <div>
-          <div className="font-semibold text-slate-800">{r.customerName}</div>
-          <div className="font-mono text-xs text-slate-400">{r.customerNumber}</div>
+          <div className="font-semibold">{r.customerName}</div>
+          <div className="text-xs text-slate-500 font-mono">{r.customerNumber}</div>
         </div>
       ),
     },
@@ -156,35 +174,45 @@ export default function AccountsPage() {
     {
       title: 'Actions',
       key: 'actions',
+      width: 140,
       render: (_: any, r: IAccount) => (
-        <Space>
+        <Space size={4}>
+          <Button size="small" icon={<EyeOutlined />} onClick={() => handleOpenViewDetails(r)} />
           <Button size="small" icon={<EditOutlined />} onClick={() => handleOpenEdit(r)}>
             Edit
           </Button>
           <Popconfirm
-            title="Delete Deposit Account"
-            description={`Delete account ${r.accountNumber}?`}
+            title="Delete Account"
+            description={`Delete ${r.accountNumber}?`}
             onConfirm={() => handleDeleteAccount(r.id, r.accountNumber)}
-            okText="Yes, Delete"
+            okText="Delete"
             cancelText="Cancel"
             okButtonProps={{ danger: true }}
           >
-            <Button size="small" danger icon={<DeleteOutlined />}>
-              Delete
-            </Button>
+            <Button size="small" danger icon={<DeleteOutlined />} />
           </Popconfirm>
         </Space>
       ),
     },
   ];
 
+  const [activeTab, setActiveTab] = useState<string>('ALL');
+
+  const filteredAccounts = accounts.filter((a) => {
+    if (activeTab === 'ALL') return true;
+    return a.productType === activeTab;
+  });
+
   return (
     <div className="space-y-6">
       {/* Header Banner */}
       <div className="flex items-center justify-between bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900 m-0">Recurring Deposits & Term Deposits</h1>
-          <p className="text-slate-500 text-sm mt-1 m-0">
+          <div className="flex items-center gap-2 mb-1">
+            <BankOutlined className="text-emerald-600 text-lg" />
+            <h1 className="text-2xl font-bold text-slate-900 m-0">Recurring Deposits & Term Deposits</h1>
+          </div>
+          <p className="text-slate-500 text-sm m-0">
             Deposit product portfolio, scheduled installment tracking and compound maturity calculation (SRS §14, §19, §21).
           </p>
         </div>
@@ -199,12 +227,40 @@ export default function AccountsPage() {
       </div>
 
       <Card className="glass-card">
-        <Table columns={columns} dataSource={accounts} rowKey="id" loading={loading} scroll={{ x: 900 }} />
+        <Tabs
+          activeKey={activeTab}
+          onChange={(k) => setActiveTab(k)}
+          items={[
+            { key: 'ALL', label: `All Accounts (${accounts.length})` },
+            { key: ProductType.RD, label: `Recurring Deposits (${accounts.filter((a) => a.productType === ProductType.RD).length})` },
+            { key: ProductType.TERM_DEPOSIT, label: `Term Deposits (${accounts.filter((a) => a.productType === ProductType.TERM_DEPOSIT).length})` },
+          ]}
+        />
+        <Table
+          size="small"
+          columns={columns}
+          dataSource={filteredAccounts}
+          rowKey="id"
+          loading={loading}
+          pagination={{ pageSize: 10 }}
+          onRow={(record) => ({
+            onClick: (e: any) => {
+              if (e.target.closest('button') || e.target.closest('.ant-popconfirm') || e.target.closest('.ant-popover')) return;
+              handleOpenViewDetails(record);
+            },
+            className: 'cursor-pointer hover:bg-emerald-50/50 transition-colors',
+          })}
+        />
       </Card>
 
       {/* OPEN DEPOSIT ACCOUNT MODAL */}
       <Modal
-        title="Open New Deposit Account (RD / Term Deposit)"
+        title={
+          <div className="flex items-center gap-2">
+            <BankOutlined className="text-emerald-600" />
+            <span>Open New Deposit Account (RD / Term Deposit)</span>
+          </div>
+        }
         open={openModalVisible}
         onCancel={() => setOpenModalVisible(false)}
         footer={null}
@@ -262,7 +318,7 @@ export default function AccountsPage() {
 
           <div className="flex justify-end gap-2 mt-4 pt-4 border-t border-slate-100">
             <Button onClick={() => setOpenModalVisible(false)}>Cancel</Button>
-            <Button type="primary" htmlType="submit" style={{ background: '#059669', borderColor: '#059669' }}>
+            <Button type="primary" htmlType="submit" loading={submitting} style={{ background: '#059669', borderColor: '#059669' }}>
               Open Account
             </Button>
           </div>
@@ -294,12 +350,77 @@ export default function AccountsPage() {
 
           <div className="flex justify-end gap-2 mt-4 pt-4 border-t border-slate-100">
             <Button onClick={() => setEditModalVisible(false)}>Cancel</Button>
-            <Button type="primary" htmlType="submit" style={{ background: '#059669', borderColor: '#059669' }}>
+            <Button type="primary" htmlType="submit" loading={submitting} style={{ background: '#059669', borderColor: '#059669' }}>
               Save Changes
             </Button>
           </div>
         </Form>
       </Modal>
+
+      {/* ACCOUNT DETAILS DRAWER */}
+      <Drawer
+        title={
+          <div className="flex items-center gap-2">
+            <EyeOutlined className="text-emerald-600 text-lg" />
+            <span className="font-bold text-slate-800 text-base">
+              Deposit Account Details: {viewAccount?.accountNumber}
+            </span>
+          </div>
+        }
+        open={viewDrawerOpen}
+        onClose={() => {
+          setViewDrawerOpen(false);
+          setViewAccount(null);
+        }}
+        width={560}
+      >
+        {viewAccount && (
+          <div className="space-y-6">
+            <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center justify-between">
+              <div>
+                <div className="text-xs text-emerald-700 font-semibold uppercase">Account Balance</div>
+                <div className="text-2xl font-bold font-mono text-emerald-950">
+                  {FinancialEngine.formatINR(viewAccount.currentBalance)}
+                </div>
+              </div>
+              <Tag color={viewAccount.status === 'ACTIVE' ? 'success' : 'default'} className="px-3 py-1 text-sm font-semibold">
+                {viewAccount.status}
+              </Tag>
+            </div>
+
+            <Descriptions bordered column={1} size="middle">
+              <Descriptions.Item label="Account Number">
+                <span className="font-mono font-bold text-emerald-700">{viewAccount.accountNumber}</span>
+              </Descriptions.Item>
+              <Descriptions.Item label="Member Name">{viewAccount.customerName || 'N/A'}</Descriptions.Item>
+              <Descriptions.Item label="Member Number">
+                <span className="font-mono">{viewAccount.customerNumber || 'N/A'}</span>
+              </Descriptions.Item>
+              <Descriptions.Item label="Product Type">
+                <Tag color="blue">{viewAccount.productType}</Tag>
+              </Descriptions.Item>
+              <Descriptions.Item label="Product Name">{viewAccount.productName || 'N/A'}</Descriptions.Item>
+              <Descriptions.Item label="Interest Rate">
+                <span className="font-bold text-indigo-700">{viewAccount.interestRate}% p.a.</span>
+              </Descriptions.Item>
+              <Descriptions.Item label="Monthly Installment / Principal">
+                {FinancialEngine.formatINR(viewAccount.principalAmount)}
+              </Descriptions.Item>
+              <Descriptions.Item label="Tenure">{viewAccount.tenureMonths} Months</Descriptions.Item>
+              <Descriptions.Item label="Opening Date">{viewAccount.openingDate || 'N/A'}</Descriptions.Item>
+              <Descriptions.Item label="Maturity Date">{viewAccount.maturityDate || 'N/A'}</Descriptions.Item>
+              <Descriptions.Item label="Expected Maturity Amount">
+                <span className="font-bold text-emerald-700">
+                  {FinancialEngine.formatINR(viewAccount.maturityAmount || viewAccount.currentBalance)}
+                </span>
+              </Descriptions.Item>
+              <Descriptions.Item label="Branch ID">
+                <span className="font-mono text-xs">{viewAccount.branchId}</span>
+              </Descriptions.Item>
+            </Descriptions>
+          </div>
+        )}
+      </Drawer>
     </div>
   );
 }

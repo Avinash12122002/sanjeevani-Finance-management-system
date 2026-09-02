@@ -476,4 +476,14 @@ export class DataStoreService implements OnModuleInit {
       cashMismatchAmount: 0,
     };
   }
+
+  /**
+   * Check if a business date is locked (BR-009)
+   */
+  isDateLocked(date?: string): boolean {
+    if (!date) return false;
+    const closure = this.businessDayClosures.find((c) => c.businessDate === date);
+    return closure ? closure.status === BusinessDateStatus.LOCKED : false;
+  }
 }
+

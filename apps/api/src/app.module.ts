@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, NestModule, MiddlewareConsumer } from '@nestjs/common';
 import { JwtModule } from '@nestjs/jwt';
 import { ConfigModule } from '@nestjs/config';
 
@@ -18,6 +18,7 @@ import { DashboardsController } from './modules/dashboards/dashboards.controller
 import { BranchesController } from './modules/branches/branches.controller';
 import { EmployeesController } from './modules/employees/employees.controller';
 import { ComplaintsController } from './modules/complaints/complaints.controller';
+import { EmojiSanitizerMiddleware } from './common/middleware/emoji-sanitizer.middleware';
 
 @Module({
   imports: [
@@ -48,4 +49,9 @@ import { ComplaintsController } from './modules/complaints/complaints.controller
   providers: [DataStoreService],
   exports: [DataStoreService],
 })
-export class AppModule {}
+export class AppModule implements NestModule {
+  configure(consumer: MiddlewareConsumer) {
+    consumer.apply(EmojiSanitizerMiddleware).forRoutes('*');
+  }
+}
+

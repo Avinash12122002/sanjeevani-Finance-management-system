@@ -12,6 +12,7 @@ import {
 import { DataStoreService } from '../../database/data-store.service';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { FinancialEngine } from '@sanjeevani/financial-engine';
 import {
   IUser,
   TransactionType,
@@ -112,6 +113,13 @@ export class TransactionsController {
       throw new BadRequestException('This transaction has already been reversed.');
     }
 
+    const today = new Date().toISOString().split('T')[0];
+    if (this.dataStore.isDateLocked(today)) {
+      throw new BadRequestException(
+        `Business Date Locked (BR-009): Business date ${today} is already closed and locked. Transaction reversals cannot be posted without reopening.`,
+      );
+    }
+
     const reversalTxnNumber = this.dataStore.nextTransactionNumber();
 
     const reversalTxn: ITransaction = {
@@ -127,7 +135,7 @@ export class TransactionsController {
       transactionType: TransactionType.REVERSAL,
       amount: originalTxn.amount,
       paymentMode: originalTxn.paymentMode,
-      transactionDate: new Date().toISOString().split('T')[0],
+      transactionDate: today,
       status: TransactionStatus.POSTED,
       createdBy: user.id || 'USR-001',
       createdByName: user.employeeName || 'Manager',
@@ -141,17 +149,17 @@ export class TransactionsController {
     originalTxn.status = TransactionStatus.REVERSED;
     this.dataStore.transactions.unshift(reversalTxn);
 
-    // Rollback loan or account changes if applicable
+    // Rollback loan or account changes with arbitrary decimal precision
     if (originalTxn.loanId) {
       const loan = this.dataStore.loans.find((l) => l.id === originalTxn.loanId);
       if (loan) {
-        loan.outstandingPrincipal += originalTxn.amount * 0.8;
-        loan.totalPaid -= originalTxn.amount;
+        loan.outstandingPrincipal = FinancialEngine.add(loan.outstandingPrincipal, originalTxn.amount * 0.8);
+        loan.totalPaid = Math.max(0, FinancialEngine.subtract(loan.totalPaid, originalTxn.amount));
       }
     } else if (originalTxn.accountId) {
       const acc = this.dataStore.accounts.find((a) => a.id === originalTxn.accountId);
       if (acc) {
-        acc.currentBalance -= originalTxn.amount;
+        acc.currentBalance = Math.max(0, FinancialEngine.subtract(acc.currentBalance, originalTxn.amount));
       }
     }
 

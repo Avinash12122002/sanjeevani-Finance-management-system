@@ -17,6 +17,7 @@ import {
   Row,
   Col,
   Descriptions,
+  Drawer,
   Popconfirm,
   message,
 } from 'antd';
@@ -31,8 +32,10 @@ import {
   DeleteOutlined,
   AppstoreAddOutlined,
   ShoppingOutlined,
+  EyeOutlined,
 } from '@ant-design/icons';
 import { fetchApi, postApi, patchApi, deleteApi } from '@/lib/api-client';
+import { noEmojiRule } from '@/lib/emoji-sanitizer';
 import { FinancialEngine } from '@sanjeevani/financial-engine';
 
 export default function SettingsPage() {
@@ -53,6 +56,17 @@ export default function SettingsPage() {
   const [addProductModal, setAddProductModal] = useState(false);
   const [editProductModal, setEditProductModal] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<any>(null);
+
+  // Universal View Detail Drawer State
+  const [viewRecord, setViewRecord] = useState<any>(null);
+  const [viewRecordType, setViewRecordType] = useState<'STAFF' | 'PRODUCT' | 'BRANCH' | ''>('');
+  const [viewDrawerOpen, setViewDrawerOpen] = useState(false);
+
+  const handleOpenViewDetails = (record: any, type: 'STAFF' | 'PRODUCT' | 'BRANCH') => {
+    setViewRecord(record);
+    setViewRecordType(type);
+    setViewDrawerOpen(true);
+  };
 
   const [submitting, setSubmitting] = useState(false);
 
@@ -359,15 +373,31 @@ export default function SettingsPage() {
                 }
               >
                 <Table
+                  size="small"
                   dataSource={employees}
                   rowKey="id"
                   loading={loading}
-                  scroll={{ x: 900 }}
+                  pagination={{ pageSize: 10 }}
+                  onRow={(record) => ({
+                    onClick: (e: any) => {
+                      if (e.target.closest('button') || e.target.closest('.ant-popconfirm') || e.target.closest('.ant-popover')) return;
+                      handleOpenViewDetails(record, 'STAFF');
+                    },
+                    className: 'cursor-pointer hover:bg-emerald-50/50 transition-colors',
+                  })}
                   columns={[
-                    { title: 'Employee ID', dataIndex: 'employeeNumber', key: 'emp', render: (e) => <span className="font-mono font-bold text-emerald-700">{e}</span> },
-                    { title: 'Staff Name', dataIndex: 'name', key: 'name' },
                     {
-                      title: 'Role / Designation',
+                      title: 'Staff Member',
+                      key: 'staff',
+                      render: (_: any, r: any) => (
+                        <div>
+                          <div className="font-semibold text-slate-800">{r.name}</div>
+                          <div className="text-xs font-mono text-emerald-700 font-bold">{r.employeeNumber}</div>
+                        </div>
+                      ),
+                    },
+                    {
+                      title: 'Role',
                       dataIndex: 'designation',
                       key: 'role',
                       render: (r) => {
@@ -379,20 +409,35 @@ export default function SettingsPage() {
                         return <Tag color={color}>{r}</Tag>;
                       },
                     },
-                    { title: 'Mobile / Login ID', dataIndex: 'mobile', key: 'mob' },
-                    { title: 'Email', dataIndex: 'email', key: 'email' },
-                    { title: 'Assigned Branch', dataIndex: 'branchName', key: 'br' },
+                    {
+                      title: 'Contact',
+                      key: 'contact',
+                      render: (_: any, r: any) => (
+                        <div>
+                          <div className="font-mono text-xs">{r.mobile}</div>
+                          {r.email && <div className="text-xs text-slate-400 truncate max-w-[150px]">{r.email}</div>}
+                        </div>
+                      ),
+                    },
+                    { title: 'Branch', dataIndex: 'branchName', key: 'br', ellipsis: true },
                     {
                       title: 'Status',
                       dataIndex: 'employmentStatus',
                       key: 'st',
+                      width: 90,
                       render: (s) => <Tag color={s === 'ACTIVE' ? 'green' : 'default'}>{s || 'ACTIVE'}</Tag>,
                     },
                     {
                       title: 'Actions',
                       key: 'actions',
+                      width: 140,
                       render: (_: any, record: any) => (
-                        <Space>
+                        <Space size={4}>
+                          <Button
+                            size="small"
+                            icon={<EyeOutlined />}
+                            onClick={() => handleOpenViewDetails(record, 'STAFF')}
+                          />
                           <Button
                             size="small"
                             icon={<EditOutlined />}
@@ -401,16 +446,14 @@ export default function SettingsPage() {
                             Edit
                           </Button>
                           <Popconfirm
-                            title="Delete Staff Member"
-                            description={`Are you sure you want to delete ${record.name}? Login access will be revoked.`}
+                            title="Delete Staff"
+                            description={`Delete ${record.name}?`}
                             onConfirm={() => handleDeleteStaff(record.id, record.name)}
-                            okText="Yes, Delete"
+                            okText="Delete"
                             cancelText="Cancel"
                             okButtonProps={{ danger: true }}
                           >
-                            <Button size="small" danger icon={<DeleteOutlined />}>
-                              Delete
-                            </Button>
+                            <Button size="small" danger icon={<DeleteOutlined />} />
                           </Popconfirm>
                         </Space>
                       ),
@@ -438,24 +481,53 @@ export default function SettingsPage() {
                 }
               >
                 <Table
+                  size="small"
                   dataSource={products}
                   rowKey="id"
                   loading={loading}
-                  scroll={{ x: 900 }}
+                  pagination={{ pageSize: 10 }}
+                  onRow={(record) => ({
+                    onClick: (e: any) => {
+                      if (e.target.closest('button') || e.target.closest('.ant-popconfirm') || e.target.closest('.ant-popover')) return;
+                      handleOpenViewDetails(record, 'PRODUCT');
+                    },
+                    className: 'cursor-pointer hover:bg-emerald-50/50 transition-colors',
+                  })}
                   columns={[
-                    { title: 'Product Code', dataIndex: 'productCode', key: 'code', render: (c) => <span className="font-mono font-bold text-emerald-700">{c}</span> },
-                    { title: 'Product Name', dataIndex: 'productName', key: 'name' },
+                    {
+                      title: 'Product',
+                      key: 'prod',
+                      render: (_: any, r: any) => (
+                        <div>
+                          <div className="font-semibold text-slate-800">{r.productName}</div>
+                          <div className="text-xs font-mono text-emerald-700 font-bold">{r.productCode}</div>
+                        </div>
+                      ),
+                    },
                     { title: 'Category', dataIndex: 'productType', key: 'type', render: (t) => <Tag color="blue">{t}</Tag> },
                     { title: 'Interest Rate', dataIndex: 'interestRate', key: 'rate', render: (r) => <span className="font-bold text-indigo-700">{r}% p.a.</span> },
-                    { title: 'Tenure Range', key: 'tenure', render: (_: any, r: any) => `${r.minimumTenureMonths || 1} - ${r.maximumTenureMonths || 60} Mo` },
-                    { title: 'Min Amount', dataIndex: 'minimumAmount', key: 'min', render: (m) => FinancialEngine.formatINR(m || 500) },
-                    { title: 'Max Amount', dataIndex: 'maximumAmount', key: 'max', render: (m) => FinancialEngine.formatINR(m || 1000000) },
-                    { title: 'Status', dataIndex: 'isEnabled', key: 'st', render: (e) => <Tag color={e ? 'green' : 'default'}>{e ? 'ENABLED' : 'DISABLED'}</Tag> },
+                    { title: 'Tenure Limits', key: 'tenure', render: (_: any, r: any) => `${r.minimumTenureMonths || 1} - ${r.maximumTenureMonths || 60} Mo` },
+                    {
+                      title: 'Amount Bounds',
+                      key: 'bounds',
+                      render: (_: any, r: any) => (
+                        <div className="text-xs">
+                          {FinancialEngine.formatINR(r.minimumAmount || 500)} - {FinancialEngine.formatINR(r.maximumAmount || 1000000)}
+                        </div>
+                      ),
+                    },
+                    { title: 'Status', dataIndex: 'isEnabled', key: 'st', width: 90, render: (e) => <Tag color={e ? 'green' : 'default'}>{e ? 'ENABLED' : 'DISABLED'}</Tag> },
                     {
                       title: 'Actions',
                       key: 'actions',
+                      width: 140,
                       render: (_: any, record: any) => (
-                        <Space>
+                        <Space size={4}>
+                          <Button
+                            size="small"
+                            icon={<EyeOutlined />}
+                            onClick={() => handleOpenViewDetails(record, 'PRODUCT')}
+                          />
                           <Button
                             size="small"
                             icon={<EditOutlined />}
@@ -464,16 +536,14 @@ export default function SettingsPage() {
                             Edit
                           </Button>
                           <Popconfirm
-                            title="Delete Financial Product"
-                            description={`Delete product ${record.productName}?`}
+                            title="Delete Product"
+                            description={`Delete ${record.productName}?`}
                             onConfirm={() => handleDeleteProduct(record.id, record.productName)}
-                            okText="Yes, Delete"
+                            okText="Delete"
                             cancelText="Cancel"
                             okButtonProps={{ danger: true }}
                           >
-                            <Button size="small" danger icon={<DeleteOutlined />}>
-                              Delete
-                            </Button>
+                            <Button size="small" danger icon={<DeleteOutlined />} />
                           </Popconfirm>
                         </Space>
                       ),
@@ -501,23 +571,52 @@ export default function SettingsPage() {
                 }
               >
                 <Table
+                  size="small"
                   dataSource={branches}
                   rowKey="id"
                   loading={loading}
-                  scroll={{ x: 900 }}
+                  pagination={{ pageSize: 10 }}
+                  onRow={(record) => ({
+                    onClick: (e: any) => {
+                      if (e.target.closest('button') || e.target.closest('.ant-popconfirm') || e.target.closest('.ant-popover')) return;
+                      handleOpenViewDetails(record, 'BRANCH');
+                    },
+                    className: 'cursor-pointer hover:bg-emerald-50/50 transition-colors',
+                  })}
                   columns={[
-                    { title: 'Branch Code', dataIndex: 'branchCode', key: 'code', render: (c) => <span className="font-mono font-bold text-emerald-700">{c}</span> },
-                    { title: 'Branch Name', dataIndex: 'name', key: 'name' },
-                    { title: 'Address', dataIndex: 'address', key: 'address' },
-                    { title: 'City', dataIndex: 'city', key: 'city' },
-                    { title: 'State', dataIndex: 'state', key: 'state' },
-                    { title: 'Phone', dataIndex: 'phone', key: 'phone' },
-                    { title: 'Status', dataIndex: 'status', key: 'st', render: (s) => <Tag color={s === 'ACTIVE' ? 'success' : 'default'}>{s || 'ACTIVE'}</Tag> },
+                    {
+                      title: 'Branch',
+                      key: 'br',
+                      render: (_: any, r: any) => (
+                        <div>
+                          <div className="font-semibold text-slate-800">{r.name}</div>
+                          <div className="text-xs font-mono text-emerald-700 font-bold">{r.branchCode}</div>
+                        </div>
+                      ),
+                    },
+                    {
+                      title: 'Location',
+                      key: 'loc',
+                      ellipsis: true,
+                      render: (_: any, r: any) => (
+                        <div className="text-xs">
+                          <div>{r.city ? `${r.city}, ${r.state || ''}` : r.address || '-'}</div>
+                          {r.phone && <div className="text-slate-400 font-mono">{r.phone}</div>}
+                        </div>
+                      ),
+                    },
+                    { title: 'Status', dataIndex: 'status', key: 'st', width: 90, render: (s) => <Tag color={s === 'ACTIVE' ? 'success' : 'default'}>{s || 'ACTIVE'}</Tag> },
                     {
                       title: 'Actions',
                       key: 'actions',
+                      width: 140,
                       render: (_: any, record: any) => (
-                        <Space>
+                        <Space size={4}>
+                          <Button
+                            size="small"
+                            icon={<EyeOutlined />}
+                            onClick={() => handleOpenViewDetails(record, 'BRANCH')}
+                          />
                           <Button
                             size="small"
                             icon={<EditOutlined />}
@@ -527,15 +626,13 @@ export default function SettingsPage() {
                           </Button>
                           <Popconfirm
                             title="Delete Branch"
-                            description={`Delete operating branch ${record.name}?`}
+                            description={`Delete branch ${record.name}?`}
                             onConfirm={() => handleDeleteBranch(record.id, record.name)}
-                            okText="Yes, Delete"
+                            okText="Delete"
                             cancelText="Cancel"
                             okButtonProps={{ danger: true }}
                           >
-                            <Button size="small" danger icon={<DeleteOutlined />}>
-                              Delete
-                            </Button>
+                            <Button size="small" danger icon={<DeleteOutlined />} />
                           </Popconfirm>
                         </Space>
                       ),
@@ -1156,6 +1253,98 @@ export default function SettingsPage() {
           </div>
         </Form>
       </Modal>
+
+      {/* UNIVERSAL RECORD DETAILS DRAWER */}
+      <Drawer
+        title={
+          <div className="flex items-center gap-2">
+            <EyeOutlined className="text-emerald-600 text-lg" />
+            <span className="font-bold text-slate-800 text-base">
+              {viewRecordType === 'BRANCH' && `Branch Details: ${viewRecord?.name || viewRecord?.branchCode}`}
+              {viewRecordType === 'STAFF' && `Staff User Profile: ${viewRecord?.name || viewRecord?.employeeNumber}`}
+              {viewRecordType === 'PRODUCT' && `Financial Product: ${viewRecord?.productName || viewRecord?.productCode}`}
+            </span>
+          </div>
+        }
+        open={viewDrawerOpen}
+        onClose={() => {
+          setViewDrawerOpen(false);
+          setViewRecord(null);
+        }}
+        width={580}
+      >
+        {viewRecord && viewRecordType === 'BRANCH' && (
+          <div className="space-y-6">
+            <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center justify-between">
+              <div>
+                <div className="text-xs text-emerald-700 font-semibold uppercase">Branch Code</div>
+                <div className="text-xl font-bold font-mono text-emerald-950">{viewRecord.branchCode}</div>
+              </div>
+              <Tag color={viewRecord.status === 'ACTIVE' ? 'success' : 'default'} className="px-3 py-1 text-sm font-semibold">
+                {viewRecord.status || 'ACTIVE'}
+              </Tag>
+            </div>
+            <Descriptions bordered column={1} size="middle">
+              <Descriptions.Item label="Branch Name">{viewRecord.name}</Descriptions.Item>
+              <Descriptions.Item label="Official Address">{viewRecord.address || 'N/A'}</Descriptions.Item>
+              <Descriptions.Item label="City">{viewRecord.city || 'N/A'}</Descriptions.Item>
+              <Descriptions.Item label="State">{viewRecord.state || 'N/A'}</Descriptions.Item>
+              <Descriptions.Item label="Official Contact Phone">{viewRecord.phone || 'N/A'}</Descriptions.Item>
+              <Descriptions.Item label="System ID"><span className="font-mono text-xs">{viewRecord.id}</span></Descriptions.Item>
+              <Descriptions.Item label="Opening Date">{viewRecord.openedAt || 'N/A'}</Descriptions.Item>
+              <Descriptions.Item label="Record Created">{viewRecord.createdAt ? new Date(viewRecord.createdAt).toLocaleString('en-IN') : 'N/A'}</Descriptions.Item>
+            </Descriptions>
+          </div>
+        )}
+
+        {viewRecord && viewRecordType === 'STAFF' && (
+          <div className="space-y-6">
+            <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center justify-between">
+              <div>
+                <div className="text-xs text-emerald-700 font-semibold uppercase">Employee ID</div>
+                <div className="text-xl font-bold font-mono text-emerald-950">{viewRecord.employeeNumber}</div>
+              </div>
+              <Tag color="purple" className="px-3 py-1 text-sm font-semibold">
+                {viewRecord.designation || 'STAFF'}
+              </Tag>
+            </div>
+            <Descriptions bordered column={1} size="middle">
+              <Descriptions.Item label="Full Name">{viewRecord.name}</Descriptions.Item>
+              <Descriptions.Item label="Mobile (Login Username)">{viewRecord.mobile}</Descriptions.Item>
+              <Descriptions.Item label="Email Address">{viewRecord.email || 'N/A'}</Descriptions.Item>
+              <Descriptions.Item label="Assigned Branch">{viewRecord.branchName || 'Head Office'}</Descriptions.Item>
+              <Descriptions.Item label="Employment Status">
+                <Tag color={viewRecord.employmentStatus === 'ACTIVE' ? 'green' : 'default'}>{viewRecord.employmentStatus || 'ACTIVE'}</Tag>
+              </Descriptions.Item>
+              <Descriptions.Item label="System ID"><span className="font-mono text-xs">{viewRecord.id}</span></Descriptions.Item>
+              <Descriptions.Item label="Joined Date">{viewRecord.joinedAt || viewRecord.joiningDate || 'N/A'}</Descriptions.Item>
+            </Descriptions>
+          </div>
+        )}
+
+        {viewRecord && viewRecordType === 'PRODUCT' && (
+          <div className="space-y-6">
+            <div className="p-4 bg-blue-50 border border-blue-200 rounded-xl flex items-center justify-between">
+              <div>
+                <div className="text-xs text-blue-700 font-semibold uppercase">Product Code</div>
+                <div className="text-xl font-bold font-mono text-blue-950">{viewRecord.productCode}</div>
+              </div>
+              <Tag color={viewRecord.isEnabled ? 'green' : 'default'} className="px-3 py-1 text-sm font-semibold">
+                {viewRecord.isEnabled ? 'ACTIVE / OFFERED' : 'DISABLED'}
+              </Tag>
+            </div>
+            <Descriptions bordered column={1} size="middle">
+              <Descriptions.Item label="Product Name">{viewRecord.productName}</Descriptions.Item>
+              <Descriptions.Item label="Product Category"><Tag color="blue">{viewRecord.productType}</Tag></Descriptions.Item>
+              <Descriptions.Item label="Annual Interest Rate"><span className="font-bold text-indigo-700">{viewRecord.interestRate}% p.a.</span></Descriptions.Item>
+              <Descriptions.Item label="Tenure Limits">{viewRecord.minimumTenureMonths || 1} to {viewRecord.maximumTenureMonths || 60} Months</Descriptions.Item>
+              <Descriptions.Item label="Minimum Amount">{FinancialEngine.formatINR(viewRecord.minimumAmount || 500)}</Descriptions.Item>
+              <Descriptions.Item label="Maximum Amount">{FinancialEngine.formatINR(viewRecord.maximumAmount || 1000000)}</Descriptions.Item>
+              <Descriptions.Item label="System ID"><span className="font-mono text-xs">{viewRecord.id}</span></Descriptions.Item>
+            </Descriptions>
+          </div>
+        )}
+      </Drawer>
     </div>
   );
 }

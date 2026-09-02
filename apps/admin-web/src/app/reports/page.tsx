@@ -108,18 +108,19 @@ export default function ReportsPage() {
               label: 'Daily Collection Statement (§68)',
               children: (
                 <Table
+                  size="small"
                   dataSource={transactions}
                   rowKey="id"
                   loading={loading}
-                  scroll={{ x: 850 }}
+                  pagination={{ pageSize: 10 }}
                   columns={[
                     { title: 'TXN Number', dataIndex: 'transactionNumber', key: 'txn', render: (t) => <span className="font-mono">{t}</span> },
-                    { title: 'Member Name', dataIndex: 'customerName', key: 'name' },
+                    { title: 'Member Name', dataIndex: 'customerName', key: 'name', ellipsis: true },
                     { title: 'Payment Mode', dataIndex: 'paymentMode', key: 'mode', render: (m) => <Tag color="blue">{m}</Tag> },
                     { title: 'Amount', dataIndex: 'amount', key: 'amt', render: (a) => <span className="font-bold text-emerald-700">{FinancialEngine.formatINR(a)}</span> },
                     { title: 'Receipt ID', dataIndex: 'receiptNumber', key: 'rcp', render: (r) => <span className="font-mono text-xs">{r || '-'}</span> },
                     { title: 'Date', dataIndex: 'transactionDate', key: 'date' },
-                    { title: 'Collector / Staff', dataIndex: 'createdByName', key: 'staff' },
+                    { title: 'Collector / Staff', dataIndex: 'createdByName', key: 'staff', ellipsis: true },
                   ]}
                 />
               ),
@@ -129,13 +130,14 @@ export default function ReportsPage() {
               label: 'Loan Outstanding Portfolio (§68)',
               children: (
                 <Table
+                  size="small"
                   dataSource={loans}
                   rowKey="id"
                   loading={loading}
-                  scroll={{ x: 850 }}
+                  pagination={{ pageSize: 10 }}
                   columns={[
                     { title: 'Loan ID', dataIndex: 'loanNumber', key: 'num', render: (l) => <span className="font-mono font-bold text-blue-700">{l}</span> },
-                    { title: 'Member', dataIndex: 'customerName', key: 'name' },
+                    { title: 'Member', dataIndex: 'customerName', key: 'name', ellipsis: true },
                     { title: 'Principal Disbursed', dataIndex: 'principal', key: 'p', render: (p) => FinancialEngine.formatINR(p) },
                     { title: 'Outstanding Balance', dataIndex: 'outstandingPrincipal', key: 'out', render: (o) => <span className="font-bold text-red-600">{FinancialEngine.formatINR(o)}</span> },
                     { title: 'Monthly EMI', dataIndex: 'emiAmount', key: 'emi', render: (e) => FinancialEngine.formatINR(e) },
@@ -150,16 +152,17 @@ export default function ReportsPage() {
               label: 'Indelible Audit Trail (§50, BR-011)',
               children: (
                 <Table
+                  size="small"
                   dataSource={auditLogs}
                   rowKey="id"
                   loading={loading}
-                  scroll={{ x: 850 }}
+                  pagination={{ pageSize: 10 }}
                   columns={[
                     { title: 'Log ID', dataIndex: 'id', key: 'id', render: (id) => <span className="font-mono text-xs text-slate-500">{id}</span> },
                     { title: 'Event Type', dataIndex: 'eventType', key: 'evt', render: (e) => <Tag color="geekblue">{e}</Tag> },
-                    { title: 'Entity', key: 'ent', render: (_, r) => `${r.entityType} #${r.entityId}` },
-                    { title: 'Staff Operator', dataIndex: 'userName', key: 'user' },
-                    { title: 'Reason / Remarks', dataIndex: 'reason', key: 'reason' },
+                    { title: 'Entity', key: 'ent', render: (_, r) => `${r.entityType} #${r.entityId}`, ellipsis: true },
+                    { title: 'Staff Operator', dataIndex: 'userName', key: 'user', ellipsis: true },
+                    { title: 'Reason / Remarks', dataIndex: 'reason', key: 'reason', ellipsis: true },
                     { title: 'Timestamp', dataIndex: 'timestamp', key: 'ts', render: (t) => new Date(t).toLocaleString('en-IN') },
                   ]}
                 />
@@ -170,10 +173,11 @@ export default function ReportsPage() {
               label: 'Login & Security Audit (§51, BR-012)',
               children: (
                 <Table
+                  size="small"
                   dataSource={auditLogs.filter((a) => a.eventType === 'USER_LOGIN' || a.eventType === 'FAILED_LOGIN_ATTEMPT')}
                   rowKey="id"
                   loading={loading}
-                  scroll={{ x: 850 }}
+                  pagination={{ pageSize: 10 }}
                   columns={[
                     {
                       title: 'Status',
@@ -184,7 +188,7 @@ export default function ReportsPage() {
                         </Tag>
                       ),
                     },
-                    { title: 'User / Account', dataIndex: 'userName', key: 'usr', render: (u) => <span className="font-bold">{u}</span> },
+                    { title: 'User / Account', dataIndex: 'userName', key: 'usr', render: (u) => <span className="font-bold">{u}</span>, ellipsis: true },
                     {
                       title: 'Client IP Address',
                       key: 'ip',
@@ -193,9 +197,10 @@ export default function ReportsPage() {
                     {
                       title: 'Device / Client Browser',
                       key: 'dev',
+                      ellipsis: true,
                       render: (_, r) => <span className="text-xs text-slate-500 max-w-[200px] truncate block">{r.stateAfter?.userAgent || 'Standard Browser / Desktop'}</span>,
                     },
-                    { title: 'Security Details', dataIndex: 'reason', key: 'reason' },
+                    { title: 'Security Details', dataIndex: 'reason', key: 'reason', ellipsis: true },
                     { title: 'Timestamp', dataIndex: 'timestamp', key: 'ts', render: (t) => new Date(t).toLocaleString('en-IN') },
                   ]}
                 />
@@ -206,15 +211,16 @@ export default function ReportsPage() {
               label: 'Customer Master Directory (§68)',
               children: (
                 <Table
+                  size="small"
                   dataSource={customers}
                   rowKey="id"
                   loading={loading}
-                  scroll={{ x: 800 }}
+                  pagination={{ pageSize: 10 }}
                   columns={[
                     { title: 'Member No', dataIndex: 'customerNumber', key: 'num', render: (c) => <span className="font-mono font-bold text-emerald-700">{c}</span> },
-                    { title: 'Full Name', key: 'name', render: (_, r) => `${r.firstName} ${r.lastName}` },
+                    { title: 'Full Name', key: 'name', render: (_, r) => `${r.firstName} ${r.lastName}`, ellipsis: true },
                     { title: 'Mobile', dataIndex: 'mobile', key: 'mob' },
-                    { title: 'Branch', dataIndex: 'branchName', key: 'br' },
+                    { title: 'Branch', dataIndex: 'branchName', key: 'br', ellipsis: true },
                     { title: 'KYC Status', dataIndex: 'kycStatus', key: 'kyc', render: (k) => <Tag color={k === 'VERIFIED' ? 'success' : 'warning'}>{k}</Tag> },
                     { title: 'Joined', dataIndex: 'joiningDate', key: 'dt' },
                   ]}

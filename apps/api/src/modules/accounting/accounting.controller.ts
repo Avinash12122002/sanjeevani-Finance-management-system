@@ -150,6 +150,13 @@ export class AccountingController {
       throw new BadRequestException('A valid double-entry journal requires at least 2 line items.');
     }
 
+    const targetDate = body.businessDate || new Date().toISOString().split('T')[0];
+    if (this.dataStore.isDateLocked(targetDate)) {
+      throw new BadRequestException(
+        `Business Date Locked (BR-009): Business date ${targetDate} is already closed and locked. Manual adjustments cannot be posted without reopening.`,
+      );
+    }
+
     // Double-Entry Balance Validator (SRS §41, BR-016)
     const balanceCheck = FinancialEngine.validateJournalBalance(body.lines);
     if (!balanceCheck.isValid) {

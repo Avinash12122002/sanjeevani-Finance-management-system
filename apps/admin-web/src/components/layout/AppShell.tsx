@@ -13,6 +13,7 @@ import {
   Tag,
   Typography,
   Divider,
+  Spin,
   message,
 } from 'antd';
 import {
@@ -79,12 +80,12 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      const token = localStorage.getItem('sfms_access_token');
+      const token = localStorage.getItem('sfms_access_token') || localStorage.getItem('sjf_auth_token');
       const stored = localStorage.getItem('sfms_user');
 
       if (!token || !stored) {
         if (pathname !== '/login') {
-          router.replace('/login');
+          window.location.replace('/login');
           return;
         }
       } else {
@@ -114,7 +115,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     }
     setCurrentUser(null);
     message.success('Signed out successfully');
-    router.replace('/login');
+    window.location.replace('/login');
   };
 
   const siderWidth = collapsed ? 80 : 260;
@@ -123,8 +124,17 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     return <>{children}</>;
   }
 
-  if (!isAuthChecked && !currentUser) {
-    return <div className="min-h-screen bg-slate-950" />;
+  if (!isAuthChecked) {
+    return (
+      <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center text-white p-4">
+        <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-emerald-600 via-teal-500 to-emerald-400 flex items-center justify-center text-white font-black text-3xl shadow-xl shadow-emerald-950/80 animate-pulse mb-4">
+          S
+        </div>
+        <div className="font-extrabold text-xl tracking-wider text-white mb-1">SANJEEVANI FINANCE</div>
+        <div className="text-emerald-400 text-xs font-semibold tracking-widest uppercase mb-6">Redirecting to Secure Portal...</div>
+        <Spin size="large" />
+      </div>
+    );
   }
 
   const menuItems = [

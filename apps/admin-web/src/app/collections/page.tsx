@@ -63,8 +63,12 @@ export default function CollectionsPage() {
     setLoading(false);
   };
 
+  const [submitting, setSubmitting] = useState(false);
+
   const handleRecordPayment = async (values: any) => {
+    setSubmitting(true);
     const res = await postApi('/collections/record', values);
+    setSubmitting(false);
 
     if (res.success && res.data) {
       message.success('Payment recorded and Digital Receipt generated!');
@@ -189,8 +193,11 @@ export default function CollectionsPage() {
       {/* Header Banner */}
       <div className="flex items-center justify-between bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900 m-0">Field Collections & Digital Receipts</h1>
-          <p className="text-slate-500 text-sm mt-1 m-0">
+          <div className="flex items-center gap-2 mb-1">
+            <DollarCircleOutlined className="text-emerald-600 text-lg" />
+            <h1 className="text-2xl font-bold text-slate-900 m-0">Field Collections & Digital Receipts</h1>
+          </div>
+          <p className="text-slate-500 text-sm m-0">
             Daily collection routes, counter receipts, real-time transaction generation and cashier drawer feeds (SRS §18, §31, §32).
           </p>
         </div>
@@ -256,11 +263,25 @@ export default function CollectionsPage() {
             children: (
               <Card className="glass-card">
                 <Table
+                  size="small"
                   columns={dueColumns}
                   dataSource={collectionData?.items || []}
                   rowKey="id"
                   loading={loading}
-                  scroll={{ x: 800 }}
+                  pagination={{ pageSize: 10 }}
+                  onRow={(record) => ({
+                    onClick: (e: any) => {
+                      if (e.target.closest('button') || e.target.closest('.ant-popconfirm') || e.target.closest('.ant-popover')) return;
+                      setSelectedCustomerId(record.customerId);
+                      form.setFieldsValue({
+                        customerId: record.customerId,
+                        amount: record.expectedAmount,
+                        paymentFor: record.paymentFor || 'LOAN_EMI',
+                      });
+                      setRecordModalVisible(true);
+                    },
+                    className: 'cursor-pointer hover:bg-emerald-50/50 transition-colors',
+                  })}
                 />
               </Card>
             ),
@@ -270,7 +291,22 @@ export default function CollectionsPage() {
             label: `Digital Receipts Ledger (${receipts.length})`,
             children: (
               <Card className="glass-card">
-                <Table columns={receiptColumns} dataSource={receipts} rowKey="id" loading={loading} scroll={{ x: 850 }} />
+                <Table
+                  size="small"
+                  columns={receiptColumns}
+                  dataSource={receipts}
+                  rowKey="id"
+                  loading={loading}
+                  pagination={{ pageSize: 10 }}
+                  onRow={(record) => ({
+                    onClick: (e: any) => {
+                      if (e.target.closest('button') || e.target.closest('.ant-popconfirm') || e.target.closest('.ant-popover')) return;
+                      setCurrentReceipt(record);
+                      setReceiptModalVisible(true);
+                    },
+                    className: 'cursor-pointer hover:bg-emerald-50/50 transition-colors',
+                  })}
+                />
               </Card>
             ),
           },
@@ -353,7 +389,7 @@ export default function CollectionsPage() {
 
           <div className="flex justify-end gap-2 mt-4 pt-4 border-t border-slate-100">
             <Button onClick={() => setRecordModalVisible(false)}>Cancel</Button>
-            <Button type="primary" htmlType="submit" style={{ background: '#059669', borderColor: '#059669' }}>
+            <Button type="primary" htmlType="submit" loading={submitting} style={{ background: '#059669', borderColor: '#059669' }}>
               Confirm Payment & Print Receipt
             </Button>
           </div>

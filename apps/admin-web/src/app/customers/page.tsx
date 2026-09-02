@@ -184,6 +184,7 @@ export default function CustomersPage() {
       title: 'Branch',
       dataIndex: 'branchName',
       key: 'branch',
+      ellipsis: true,
     },
     {
       title: 'KYC Status',
@@ -203,8 +204,9 @@ export default function CustomersPage() {
     {
       title: 'Actions',
       key: 'actions',
+      width: 140,
       render: (_: any, r: ICustomer) => (
-        <Space>
+        <Space size={4}>
           <Button
             type="primary"
             ghost
@@ -222,16 +224,14 @@ export default function CustomersPage() {
             Edit
           </Button>
           <Popconfirm
-            title="Delete Customer Member"
-            description={`Are you sure you want to remove member ${r.firstName} ${r.lastName}?`}
+            title="Delete Member"
+            description={`Delete ${r.firstName} ${r.lastName}?`}
             onConfirm={() => handleDeleteCustomer(r.id, `${r.firstName} ${r.lastName}`)}
-            okText="Yes, Delete"
+            okText="Delete"
             cancelText="Cancel"
             okButtonProps={{ danger: true }}
           >
-            <Button size="small" danger icon={<DeleteOutlined />}>
-              Delete
-            </Button>
+            <Button size="small" danger icon={<DeleteOutlined />} />
           </Popconfirm>
         </Space>
       ),
@@ -282,12 +282,19 @@ export default function CustomersPage() {
         </div>
 
         <Table
+          size="small"
           columns={columns}
           dataSource={filtered}
           rowKey="id"
           loading={loading}
-          scroll={{ x: 900 }}
           pagination={{ pageSize: 10 }}
+          onRow={(record) => ({
+            onClick: (e: any) => {
+              if (e.target.closest('button') || e.target.closest('.ant-popconfirm') || e.target.closest('.ant-popover')) return;
+              handleOpen360(record.id);
+            },
+            className: 'cursor-pointer hover:bg-emerald-50/50 transition-colors',
+          })}
         />
       </Card>
 

@@ -14,11 +14,14 @@ import {
   message,
   Steps,
   Alert,
+  Descriptions,
+  Drawer,
 } from 'antd';
 import {
   LockOutlined,
   UnlockOutlined,
   CheckCircleOutlined,
+  EyeOutlined,
 } from '@ant-design/icons';
 import { fetchApi, postApi } from '@/lib/api-client';
 import { FinancialEngine } from '@sanjeevani/financial-engine';
@@ -29,6 +32,8 @@ export default function DailyClosingPage() {
   const [history, setHistory] = useState<IBusinessDayClosure[]>([]);
   const [loading, setLoading] = useState(false);
   const [reopenModalVisible, setReopenModalVisible] = useState(false);
+  const [selectedRecord, setSelectedRecord] = useState<IBusinessDayClosure | null>(null);
+  const [drawerOpen, setDrawerOpen] = useState(false);
   const [form] = Form.useForm();
 
   useEffect(() => {
@@ -47,8 +52,12 @@ export default function DailyClosingPage() {
     setLoading(false);
   };
 
+  const [submitting, setSubmitting] = useState(false);
+
   const handleExecuteClosing = async () => {
+    setSubmitting(true);
     const res = await postApi('/daily-closing/execute', {});
+    setSubmitting(false);
 
     if (res.success) {
       message.success('Business Date successfully LOCKED! Operations closed for the day.');
@@ -59,7 +68,9 @@ export default function DailyClosingPage() {
   };
 
   const handleReopenDate = async (values: any) => {
+    setSubmitting(true);
     const res = await postApi('/daily-closing/reopen', values);
+    setSubmitting(false);
 
     if (res.success) {
       message.success('Business Date reopened with Super Admin audit logging.');
@@ -116,6 +127,22 @@ export default function DailyClosingPage() {
       key: 'closedAt',
       render: (t: string) => (t ? new Date(t).toLocaleString('en-IN') : '-'),
     },
+    {
+      title: 'Action',
+      key: 'action',
+      render: (_: any, record: IBusinessDayClosure) => (
+        <Button
+          size="small"
+          icon={<EyeOutlined />}
+          onClick={() => {
+            setSelectedRecord(record);
+            setDrawerOpen(true);
+          }}
+        >
+          View
+        </Button>
+      ),
+    },
   ];
 
   const isLocked = closingData?.status === BusinessDateStatus.LOCKED;
@@ -135,6 +162,7 @@ export default function DailyClosingPage() {
             <Button
               type="primary"
               icon={<LockOutlined />}
+              loading={submitting}
               onClick={handleExecuteClosing}
               style={{ background: '#059669', borderColor: '#059669', height: 40 }}
             >
@@ -198,7 +226,22 @@ export default function DailyClosingPage() {
 
       {/* Historical Closures */}
       <Card className="glass-card" title="Historical Daily Closures & Date Locks (BR-009)">
-        <Table columns={columns} dataSource={history} rowKey="id" loading={loading} scroll={{ x: 850 }} />
+        <Table
+          size="small"
+          columns={columns}
+          dataSource={history}
+          rowKey="id"
+          loading={loading}
+          pagination={{ pageSize: 10 }}
+          onRow={(record) => ({
+            onClick: (e: any) => {
+              if (e.target.closest('button') || e.target.closest('.ant-popconfirm') || e.target.closest('.ant-popover')) return;
+              setSelectedRecord(record);
+              setDrawerOpen(true);
+            },
+            className: 'cursor-pointer hover:bg-emerald-50/50 transition-colors',
+          })}
+        />
       </Card>
 
       {/* REOPEN DATE MODAL (BR-010) */}
@@ -227,12 +270,66 @@ export default function DailyClosingPage() {
 
           <div className="flex justify-end gap-2 mt-4 pt-4 border-t border-slate-100">
             <Button onClick={() => setReopenModalVisible(false)}>Cancel</Button>
-            <Button type="primary" danger htmlType="submit">
+            <Button type="primary" danger htmlType="submit" loading={submitting}>
               Authorize Reopening
             </Button>
           </div>
         </Form>
       </Modal>
+
+      {/* CLOSURE RECORD DETAILS DRAWER */}
+      <Drawer
+        title={
+          <div className="flex items-center gap-2">
+            <EyeOutlined className="text-emerald-600 text-lg" />
+            <span className="font-bold text-slate-800 text-base">
+              Daily Closing Summary: {selectedRecord?.businessDate}
+            </span>
+          </div>
+        }
+        open={drawerOpen}
+        onClose={() => {
+          setDrawerOpen(false);
+          setSelectedRecord(null);
+        }}
+        width={560}
+      >
+        {selectedRecord && (
+          <div className="space-y-6">
+            <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center justify-between">
+              <div>
+                <div className="text-xs text-emerald-700 font-semibold uppercase">Total Daily Collections</div>
+                <div className="text-2xl font-bold font-mono text-emerald-950">
+                  {FinancialEngine.formatINR(selectedRecord.totalCollections)}
+                </div>
+              </div>
+              <Tag color={selectedRecord.status === 'LOCKED' ? 'red' : 'green'} className="px-3 py-1 text-sm font-semibold">
+                {selectedRecord.status}
+              </Tag>
+            </div>
+
+            <Descriptions bordered column={1} size="middle">
+              <Descriptions.Item label="Business Date">
+                <span className="font-mono font-bold text-slate-900">{selectedRecord.businessDate}</span>
+              </Descriptions.Item>
+              <Descriptions.Item label="Branch Name">{selectedRecord.branchName || 'Head Office'}</Descriptions.Item>
+              <Descriptions.Item label="Total Disbursements Settled">
+                <span className="font-bold">{FinancialEngine.formatINR(selectedRecord.totalDisbursements)}</span>
+              </Descriptions.Item>
+              <Descriptions.Item label="Vault Cash Closing Balance">
+                <span className="font-bold text-purple-800">{FinancialEngine.formatINR(selectedRecord.cashInHand)}</span>
+              </Descriptions.Item>
+              <Descriptions.Item label="Closed By User">{selectedRecord.closedBy || 'Admin'}</Descriptions.Item>
+              <Descriptions.Item label="Settlement Timestamp">
+                {selectedRecord.closedAt ? new Date(selectedRecord.closedAt).toLocaleString('en-IN') : 'In Progress'}
+              </Descriptions.Item>
+              <Descriptions.Item label="Closure Record ID">
+                <span className="font-mono text-xs">{selectedRecord.id}</span>
+              </Descriptions.Item>
+            </Descriptions>
+          </div>
+        )}
+      </Drawer>
     </div>
   );
 }
