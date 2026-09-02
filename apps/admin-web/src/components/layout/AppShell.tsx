@@ -137,58 +137,84 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     );
   }
 
-  const menuItems = [
+  const userRole = currentUser?.roles?.[0] || 'SUPER_ADMIN';
+
+  const ROLE_ALLOWED_PAGES: Record<string, string[]> = {
+    SUPER_ADMIN: ['/', '/customers', '/accounts', '/loans', '/collections', '/cash', '/accounting', '/daily-closing', '/reports', '/settings'],
+    BRANCH_MANAGER: ['/', '/customers', '/accounts', '/loans', '/collections', '/cash', '/accounting', '/daily-closing', '/reports'],
+    LOAN_OFFICER: ['/', '/customers', '/loans', '/accounts', '/reports'],
+    CASHIER: ['/', '/customers', '/collections', '/cash', '/accounts', '/reports'],
+    FIELD_COLLECTOR: ['/', '/customers', '/collections', '/reports'],
+    AUDITOR: ['/', '/customers', '/accounting', '/daily-closing', '/reports'],
+  };
+
+  const allowedPages = ROLE_ALLOWED_PAGES[userRole] || ROLE_ALLOWED_PAGES.SUPER_ADMIN;
+
+  const dashboardLabel =
+    userRole === 'FIELD_COLLECTOR'
+      ? 'Collector Route & Dues'
+      : userRole === 'CASHIER'
+      ? 'Cashier Counter Console'
+      : userRole === 'LOAN_OFFICER'
+      ? 'Loan Underwriting Hub'
+      : userRole === 'AUDITOR'
+      ? 'Audit & Compliance Desk'
+      : 'Executive MIS Dashboard';
+
+  const allMenuItems = [
     {
       key: '/',
       icon: <DashboardOutlined style={{ fontSize: 18 }} />,
-      label: 'Executive Dashboard',
+      label: <Link href="/" prefetch={true} className="text-inherit no-underline block w-full">{dashboardLabel}</Link>,
     },
     {
       key: '/customers',
       icon: <UserOutlined style={{ fontSize: 18 }} />,
-      label: 'Members & KYC (360°)',
+      label: <Link href="/customers" prefetch={true} className="text-inherit no-underline block w-full">Members & KYC (360°)</Link>,
     },
     {
       key: '/accounts',
       icon: <BankOutlined style={{ fontSize: 18 }} />,
-      label: 'Deposits & RD Accounts',
+      label: <Link href="/accounts" prefetch={true} className="text-inherit no-underline block w-full">Deposits & RD Accounts</Link>,
     },
     {
       key: '/loans',
       icon: <DollarCircleOutlined style={{ fontSize: 18 }} />,
-      label: 'Loans & EMI Engine',
+      label: <Link href="/loans" prefetch={true} className="text-inherit no-underline block w-full">Loans & EMI Engine</Link>,
     },
     {
       key: '/collections',
       icon: <SafetyCertificateOutlined style={{ fontSize: 18 }} />,
-      label: 'Collections & Receipts',
+      label: <Link href="/collections" prefetch={true} className="text-inherit no-underline block w-full">Collections & Receipts</Link>,
     },
     {
       key: '/cash',
       icon: <AuditOutlined style={{ fontSize: 18 }} />,
-      label: 'Cashier Drawer Balancing',
+      label: <Link href="/cash" prefetch={true} className="text-inherit no-underline block w-full">Cashier Drawer Balancing</Link>,
     },
     {
       key: '/accounting',
       icon: <BookOutlined style={{ fontSize: 18 }} />,
-      label: 'Double-Entry Accounting',
+      label: <Link href="/accounting" prefetch={true} className="text-inherit no-underline block w-full">Double-Entry Accounting</Link>,
     },
     {
       key: '/daily-closing',
       icon: <LockOutlined style={{ fontSize: 18 }} />,
-      label: 'Daily Closing & Date Lock',
+      label: <Link href="/daily-closing" prefetch={true} className="text-inherit no-underline block w-full">Daily Closing & Date Lock</Link>,
     },
     {
       key: '/reports',
       icon: <PieChartOutlined style={{ fontSize: 18 }} />,
-      label: 'MIS & Financial Reports',
+      label: <Link href="/reports" prefetch={true} className="text-inherit no-underline block w-full">MIS & Financial Reports</Link>,
     },
     {
       key: '/settings',
       icon: <SettingOutlined style={{ fontSize: 18 }} />,
-      label: 'Settings & Master Data',
+      label: <Link href="/settings" prefetch={true} className="text-inherit no-underline block w-full">Settings & Master Data</Link>,
     },
   ];
+
+  const menuItems = allMenuItems.filter((item) => allowedPages.includes(item.key));
 
   const alertMenu = {
     items: [
@@ -321,7 +347,6 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
               if (key !== pathname) {
                 setActiveNavKey(key);
                 setIsNavigating(true);
-                router.push(key);
               }
             }}
             style={{

@@ -39,6 +39,7 @@ import { noEmojiRule } from '@/lib/emoji-sanitizer';
 import { FinancialEngine } from '@sanjeevani/financial-engine';
 
 export default function SettingsPage() {
+  const [currentUser, setCurrentUser] = useState<any>(null);
   const [branches, setBranches] = useState<any[]>([]);
   const [employees, setEmployees] = useState<any[]>([]);
   const [products, setProducts] = useState<any[]>([]);
@@ -89,6 +90,14 @@ export default function SettingsPage() {
   });
 
   useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const stored = localStorage.getItem('sfms_user');
+      if (stored) {
+        try {
+          setCurrentUser(JSON.parse(stored));
+        } catch (e) {}
+      }
+    }
     loadSettingsData();
   }, []);
 
@@ -314,6 +323,27 @@ export default function SettingsPage() {
       message.error('Error removing product.');
     }
   };
+
+  if (currentUser && !currentUser.roles?.includes('SUPER_ADMIN')) {
+    return (
+      <div className="p-8 bg-white rounded-2xl border border-slate-200 text-center max-w-xl mx-auto my-12 space-y-4 shadow-sm">
+        <div className="w-16 h-16 bg-amber-50 text-amber-600 rounded-full flex items-center justify-center text-2xl mx-auto border border-amber-200">
+          <SettingOutlined />
+        </div>
+        <h2 className="text-xl font-bold text-slate-900 m-0">Restricted Administration Access</h2>
+        <p className="text-slate-500 text-sm">
+          System Master Data, Staff Management, and Scheme Rules are strictly reserved for Super Administrators (Managing Directors).
+        </p>
+        <Button
+          type="primary"
+          onClick={() => (window.location.href = '/')}
+          style={{ background: '#059669', borderColor: '#059669' }}
+        >
+          Return to Dashboard
+        </Button>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">

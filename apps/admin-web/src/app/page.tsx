@@ -98,11 +98,20 @@ const initialCharts = {
 
 export default function OwnerDashboardPage() {
   const [loading, setLoading] = useState(false);
+  const [currentUser, setCurrentUser] = useState<any>(null);
   const [metrics, setMetrics] = useState<IDashboardMetrics>(initialMetrics);
   const [charts, setCharts] = useState<any>(initialCharts);
   const [redAlerts, setRedAlerts] = useState<IRedAlert[]>([]);
 
   useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const stored = localStorage.getItem('sfms_user');
+      if (stored) {
+        try {
+          setCurrentUser(JSON.parse(stored));
+        } catch (e) {}
+      }
+    }
     loadDashboard();
   }, []);
 
@@ -125,34 +134,107 @@ export default function OwnerDashboardPage() {
     }
   };
 
+  const userRole = currentUser?.roles?.[0] || 'SUPER_ADMIN';
+  const userName = currentUser?.employeeName || currentUser?.username || 'Staff User';
+  const branchName = currentUser?.branchName || 'Head Office Agra';
+
+  const roleTitle =
+    userRole === 'FIELD_COLLECTOR'
+      ? 'Field Recovery & Collection Console'
+      : userRole === 'CASHIER'
+      ? 'Cashier Counter & Vault Control'
+      : userRole === 'LOAN_OFFICER'
+      ? 'Loan Origination & Underwriting Hub'
+      : userRole === 'AUDITOR'
+      ? 'Audit, Risk & Compliance Desk'
+      : 'Sanjeevani Finance Operations Control Center';
+
+  const roleBadge =
+    userRole === 'FIELD_COLLECTOR'
+      ? 'FIELD RECOVERY DESK'
+      : userRole === 'CASHIER'
+      ? 'TELLER & VAULT DESK'
+      : userRole === 'LOAN_OFFICER'
+      ? 'CREDIT UNDERWRITING'
+      : userRole === 'AUDITOR'
+      ? 'AUDIT & COMPLIANCE'
+      : 'EXECUTIVE MIS CONSOLE';
+
+  const roleSubtitle =
+    userRole === 'FIELD_COLLECTOR'
+      ? `Welcome back, ${userName} • Assigned Route: ${branchName} Area`
+      : userRole === 'CASHIER'
+      ? `Welcome back, ${userName} • Cash Drawer & Vault Session: ${branchName}`
+      : userRole === 'LOAN_OFFICER'
+      ? `Welcome back, ${userName} • Credit Appraisal & KYC Desk`
+      : userRole === 'AUDITOR'
+      ? `Welcome back, ${userName} • Independent Verification & Compliance`
+      : `Centralized operations summary across Head Office & District Branches.`;
+
   return (
     <div className="space-y-6">
-      {/* Top Banner / Executive Title */}
+      {/* Top Banner / Role-Tailored Title */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-gradient-to-r from-slate-900 via-slate-800 to-emerald-950 p-6 rounded-2xl text-white shadow-xl">
         <div>
           <div className="flex items-center gap-2">
             <Tag color="#059669" className="font-bold text-xs uppercase tracking-wider px-2 py-0.5 border-0">
-              EXECUTIVE MIS CONSOLE
+              {roleBadge}
             </Tag>
-            <span className="text-xs text-slate-300">SRS §65 & §66 Compliance</span>
+            <span className="text-xs text-slate-300">
+              {userRole === 'SUPER_ADMIN' ? 'Full Institutional Authority' : `Role: ${userRole}`}
+            </span>
           </div>
           <Title level={2} style={{ color: '#ffffff', margin: '8px 0 4px 0' }}>
-            Sanjeevani Finance Operations Control Center
+            {roleTitle}
           </Title>
-          <Text className="text-slate-300 text-sm">
-            Centralized operations summary across Head Office & District Branches.
-          </Text>
+          <Text className="text-slate-300 text-sm">{roleSubtitle}</Text>
         </div>
 
         <div className="flex items-center gap-3">
-          <Button
-            type="primary"
-            icon={<CheckCircleOutlined />}
-            onClick={() => (window.location.href = '/daily-closing')}
-            style={{ background: '#059669', borderColor: '#059669', height: 40 }}
-          >
-            Daily Closing Status
-          </Button>
+          {userRole === 'FIELD_COLLECTOR' && (
+            <Button
+              type="primary"
+              icon={<DollarCircleOutlined />}
+              onClick={() => (window.location.href = '/collections')}
+              style={{ background: '#059669', borderColor: '#059669', height: 40 }}
+            >
+              Record Customer Payment
+            </Button>
+          )}
+
+          {userRole === 'CASHIER' && (
+            <Button
+              type="primary"
+              icon={<BankOutlined />}
+              onClick={() => (window.location.href = '/cash')}
+              style={{ background: '#059669', borderColor: '#059669', height: 40 }}
+            >
+              Count Vault Denominations
+            </Button>
+          )}
+
+          {userRole === 'LOAN_OFFICER' && (
+            <Button
+              type="primary"
+              icon={<DollarCircleOutlined />}
+              onClick={() => (window.location.href = '/loans')}
+              style={{ background: '#059669', borderColor: '#059669', height: 40 }}
+            >
+              Loan Underwriting Queue
+            </Button>
+          )}
+
+          {['SUPER_ADMIN', 'BRANCH_MANAGER', 'AUDITOR'].includes(userRole) && (
+            <Button
+              type="primary"
+              icon={<CheckCircleOutlined />}
+              onClick={() => (window.location.href = '/daily-closing')}
+              style={{ background: '#059669', borderColor: '#059669', height: 40 }}
+            >
+              Daily Closing Status
+            </Button>
+          )}
+
           <Button
             ghost
             icon={<ReloadOutlined />}
