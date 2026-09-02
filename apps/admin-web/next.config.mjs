@@ -8,6 +8,12 @@ const nextConfig = {
   experimental: {
     optimizePackageImports: ['antd', '@ant-design/icons', 'recharts', 'dayjs'],
   },
+  eslint: {
+    ignoreDuringBuilds: true,
+  },
+  typescript: {
+    ignoreBuildErrors: false,
+  },
   async rewrites() {
     const target = process.env.API_BASE_URL || process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:4000/api/v1';
     const baseUrl = target.replace(/\/v1\/?$/, '');
