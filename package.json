@@ -28,7 +28,9 @@
   "author": "Sanjeevani Finance Operations",
   "license": "UNLICENSED",
   "dependencies": {
-    "decimal.js": "^10.6.0"
+    "decimal.js": "^10.6.0",
+    "tsc-alias": "^1.9.3",
+    "typescript": "^5.4.5"
   },
   "devDependencies": {
     "concurrently": "^8.2.2"
