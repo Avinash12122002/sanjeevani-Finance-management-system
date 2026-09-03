@@ -8,6 +8,11 @@ import {
   UnauthorizedException,
   HttpException,
   HttpStatus,
+  Patch,
+  Delete,
+  Param,
+  NotFoundException,
+  BadRequestException,
 } from '@nestjs/common';
 import { Request } from 'express';
 import { JwtService } from '@nestjs/jwt';
@@ -193,5 +198,138 @@ export class AuthController {
     } catch {
       throw new UnauthorizedException('Invalid or expired refresh token');
     }
+  }
+
+  /**
+   * USER ACCOUNTS CRUD MANAGEMENT
+   */
+  @Get('users')
+  @UseGuards(JwtAuthGuard)
+  async getUsers() {
+    await this.dataStore.refreshIfStale();
+    return this.dataStore.users.map((u) => {
+      const { passwordHash, ...safe } = u as any;
+      return safe;
+    });
+  }
+
+  @Post('users')
+  @UseGuards(JwtAuthGuard)
+  async createUser(@Body() body: any, @CurrentUser() currentUser: IUser) {
+    if (!body.username || !body.username.trim()) {
+      throw new BadRequestException('Username is required');
+    }
+    const cleanUsername = body.username.trim().toLowerCase();
+    const existing = this.dataStore.users.find(
+      (u) => u.username.toLowerCase() === cleanUsername || (body.email && u.email?.toLowerCase() === body.email.trim().toLowerCase())
+    );
+    if (existing) {
+      throw new BadRequestException('User with this username or email already exists');
+    }
+
+    const branch = this.dataStore.branches.find((b) => b.id === body.branchId) || this.dataStore.branches[0];
+
+    const newUser: IUser = {
+      id: `USR-${Date.now()}`,
+      username: cleanUsername,
+      email: body.email?.trim() || `${cleanUsername}@sanjeevanifinance.com`,
+      mobile: body.mobile?.trim() || '9876500000',
+      passwordHash: body.password || 'Password@123',
+      roles: Array.isArray(body.roles) && body.roles.length > 0 ? body.roles : [body.role || UserRole.LOAN_OFFICER],
+      branchId: branch ? branch.id : 'BR-001',
+      branchName: branch ? branch.name : 'Head Office - Main Branch',
+      employeeId: body.employeeId || null,
+      employeeName: body.employeeName || body.username,
+      isActive: body.isActive !== false,
+      is2faEnabled: false,
+      createdAt: new Date().toISOString(),
+    };
+
+    this.dataStore.users.push(newUser);
+    await this.dataStore.persistUser(newUser);
+
+    this.dataStore.logAudit(
+      currentUser.id,
+      currentUser.employeeName || currentUser.username,
+      'USER_CREATED',
+      'User',
+      newUser.id,
+      undefined,
+      { username: newUser.username, roles: newUser.roles },
+      `Created login user account ${newUser.username}`,
+    );
+
+    const { passwordHash, ...safe } = newUser as any;
+    return safe;
+  }
+
+  @Patch('users/:id')
+  @UseGuards(JwtAuthGuard)
+  async updateUser(@Param('id') id: string, @Body() body: any, @CurrentUser() currentUser: IUser) {
+    const userIndex = this.dataStore.users.findIndex((u) => u.id === id || u.username === id);
+    if (userIndex === -1) {
+      throw new NotFoundException(`User not found for id: ${id}`);
+    }
+
+    const targetUser = this.dataStore.users[userIndex];
+    const oldVal = { ...targetUser };
+
+    if (body.username) targetUser.username = body.username.trim().toLowerCase();
+    if (body.email) targetUser.email = body.email.trim();
+    if (body.mobile) targetUser.mobile = body.mobile.trim();
+    if (body.roles) targetUser.roles = Array.isArray(body.roles) ? body.roles : [body.roles];
+    if (body.role) targetUser.roles = [body.role];
+    if (body.isActive !== undefined) targetUser.isActive = Boolean(body.isActive);
+    if (body.branchId) {
+      const branch = this.dataStore.branches.find((b) => b.id === body.branchId);
+      if (branch) {
+        targetUser.branchId = branch.id;
+        targetUser.branchName = branch.name;
+      }
+    }
+    if (body.password && body.password.trim()) {
+      (targetUser as any).passwordHash = body.password.trim();
+    }
+
+    await this.dataStore.persistUser(targetUser);
+
+    this.dataStore.logAudit(
+      currentUser.id,
+      currentUser.employeeName || currentUser.username,
+      'USER_UPDATED',
+      'User',
+      targetUser.id,
+      oldVal,
+      targetUser,
+      `Updated user account ${targetUser.username}`,
+    );
+
+    const { passwordHash, ...safe } = targetUser as any;
+    return safe;
+  }
+
+  @Delete('users/:id')
+  @UseGuards(JwtAuthGuard)
+  async deleteUser(@Param('id') id: string, @CurrentUser() currentUser: IUser) {
+    const userIndex = this.dataStore.users.findIndex((u) => u.id === id || u.username === id);
+    if (userIndex === -1) {
+      throw new NotFoundException(`User not found for id: ${id}`);
+    }
+
+    const removed = this.dataStore.users.splice(userIndex, 1)[0];
+    await this.dataStore.deleteUser(removed.id);
+
+    this.dataStore.logAudit(
+      currentUser.id,
+      currentUser.employeeName || currentUser.username,
+      'USER_DELETED',
+      'User',
+      removed.id,
+      removed,
+      undefined,
+      `Deleted user account ${removed.username}`,
+    );
+
+    return { message: `User account ${removed.username} deleted successfully`, id: removed.id };
   }
 }

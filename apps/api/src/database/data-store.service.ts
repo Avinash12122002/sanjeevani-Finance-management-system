@@ -1087,7 +1087,16 @@ export class DataStoreService implements OnModuleInit {
         `INSERT INTO users (id, username, email, mobile, roles, branch_id, branch_name, employee_id, employee_name, is_active, is_2fa_enabled, password_hash)
          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
          ON CONFLICT (id) DO UPDATE SET
-           is_active = EXCLUDED.is_active`,
+           username = EXCLUDED.username,
+           email = EXCLUDED.email,
+           mobile = EXCLUDED.mobile,
+           roles = EXCLUDED.roles,
+           branch_id = EXCLUDED.branch_id,
+           branch_name = EXCLUDED.branch_name,
+           employee_id = EXCLUDED.employee_id,
+           employee_name = EXCLUDED.employee_name,
+           is_active = EXCLUDED.is_active,
+           password_hash = COALESCE(NULLIF(EXCLUDED.password_hash, ''), users.password_hash)`,
         [
           u.id,
           u.username,
@@ -1105,6 +1114,15 @@ export class DataStoreService implements OnModuleInit {
       );
     } catch (e: any) {
       this.logger.error(`Failed to persist user ${u.id} to PostgreSQL: ${e.message}`);
+    }
+  }
+
+  async deleteUser(id: string) {
+    if (!this.pool) return;
+    try {
+      await this.pool.query('DELETE FROM users WHERE id = $1', [id]);
+    } catch (e: any) {
+      this.logger.error(`Failed to delete user ${id} from PostgreSQL: ${e.message}`);
     }
   }
 
