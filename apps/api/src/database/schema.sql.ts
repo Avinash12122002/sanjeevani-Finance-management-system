@@ -265,13 +265,13 @@ VALUES ('EMP-001', 'SJF-EMP-000001', 'USR-001', 'BR-001', 'SJF-BR001', 'Head Off
 ON CONFLICT (id) DO NOTHING;
 
 -- Seed Products
-INSERT INTO products (id, product_code, product_name, product_type, minimum_amount, maximum_amount, minimum_tenure_months, maximum_tenure_months, interest_method, interest_rate, penalty_rate, premature_allowed, requires_nominee, regulatory_status, is_enabled)
+INSERT INTO products (id, product_code, product_name, product_type, interest_rate, min_tenure_months, max_tenure_months, min_amount, max_amount, is_enabled)
 VALUES 
-('PRD-001', 'SJF-PRD-SAV01', 'Sanjeevani Regular Savings', 'SAVINGS', 500, 500000, 0, 120, 'SIMPLE_INTEREST', 4.0, 0, TRUE, TRUE, 'APPROVED', TRUE),
-('PRD-002', 'SJF-PRD-RD01', 'Sanjeevani Monthly Sanchay RD', 'RD', 1000, 50000, 12, 60, 'COMPOUND_INTEREST', 8.5, 2.0, TRUE, TRUE, 'APPROVED', TRUE),
-('PRD-003', 'SJF-PRD-TD01', 'Sanjeevani Samriddhi Fixed Deposit', 'TERM_DEPOSIT', 10000, 2500000, 12, 60, 'COMPOUND_INTEREST', 9.5, 1.5, TRUE, TRUE, 'APPROVED', TRUE),
-('PRD-004', 'SJF-PRD-LN-MSME', 'Vyapar Unnati MSME Business Loan', 'LOAN', 25000, 500000, 6, 36, 'REDUCING_BALANCE', 14.0, 3.0, TRUE, FALSE, 'APPROVED', TRUE),
-('PRD-005', 'SJF-PRD-LN-MICRO', 'Mahila Shakti Micro Enterprise Loan', 'LOAN', 10000, 100000, 6, 24, 'FLAT_RATE', 12.0, 2.0, TRUE, FALSE, 'APPROVED', TRUE)
+('PRD-001', 'SJF-PRD-SAV01', 'Sanjeevani Regular Savings', 'SAVINGS', 4.0, 0, 120, 500, 500000, TRUE),
+('PRD-002', 'SJF-PRD-RD01', 'Sanjeevani Monthly Sanchay RD', 'RD', 8.5, 12, 60, 1000, 50000, TRUE),
+('PRD-003', 'SJF-PRD-TD01', 'Sanjeevani Samriddhi Fixed Deposit', 'TERM_DEPOSIT', 9.5, 12, 60, 10000, 2500000, TRUE),
+('PRD-004', 'SJF-PRD-LN-MSME', 'Vyapar Unnati MSME Business Loan', 'LOAN', 14.0, 6, 36, 25000, 500000, TRUE),
+('PRD-005', 'SJF-PRD-LN-MICRO', 'Mahila Shakti Micro Enterprise Loan', 'LOAN', 12.0, 6, 24, 10000, 100000, TRUE)
 ON CONFLICT (id) DO NOTHING;
 
 -- Seed Chart of Accounts
