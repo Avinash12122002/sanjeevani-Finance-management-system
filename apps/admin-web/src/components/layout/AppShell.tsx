@@ -62,34 +62,37 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   }, [pathname]);
 
   useEffect(() => {
+    // Wait until client has mounted so window/localStorage is available
+    if (!mounted) return;
+
     if (pathname === '/login') {
       setIsAuthChecked(true);
       return;
     }
 
-    if (typeof window !== 'undefined') {
-      const token = localStorage.getItem('sfms_access_token') || localStorage.getItem('sjf_auth_token');
-      const stored = localStorage.getItem('sfms_user');
+    const token = localStorage.getItem('sfms_access_token') || localStorage.getItem('sjf_auth_token');
+    const stored = localStorage.getItem('sfms_user');
 
-      if (!token || !stored) {
-        window.location.replace('/login');
-        return;
-      }
-
-      try {
-        setCurrentUser(JSON.parse(stored));
-      } catch (e) {
-        // ignore
-      }
-      setIsAuthChecked(true);
-
-      fetchApi('/dashboard/red-alerts').then((res) => {
-        if (res.success && res.data) {
-          setRedAlerts(res.data);
-        }
-      }).catch(() => {});
+    if (!token || !stored) {
+      router.replace('/login');
+      return;
     }
-  }, [pathname, router]);
+
+    try {
+      setCurrentUser(JSON.parse(stored));
+    } catch (e) {
+      // ignore parse errors - treat as unauthenticated
+      router.replace('/login');
+      return;
+    }
+    setIsAuthChecked(true);
+
+    fetchApi('/dashboard/red-alerts').then((res) => {
+      if (res.success && res.data) {
+        setRedAlerts(res.data);
+      }
+    }).catch(() => {});
+  }, [pathname, router, mounted]);
 
   const handleLogout = () => {
     if (typeof window !== 'undefined') {
