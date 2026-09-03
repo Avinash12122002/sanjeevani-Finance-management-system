@@ -152,7 +152,7 @@ export class CustomerPortalController {
 
     otpStore.set(cleanMobile, {
       otp,
-      customerId: customer.id,
+      customerId: customer ? customer.id : '',
       expiresAt,
       attempts: 0,
     });
@@ -332,7 +332,10 @@ export class CustomerPortalController {
 
     otpStore.delete(cleanMobile);
 
-    const customer = this.dataStore.customers.find((c) => c.id === record.customerId);
+    const customer = this.dataStore.customers.find((c) => {
+      const cMob = (c.mobile || '').replace(/\D/g, '').slice(-10);
+      return cMob === cleanMobile || (record.customerId && c.id === record.customerId);
+    });
     if (!customer) {
       throw new NotFoundException('Customer profile not found');
     }
