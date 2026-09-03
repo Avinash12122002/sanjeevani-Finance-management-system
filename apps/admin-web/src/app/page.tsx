@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import {
   Row,
   Col,
@@ -97,6 +98,7 @@ const initialCharts = {
 };
 
 export default function OwnerDashboardPage() {
+  const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [metrics, setMetrics] = useState<IDashboardMetrics>(initialMetrics);
@@ -198,7 +200,7 @@ export default function OwnerDashboardPage() {
             <Button
               type="primary"
               icon={<DollarCircleOutlined />}
-              onClick={() => (window.location.href = '/collections')}
+              onClick={() => router.push('/collections')}
               style={{ background: '#059669', borderColor: '#059669', height: 40 }}
             >
               Record Customer Payment
@@ -209,7 +211,7 @@ export default function OwnerDashboardPage() {
             <Button
               type="primary"
               icon={<BankOutlined />}
-              onClick={() => (window.location.href = '/cash')}
+              onClick={() => router.push('/cash')}
               style={{ background: '#059669', borderColor: '#059669', height: 40 }}
             >
               Count Vault Denominations
@@ -220,7 +222,7 @@ export default function OwnerDashboardPage() {
             <Button
               type="primary"
               icon={<DollarCircleOutlined />}
-              onClick={() => (window.location.href = '/loans')}
+              onClick={() => router.push('/loans')}
               style={{ background: '#059669', borderColor: '#059669', height: 40 }}
             >
               Loan Underwriting Queue
@@ -231,7 +233,7 @@ export default function OwnerDashboardPage() {
             <Button
               type="primary"
               icon={<CheckCircleOutlined />}
-              onClick={() => (window.location.href = '/daily-closing')}
+              onClick={() => router.push('/daily-closing')}
               style={{ background: '#059669', borderColor: '#059669', height: 40 }}
             >
               Daily Closing Status

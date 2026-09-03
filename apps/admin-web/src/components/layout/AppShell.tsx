@@ -53,8 +53,10 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   } | null>(null);
 
   const [isAuthChecked, setIsAuthChecked] = useState(false);
+  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
+    setMounted(true);
     setActiveNavKey(pathname === '/' ? '/' : `/${pathname.split('/')[1]}`);
     setIsNavigating(false);
   }, [pathname]);
@@ -390,7 +392,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                 }}
               >
                 <span style={{ color: '#059669', fontSize: '10px' }}>●</span>
-                <span>BUSINESS DATE: {new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}</span>
+                <span>BUSINESS DATE: {mounted ? new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : 'TODAY'}</span>
               </div>
 
               <div

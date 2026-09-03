@@ -161,7 +161,7 @@ export default function CustomersPage() {
       key: 'name',
       render: (_: any, r: ICustomer) => (
         <div className="flex items-center gap-2">
-          <Avatar style={{ backgroundColor: '#059669' }}>{r.firstName[0]}</Avatar>
+          <Avatar style={{ backgroundColor: '#059669' }}>{r.firstName?.[0] || 'M'}</Avatar>
           <div>
             <div className="font-semibold text-slate-800">{`${r.firstName} ${r.lastName}`}</div>
             <div className="text-xs text-slate-500">{r.fatherOrSpouseName}</div>

@@ -16,6 +16,7 @@ import {
   message,
   Divider,
   Alert,
+  Space,
   Descriptions,
   Drawer,
 } from 'antd';
@@ -25,6 +26,7 @@ import {
   WarningOutlined,
   LockOutlined,
   EyeOutlined,
+  PlusOutlined,
 } from '@ant-design/icons';
 import { fetchApi, postApi } from '@/lib/api-client';
 import { FinancialEngine } from '@sanjeevani/financial-engine';
@@ -35,9 +37,28 @@ export default function CashDrawerPage() {
   const [history, setHistory] = useState<ICashDrawer[]>([]);
   const [loading, setLoading] = useState(false);
   const [reconcileModalVisible, setReconcileModalVisible] = useState(false);
+  const [openDrawerModalVisible, setOpenDrawerModalVisible] = useState(false);
   const [selectedDrawer, setSelectedDrawer] = useState<ICashDrawer | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [form] = Form.useForm();
+  const [openDrawerForm] = Form.useForm();
+
+  const handleOpenDrawer = async (values: any) => {
+    setSubmitting(true);
+    const res = await postApi('/cash-drawers/open', {
+      openingBalance: Number(values.openingBalance) || 0,
+    });
+    setSubmitting(false);
+
+    if (res.success && res.data) {
+      message.success('Cash Drawer Session opened successfully!');
+      setOpenDrawerModalVisible(false);
+      openDrawerForm.resetFields();
+      loadCashData();
+    } else {
+      message.error(res.message || res.error || 'Failed to open drawer session');
+    }
+  };
 
   // Denominations state
   const [denominations, setDenominations] = useState<Record<string, number>>({
@@ -188,16 +209,27 @@ export default function CashDrawerPage() {
             Daily physical cash reconciliation, denomination counting, and discrepancy detection (SRS §33, §34, BR-006).
           </p>
         </div>
-        {currentDrawer?.status === CashDrawerStatus.OPEN && (
-          <Button
-            type="primary"
-            icon={<LockOutlined />}
-            onClick={() => setReconcileModalVisible(true)}
-            style={{ background: '#059669', borderColor: '#059669', height: 40 }}
-          >
-            Physical Count & Close Drawer
-          </Button>
-        )}
+        <Space>
+          {currentDrawer?.status === CashDrawerStatus.OPEN ? (
+            <Button
+              type="primary"
+              icon={<LockOutlined />}
+              onClick={() => setReconcileModalVisible(true)}
+              style={{ background: '#059669', borderColor: '#059669', height: 40 }}
+            >
+              Physical Count & Close Drawer
+            </Button>
+          ) : (
+            <Button
+              type="primary"
+              icon={<PlusOutlined />}
+              onClick={() => setOpenDrawerModalVisible(true)}
+              style={{ background: '#0284c7', borderColor: '#0284c7', height: 40 }}
+            >
+              Open New Drawer Session
+            </Button>
+          )}
+        </Space>
       </div>
 
       {/* Active Drawer Live Summary */}
@@ -412,6 +444,52 @@ export default function CashDrawerPage() {
           </div>
         )}
       </Drawer>
+
+      {/* OPEN DRAWER SESSION MODAL */}
+      <Modal
+        title={
+          <div className="flex items-center gap-2">
+            <AuditOutlined className="text-emerald-600" />
+            <span>Open Cash Drawer Session</span>
+          </div>
+        }
+        open={openDrawerModalVisible}
+        onCancel={() => setOpenDrawerModalVisible(false)}
+        footer={null}
+        width={480}
+      >
+        <Form form={openDrawerForm} layout="vertical" onFinish={handleOpenDrawer}>
+          <div className="mb-4 text-xs text-slate-500">
+            Open the cashier vault drawer session for today. Enter the physical morning cash float available in the drawer.
+          </div>
+          <Form.Item
+            label="Opening Float / Cash in Vault (₹)"
+            name="openingBalance"
+            rules={[{ required: true, message: 'Please specify opening balance' }]}
+            initialValue={0}
+          >
+            <InputNumber
+              style={{ width: '100%' }}
+              size="large"
+              min={0}
+              placeholder="0.00"
+              formatter={(value) => `₹ ${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
+              parser={(value) => (value ? (value.replace(/₹\s?|(,*)/g, '') as any) : '')}
+            />
+          </Form.Item>
+          <div className="flex justify-end gap-2 mt-6">
+            <Button onClick={() => setOpenDrawerModalVisible(false)}>Cancel</Button>
+            <Button
+              type="primary"
+              htmlType="submit"
+              loading={submitting}
+              style={{ background: '#0284c7', borderColor: '#0284c7' }}
+            >
+              Start Drawer Session
+            </Button>
+          </div>
+        </Form>
+      </Modal>
     </div>
   );
 }
