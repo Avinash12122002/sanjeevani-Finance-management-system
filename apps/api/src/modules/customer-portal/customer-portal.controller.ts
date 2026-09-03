@@ -26,11 +26,8 @@ import {
   AccountStatus,
 } from '@sanjeevani/shared-types';
 
-// In-Memory Stores
-// 1. Passwords Map (customerId -> password)
-const customerPasswordMap = new Map<string, string>();
-// 2. Active OTP Store (cleanMobile -> { otp, customerId, expiresAt, attempts })
-const otpStore = new Map<string, { otp: string; customerId: string; expiresAt: number; attempts: number }>();
+// Active OTP Store (cleanMobile -> { otp, customerId, expiresAt, attempts, verified? })
+const otpStore = new Map<string, { otp: string; customerId: string; expiresAt: number; attempts: number; verified?: boolean }>();
 
 @Controller('api/v1/portal')
 export class CustomerPortalController {
@@ -210,7 +207,7 @@ export class CustomerPortalController {
       throw new BadRequestException(`Incorrect OTP. ${4 - record.attempts} attempt(s) remaining.`);
     }
 
-    (record as any).verified = true;
+    record.verified = true;
 
     return {
       success: true,
@@ -250,7 +247,7 @@ export class CustomerPortalController {
       throw new BadRequestException('OTP has expired. Please request a new code.');
     }
 
-    const isPreVerified = (record as any).verified === true;
+    const isPreVerified = record.verified === true;
     if (!isPreVerified && record.otp !== otp) {
       record.attempts += 1;
       if (record.attempts >= 4) {
@@ -859,7 +856,12 @@ export class CustomerPortalController {
     }
 
     if (record.otp !== otp) {
-      throw new BadRequestException('Incorrect OTP verification code.');
+      record.attempts += 1;
+      if (record.attempts >= 4) {
+        otpStore.delete(cleanMobile);
+        throw new BadRequestException('Too many incorrect attempts. Please request a new OTP.');
+      }
+      throw new BadRequestException(`Incorrect OTP verification code. ${4 - record.attempts} attempt(s) remaining.`);
     }
 
     otpStore.delete(cleanMobile);
