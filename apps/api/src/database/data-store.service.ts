@@ -380,32 +380,6 @@ export class DataStoreService implements OnModuleInit {
         this.counters.employee = this.employees.length;
       }
 
-      // Auto-bridge any user created directly in pgAdmin / Supabase into the Staff Members list
-      for (const u of this.users) {
-        const hasEmp = this.employees.some(
-          (e) => e.userId === u.id || e.id === u.employeeId || e.email === u.email || (u.mobile && e.mobile === u.mobile)
-        );
-        if (!hasEmp) {
-          const bridgedEmp: IEmployee = {
-            id: `EMP-${u.id}`,
-            employeeNumber: `SJF-EMP-${String(this.employees.length + 1).padStart(6, '0')}`,
-            userId: u.id,
-            branchId: u.branchId || 'BR-001',
-            branchCode: 'SJF-BR001',
-            branchName: u.branchName || 'Head Office - Main Branch',
-            name: u.employeeName || u.username,
-            mobile: u.mobile || '9876500000',
-            email: u.email || `${u.username}@sanjeevanifinance.com`,
-            designation: u.roles?.[0] || 'SUPER_ADMIN',
-            joiningDate: new Date().toISOString().split('T')[0],
-            salary: 35000,
-            employmentStatus: u.isActive !== false ? 'ACTIVE' : 'TERMINATED',
-            createdAt: u.createdAt || new Date().toISOString(),
-          };
-          this.employees.push(bridgedEmp);
-        }
-      }
-
       // Chart of Accounts
       const coaRes = await this.pool.query('SELECT * FROM chart_of_accounts ORDER BY account_code ASC');
       if (coaRes.rows.length > 0) {
