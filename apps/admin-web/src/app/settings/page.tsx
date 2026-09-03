@@ -33,16 +33,25 @@ import {
   AppstoreAddOutlined,
   ShoppingOutlined,
   EyeOutlined,
+  UserOutlined,
+  CustomerServiceOutlined,
+  KeyOutlined,
+  CheckCircleOutlined,
+  AlertOutlined,
 } from '@ant-design/icons';
 import { fetchApi, postApi, patchApi, deleteApi } from '@/lib/api-client';
 import { noEmojiRule } from '@/lib/emoji-sanitizer';
 import { FinancialEngine } from '@sanjeevani/financial-engine';
+import { UserRole, PriorityLevel, ComplaintStatus } from '@sanjeevani/shared-types';
 
 export default function SettingsPage() {
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [branches, setBranches] = useState<any[]>([]);
   const [employees, setEmployees] = useState<any[]>([]);
   const [products, setProducts] = useState<any[]>([]);
+  const [users, setUsers] = useState<any[]>([]);
+  const [complaints, setComplaints] = useState<any[]>([]);
+  const [customersList, setCustomersList] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
 
   // Modals
@@ -58,12 +67,20 @@ export default function SettingsPage() {
   const [editProductModal, setEditProductModal] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<any>(null);
 
+  const [addUserModal, setAddUserModal] = useState(false);
+  const [editUserModal, setEditUserModal] = useState(false);
+  const [selectedUser, setSelectedUser] = useState<any>(null);
+
+  const [addComplaintModal, setAddComplaintModal] = useState(false);
+  const [resolveComplaintModal, setResolveComplaintModal] = useState(false);
+  const [selectedComplaint, setSelectedComplaint] = useState<any>(null);
+
   // Universal View Detail Drawer State
   const [viewRecord, setViewRecord] = useState<any>(null);
-  const [viewRecordType, setViewRecordType] = useState<'STAFF' | 'PRODUCT' | 'BRANCH' | ''>('');
+  const [viewRecordType, setViewRecordType] = useState<'STAFF' | 'PRODUCT' | 'BRANCH' | 'USER' | 'COMPLAINT' | ''>('');
   const [viewDrawerOpen, setViewDrawerOpen] = useState(false);
 
-  const handleOpenViewDetails = (record: any, type: 'STAFF' | 'PRODUCT' | 'BRANCH') => {
+  const handleOpenViewDetails = (record: any, type: 'STAFF' | 'PRODUCT' | 'BRANCH' | 'USER' | 'COMPLAINT') => {
     setViewRecord(record);
     setViewRecordType(type);
     setViewDrawerOpen(true);
@@ -77,6 +94,10 @@ export default function SettingsPage() {
   const [editBranchForm] = Form.useForm();
   const [productForm] = Form.useForm();
   const [editProductForm] = Form.useForm();
+  const [userForm] = Form.useForm();
+  const [editUserForm] = Form.useForm();
+  const [complaintForm] = Form.useForm();
+  const [resolveComplaintForm] = Form.useForm();
 
   // Feature Flags (SRS §43)
   const [featureFlags, setFeatureFlags] = useState({
@@ -103,15 +124,21 @@ export default function SettingsPage() {
 
   const loadSettingsData = async () => {
     setLoading(true);
-    const [bRes, eRes, pRes] = await Promise.all([
+    const [bRes, eRes, pRes, uRes, cRes, custRes] = await Promise.all([
       fetchApi('/branches'),
       fetchApi('/employees'),
       fetchApi('/products'),
+      fetchApi('/auth/users'),
+      fetchApi('/complaints'),
+      fetchApi('/customers?limit=100'),
     ]);
 
     if (bRes.success && bRes.data) setBranches(bRes.data);
     if (eRes.success && eRes.data) setEmployees(eRes.data);
     if (pRes.success && pRes.data) setProducts(pRes.data);
+    if (uRes.success && uRes.data) setUsers(uRes.data);
+    if (cRes.success && cRes.data) setComplaints(cRes.data);
+    if (custRes.success && custRes.data) setCustomersList(custRes.data.items || custRes.data);
     setLoading(false);
   };
 
@@ -324,6 +351,136 @@ export default function SettingsPage() {
     }
   };
 
+  // User Accounts CRUD Handlers
+  const handleAddUser = async (values: any) => {
+    setSubmitting(true);
+    try {
+      const res = await postApi('/auth/users', values);
+      if (res.success) {
+        message.success(`User [${values.username}] created successfully!`);
+        setAddUserModal(false);
+        userForm.resetFields();
+        loadSettingsData();
+      } else {
+        message.error(res.message || 'Failed to create user account.');
+      }
+    } catch (err: any) {
+      message.error('An error occurred while creating user.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleOpenEditUser = (record: any) => {
+    setSelectedUser(record);
+    editUserForm.setFieldsValue({
+      username: record.username,
+      email: record.email,
+      mobile: record.mobile,
+      roles: record.roles || [UserRole.LOAN_OFFICER],
+      branchId: record.branchId,
+      isActive: record.isActive !== false,
+      password: '',
+    });
+    setEditUserModal(true);
+  };
+
+  const handleUpdateUser = async (values: any) => {
+    if (!selectedUser) return;
+    setSubmitting(true);
+    try {
+      const res = await patchApi(`/auth/users/${selectedUser.id}`, values);
+      if (res.success) {
+        message.success(`User [${selectedUser.username}] updated successfully!`);
+        setEditUserModal(false);
+        editUserForm.resetFields();
+        loadSettingsData();
+      } else {
+        message.error(res.message || 'Failed to update user account.');
+      }
+    } catch (err: any) {
+      message.error('An error occurred while updating user.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleDeleteUser = async (id: string, username: string) => {
+    try {
+      const res = await deleteApi(`/auth/users/${id}`);
+      if (res.success) {
+        message.success(`User account [${username}] deleted.`);
+        loadSettingsData();
+      } else {
+        message.error(res.message || 'Failed to delete user account.');
+      }
+    } catch (err: any) {
+      message.error('Error deleting user account.');
+    }
+  };
+
+  // Complaint CRUD Handlers
+  const handleAddComplaint = async (values: any) => {
+    setSubmitting(true);
+    try {
+      const res = await postApi('/complaints', values);
+      if (res.success) {
+        message.success('Complaint ticket logged successfully!');
+        setAddComplaintModal(false);
+        complaintForm.resetFields();
+        loadSettingsData();
+      } else {
+        message.error(res.message || 'Failed to log complaint ticket.');
+      }
+    } catch (err: any) {
+      message.error('An error occurred while creating complaint.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleOpenResolveComplaint = (record: any) => {
+    setSelectedComplaint(record);
+    resolveComplaintForm.setFieldsValue({
+      resolution: record.resolution || '',
+    });
+    setResolveComplaintModal(true);
+  };
+
+  const handleResolveComplaint = async (values: any) => {
+    if (!selectedComplaint) return;
+    setSubmitting(true);
+    try {
+      const res = await patchApi(`/complaints/${selectedComplaint.id}/resolve`, values);
+      if (res.success) {
+        message.success('Complaint marked as RESOLVED!');
+        setResolveComplaintModal(false);
+        resolveComplaintForm.resetFields();
+        loadSettingsData();
+      } else {
+        message.error(res.message || 'Failed to resolve complaint.');
+      }
+    } catch (err: any) {
+      message.error('An error occurred while resolving complaint.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleDeleteComplaint = async (id: string, ticketNum: string) => {
+    try {
+      const res = await deleteApi(`/complaints/${id}`);
+      if (res.success) {
+        message.success(`Complaint [${ticketNum}] deleted.`);
+        loadSettingsData();
+      } else {
+        message.error(res.message || 'Failed to delete complaint.');
+      }
+    } catch (err: any) {
+      message.error('Error deleting complaint.');
+    }
+  };
+
   if (currentUser && !currentUser.roles?.includes('SUPER_ADMIN')) {
     return (
       <div className="p-8 bg-white rounded-2xl border border-slate-200 text-center max-w-xl mx-auto my-12 space-y-4 shadow-sm">
@@ -357,6 +514,20 @@ export default function SettingsPage() {
         </div>
         <Space wrap>
           <Button
+            icon={<UserOutlined />}
+            size="large"
+            onClick={() => setAddUserModal(true)}
+          >
+            + Add User Account
+          </Button>
+          <Button
+            icon={<CustomerServiceOutlined />}
+            size="large"
+            onClick={() => setAddComplaintModal(true)}
+          >
+            + Log Complaint
+          </Button>
+          <Button
             icon={<ShoppingOutlined />}
             size="large"
             onClick={() => setAddProductModal(true)}
@@ -377,7 +548,7 @@ export default function SettingsPage() {
             style={{ background: '#059669', borderColor: '#059669' }}
             onClick={() => setAddStaffModal(true)}
           >
-            + Add Staff User
+            + Add Staff Member
           </Button>
         </Space>
       </div>
@@ -387,7 +558,7 @@ export default function SettingsPage() {
         items={[
           {
             key: 'staff',
-            label: `Staff Users & Roles (${employees.length})`,
+            label: `Staff Members (${employees.length})`,
             children: (
               <Card
                 className="glass-card"
@@ -479,6 +650,118 @@ export default function SettingsPage() {
                             title="Delete Staff"
                             description={`Delete ${record.name}?`}
                             onConfirm={() => handleDeleteStaff(record.id, record.name)}
+                            okText="Delete"
+                            cancelText="Cancel"
+                            okButtonProps={{ danger: true }}
+                          >
+                            <Button size="small" danger icon={<DeleteOutlined />} />
+                          </Popconfirm>
+                        </Space>
+                      ),
+                    },
+                  ]}
+                />
+              </Card>
+            ),
+          },
+          {
+            key: 'users',
+            label: `User Accounts & Logins (${users.length})`,
+            children: (
+              <Card
+                className="glass-card"
+                extra={
+                  <Button
+                    type="primary"
+                    icon={<PlusOutlined />}
+                    style={{ background: '#059669', borderColor: '#059669' }}
+                    onClick={() => setAddUserModal(true)}
+                  >
+                    Add User Account
+                  </Button>
+                }
+              >
+                <Table
+                  size="small"
+                  dataSource={users}
+                  rowKey="id"
+                  loading={loading}
+                  pagination={{ pageSize: 10 }}
+                  columns={[
+                    {
+                      title: 'Username',
+                      key: 'usr',
+                      render: (_: any, r: any) => (
+                        <div className="flex items-center gap-2">
+                          <div className="w-8 h-8 rounded-full bg-emerald-100 border border-emerald-300 flex items-center justify-center font-bold text-emerald-800 text-xs">
+                            {r.username?.charAt(0)?.toUpperCase()}
+                          </div>
+                          <div>
+                            <div className="font-semibold text-slate-800">{r.username}</div>
+                            <div className="text-xs text-slate-400 font-mono">{r.id}</div>
+                          </div>
+                        </div>
+                      ),
+                    },
+                    {
+                      title: 'Roles & Permissions',
+                      key: 'roles',
+                      render: (_: any, r: any) => (
+                        <Space wrap size={[0, 4]}>
+                          {(r.roles || ['LOAN_OFFICER']).map((role: string) => {
+                            let color = 'blue';
+                            if (role.includes('ADMIN')) color = 'red';
+                            else if (role.includes('MANAGER')) color = 'purple';
+                            else if (role.includes('CASHIER')) color = 'green';
+                            else if (role.includes('ACCOUNTANT')) color = 'cyan';
+                            return <Tag key={role} color={color}>{role}</Tag>;
+                          })}
+                        </Space>
+                      ),
+                    },
+                    {
+                      title: 'Contact Details',
+                      key: 'contact',
+                      render: (_: any, r: any) => (
+                        <div>
+                          <div className="font-mono text-xs text-slate-700">{r.mobile || 'No mobile'}</div>
+                          <div className="text-xs text-slate-400 truncate max-w-[170px]">{r.email || 'No email'}</div>
+                        </div>
+                      ),
+                    },
+                    {
+                      title: 'Branch',
+                      dataIndex: 'branchName',
+                      key: 'br',
+                      render: (b: string) => b || 'Head Office - Main Branch',
+                    },
+                    {
+                      title: 'Login Status',
+                      key: 'status',
+                      width: 100,
+                      render: (_: any, r: any) => (
+                        <Tag color={r.isActive !== false ? 'success' : 'error'}>
+                          {r.isActive !== false ? 'ACTIVE' : 'DISABLED'}
+                        </Tag>
+                      ),
+                    },
+                    {
+                      title: 'Actions',
+                      key: 'actions',
+                      width: 140,
+                      render: (_: any, record: any) => (
+                        <Space size={4}>
+                          <Button
+                            size="small"
+                            icon={<EditOutlined />}
+                            onClick={() => handleOpenEditUser(record)}
+                          >
+                            Edit
+                          </Button>
+                          <Popconfirm
+                            title="Delete User Account"
+                            description={`Permanently delete login account "${record.username}"?`}
+                            onConfirm={() => handleDeleteUser(record.id, record.username)}
                             okText="Delete"
                             cancelText="Cancel"
                             okButtonProps={{ danger: true }}
@@ -658,6 +941,124 @@ export default function SettingsPage() {
                             title="Delete Branch"
                             description={`Delete branch ${record.name}?`}
                             onConfirm={() => handleDeleteBranch(record.id, record.name)}
+                            okText="Delete"
+                            cancelText="Cancel"
+                            okButtonProps={{ danger: true }}
+                          >
+                            <Button size="small" danger icon={<DeleteOutlined />} />
+                          </Popconfirm>
+                        </Space>
+                      ),
+                    },
+                  ]}
+                />
+              </Card>
+            ),
+          },
+          {
+            key: 'complaints',
+            label: `Complaints & Grievances (${complaints.length})`,
+            children: (
+              <Card
+                className="glass-card"
+                extra={
+                  <Button
+                    type="primary"
+                    icon={<PlusOutlined />}
+                    style={{ background: '#059669', borderColor: '#059669' }}
+                    onClick={() => setAddComplaintModal(true)}
+                  >
+                    Log Complaint Ticket
+                  </Button>
+                }
+              >
+                <Table
+                  size="small"
+                  dataSource={complaints}
+                  rowKey="id"
+                  loading={loading}
+                  pagination={{ pageSize: 10 }}
+                  columns={[
+                    {
+                      title: 'Ticket #',
+                      dataIndex: 'complaintNumber',
+                      key: 'num',
+                      render: (n: string) => <span className="font-mono font-bold text-emerald-700">{n}</span>,
+                    },
+                    {
+                      title: 'Customer / Member',
+                      key: 'cust',
+                      render: (_: any, r: any) => (
+                        <div>
+                          <div className="font-semibold text-slate-800">{r.customerName || 'General Customer'}</div>
+                          <div className="text-xs text-slate-400 font-mono">{r.customerNumber || r.customerId}</div>
+                        </div>
+                      ),
+                    },
+                    {
+                      title: 'Category',
+                      dataIndex: 'category',
+                      key: 'cat',
+                      render: (c: string) => <Tag color="blue">{c || 'Service Request'}</Tag>,
+                    },
+                    {
+                      title: 'Priority',
+                      dataIndex: 'priority',
+                      key: 'pri',
+                      render: (p: string) => {
+                        let color = 'default';
+                        if (p === 'CRITICAL' || p === 'HIGH') color = 'red';
+                        else if (p === 'MEDIUM') color = 'orange';
+                        else if (p === 'LOW') color = 'green';
+                        return <Tag color={color}>{p || 'MEDIUM'}</Tag>;
+                      },
+                    },
+                    {
+                      title: 'Status',
+                      dataIndex: 'status',
+                      key: 'st',
+                      render: (s: string) => {
+                        let color = 'default';
+                        if (s === 'OPEN') color = 'gold';
+                        else if (s === 'IN_PROGRESS') color = 'blue';
+                        else if (s === 'RESOLVED') color = 'green';
+                        return <Tag color={color}>{s || 'OPEN'}</Tag>;
+                      },
+                    },
+                    {
+                      title: 'Issue Description',
+                      dataIndex: 'description',
+                      key: 'desc',
+                      ellipsis: true,
+                    },
+                    {
+                      title: 'Resolution Notes',
+                      dataIndex: 'resolution',
+                      key: 'res',
+                      ellipsis: true,
+                      render: (r: string) => r ? <span className="text-emerald-700 font-medium">{r}</span> : <span className="text-slate-400 italic">Pending</span>,
+                    },
+                    {
+                      title: 'Actions',
+                      key: 'actions',
+                      width: 140,
+                      render: (_: any, record: any) => (
+                        <Space size={4}>
+                          {record.status !== 'RESOLVED' && (
+                            <Button
+                              size="small"
+                              type="primary"
+                              ghost
+                              icon={<CheckCircleOutlined />}
+                              onClick={() => handleOpenResolveComplaint(record)}
+                            >
+                              Resolve
+                            </Button>
+                          )}
+                          <Popconfirm
+                            title="Delete Complaint"
+                            description={`Delete ticket ${record.complaintNumber}?`}
+                            onConfirm={() => handleDeleteComplaint(record.id, record.complaintNumber)}
                             okText="Delete"
                             cancelText="Cancel"
                             okButtonProps={{ danger: true }}
@@ -1279,6 +1680,318 @@ export default function SettingsPage() {
               style={{ background: '#059669', borderColor: '#059669' }}
             >
               Save Changes
+            </Button>
+          </div>
+        </Form>
+      </Modal>
+
+      {/* Add New User Account Modal */}
+      <Modal
+        title={
+          <div className="flex items-center gap-2 text-slate-800">
+            <UserAddOutlined className="text-emerald-600" />
+            <span>Create Login User Account (Credentials)</span>
+          </div>
+        }
+        open={addUserModal}
+        onCancel={() => setAddUserModal(false)}
+        footer={null}
+        width={580}
+      >
+        <Form form={userForm} layout="vertical" onFinish={handleAddUser} className="mt-4">
+          <Row gutter={16}>
+            <Col span={12}>
+              <Form.Item
+                label="Username / Login Handle"
+                name="username"
+                rules={[{ required: true, message: 'Please enter username' }]}
+              >
+                <Input placeholder="e.g. ashish_admin" />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item
+                label="Initial Password"
+                name="password"
+                rules={[{ required: true, message: 'Please enter password' }]}
+              >
+                <Input.Password placeholder="Password@123" />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item
+                label="Role / Permission Level"
+                name="role"
+                initialValue="LOAN_OFFICER"
+                rules={[{ required: true }]}
+              >
+                <Select
+                  options={[
+                    { value: 'SUPER_ADMIN', label: 'Super Admin (Full System Access)' },
+                    { value: 'BRANCH_MANAGER', label: 'Branch Manager' },
+                    { value: 'ACCOUNTANT', label: 'Accountant' },
+                    { value: 'CASHIER', label: 'Cashier' },
+                    { value: 'LOAN_OFFICER', label: 'Loan Officer' },
+                    { value: 'RECOVERY_OFFICER', label: 'Recovery Officer' },
+                    { value: 'CUSTOMER_SERVICE', label: 'Customer Service' },
+                    { value: 'AUDITOR', label: 'Auditor (Read Only)' },
+                  ]}
+                />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item
+                label="Assigned Branch"
+                name="branchId"
+                initialValue={branches[0]?.id || 'BR-001'}
+              >
+                <Select
+                  options={branches.map((b) => ({
+                    value: b.id,
+                    label: `${b.name} (${b.branchCode})`,
+                  }))}
+                />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item label="Email Address" name="email">
+                <Input placeholder="e.g. ashish@gmail.com" />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item label="Mobile Number" name="mobile">
+                <Input placeholder="e.g. 9876543210" />
+              </Form.Item>
+            </Col>
+          </Row>
+          <div className="flex justify-end gap-3 pt-4 border-t border-slate-100">
+            <Button onClick={() => setAddUserModal(false)}>Cancel</Button>
+            <Button
+              type="primary"
+              htmlType="submit"
+              loading={submitting}
+              style={{ background: '#059669', borderColor: '#059669' }}
+            >
+              Create User Account
+            </Button>
+          </div>
+        </Form>
+      </Modal>
+
+      {/* Edit User Account & Reset Password Modal */}
+      <Modal
+        title={
+          <div className="flex items-center gap-2 text-slate-800">
+            <EditOutlined className="text-emerald-600" />
+            <span>Edit User: {selectedUser?.username}</span>
+          </div>
+        }
+        open={editUserModal}
+        onCancel={() => setEditUserModal(false)}
+        footer={null}
+        width={580}
+      >
+        <Form form={editUserForm} layout="vertical" onFinish={handleUpdateUser} className="mt-4">
+          <Row gutter={16}>
+            <Col span={12}>
+              <Form.Item
+                label="Username"
+                name="username"
+                rules={[{ required: true, message: 'Please enter username' }]}
+              >
+                <Input />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item
+                label="Reset Password (Leave blank to keep current)"
+                name="password"
+              >
+                <Input.Password placeholder="New password" />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item label="Role" name="role">
+                <Select
+                  options={[
+                    { value: 'SUPER_ADMIN', label: 'Super Admin' },
+                    { value: 'BRANCH_MANAGER', label: 'Branch Manager' },
+                    { value: 'ACCOUNTANT', label: 'Accountant' },
+                    { value: 'CASHIER', label: 'Cashier' },
+                    { value: 'LOAN_OFFICER', label: 'Loan Officer' },
+                    { value: 'RECOVERY_OFFICER', label: 'Recovery Officer' },
+                    { value: 'CUSTOMER_SERVICE', label: 'Customer Service' },
+                    { value: 'AUDITOR', label: 'Auditor' },
+                  ]}
+                />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item label="Branch" name="branchId">
+                <Select
+                  options={branches.map((b) => ({
+                    value: b.id,
+                    label: `${b.name} (${b.branchCode})`,
+                  }))}
+                />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item label="Email Address" name="email">
+                <Input />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item label="Mobile Number" name="mobile">
+                <Input />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item label="Account Status" name="isActive" valuePropName="checked">
+                <Switch checkedChildren="ACTIVE" unCheckedChildren="DISABLED" />
+              </Form.Item>
+            </Col>
+          </Row>
+          <div className="flex justify-end gap-3 pt-4 border-t border-slate-100">
+            <Button onClick={() => setEditUserModal(false)}>Cancel</Button>
+            <Button
+              type="primary"
+              htmlType="submit"
+              loading={submitting}
+              style={{ background: '#059669', borderColor: '#059669' }}
+            >
+              Save Changes
+            </Button>
+          </div>
+        </Form>
+      </Modal>
+
+      {/* Log Complaint / Ticket Modal */}
+      <Modal
+        title={
+          <div className="flex items-center gap-2 text-slate-800">
+            <CustomerServiceOutlined className="text-emerald-600" />
+            <span>Log Member Complaint / Service Request</span>
+          </div>
+        }
+        open={addComplaintModal}
+        onCancel={() => setAddComplaintModal(false)}
+        footer={null}
+        width={580}
+      >
+        <Form form={complaintForm} layout="vertical" onFinish={handleAddComplaint} className="mt-4">
+          <Row gutter={16}>
+            <Col span={24}>
+              <Form.Item
+                label="Customer / Member"
+                name="customerId"
+                rules={[{ required: true, message: 'Please select customer' }]}
+              >
+                <Select
+                  showSearch
+                  placeholder="Search customer by name or phone"
+                  optionFilterProp="label"
+                  options={customersList.map((c) => ({
+                    value: c.id,
+                    label: `${c.firstName} ${c.lastName} (${c.customerNumber || c.mobile})`,
+                  }))}
+                />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item
+                label="Category"
+                name="category"
+                initialValue="Service Request"
+                rules={[{ required: true }]}
+              >
+                <Select
+                  options={[
+                    { value: 'Service Request', label: 'Service Request' },
+                    { value: 'Account Inquiry', label: 'Account Inquiry' },
+                    { value: 'Loan Discrepancy', label: 'Loan Discrepancy' },
+                    { value: 'Passbook / Statement', label: 'Passbook / Statement' },
+                    { value: 'Payment Dispute', label: 'Payment Dispute' },
+                    { value: 'General Feedback', label: 'General Feedback' },
+                  ]}
+                />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item
+                label="Priority"
+                name="priority"
+                initialValue="MEDIUM"
+                rules={[{ required: true }]}
+              >
+                <Select
+                  options={[
+                    { value: 'LOW', label: 'Low Priority' },
+                    { value: 'MEDIUM', label: 'Medium Priority' },
+                    { value: 'HIGH', label: 'High Priority' },
+                    { value: 'CRITICAL', label: 'Critical / Urgent' },
+                  ]}
+                />
+              </Form.Item>
+            </Col>
+            <Col span={24}>
+              <Form.Item
+                label="Issue Description"
+                name="description"
+                rules={[{ required: true, message: 'Please provide issue description' }]}
+              >
+                <Input.TextArea rows={3} placeholder="Describe the grievance or request in detail..." />
+              </Form.Item>
+            </Col>
+          </Row>
+          <div className="flex justify-end gap-3 pt-4 border-t border-slate-100">
+            <Button onClick={() => setAddComplaintModal(false)}>Cancel</Button>
+            <Button
+              type="primary"
+              htmlType="submit"
+              loading={submitting}
+              style={{ background: '#059669', borderColor: '#059669' }}
+            >
+              Submit Ticket
+            </Button>
+          </div>
+        </Form>
+      </Modal>
+
+      {/* Resolve Complaint Modal */}
+      <Modal
+        title={
+          <div className="flex items-center gap-2 text-slate-800">
+            <CheckCircleOutlined className="text-emerald-600" />
+            <span>Resolve Ticket: {selectedComplaint?.complaintNumber}</span>
+          </div>
+        }
+        open={resolveComplaintModal}
+        onCancel={() => setResolveComplaintModal(false)}
+        footer={null}
+        width={500}
+      >
+        <Form form={resolveComplaintForm} layout="vertical" onFinish={handleResolveComplaint} className="mt-4">
+          <div className="mb-4 p-3 bg-slate-50 rounded-lg border border-slate-200">
+            <div className="text-xs text-slate-500 uppercase font-semibold">Complaint Summary</div>
+            <div className="text-sm font-medium text-slate-800 mt-1">{selectedComplaint?.description}</div>
+          </div>
+          <Form.Item
+            label="Resolution Action & Remarks"
+            name="resolution"
+            rules={[{ required: true, message: 'Please enter resolution notes' }]}
+          >
+            <Input.TextArea rows={4} placeholder="Specify actions taken, refund processed, or explanation provided..." />
+          </Form.Item>
+          <div className="flex justify-end gap-3 pt-4 border-t border-slate-100">
+            <Button onClick={() => setResolveComplaintModal(false)}>Cancel</Button>
+            <Button
+              type="primary"
+              htmlType="submit"
+              loading={submitting}
+              style={{ background: '#059669', borderColor: '#059669' }}
+            >
+              Mark Resolved
             </Button>
           </div>
         </Form>
