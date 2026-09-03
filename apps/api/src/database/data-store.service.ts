@@ -412,6 +412,24 @@ export class DataStoreService implements OnModuleInit {
           createdAt: r.created_at ? new Date(r.created_at).toISOString() : '',
         }));
       }
+
+      // Audit Logs
+      const auditRes = await this.pool.query('SELECT * FROM audit_logs ORDER BY created_at DESC LIMIT 100');
+      if (auditRes.rows.length > 0) {
+        this.auditLogs = auditRes.rows.map((r) => ({
+          id: r.id,
+          userId: r.user_id,
+          userName: r.user_name,
+          eventType: r.action,
+          entityType: r.entity_type || r.entity || 'General',
+          entityId: r.entity_id || '',
+          oldValue: undefined,
+          newValue: undefined,
+          reason: typeof r.details === 'string' ? r.details : JSON.stringify(r.details || ''),
+          ipAddress: r.client_ip || '127.0.0.1',
+          timestamp: r.created_at ? new Date(r.created_at).toISOString() : '',
+        }));
+      }
     } catch (e: any) {
       this.logger.warn(`Could not load initial rows from PostgreSQL: ${e.message}`);
     }

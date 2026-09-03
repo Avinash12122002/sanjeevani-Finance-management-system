@@ -96,7 +96,8 @@ export class DashboardsController {
    * IMMUTABLE AUDIT TRAIL LOGS (SRS §50)
    */
   @Get('audit-logs')
-  getAuditLogs(@Query() query: PaginationParams & { entityType?: string; userId?: string }) {
+  async getAuditLogs(@Query() query: PaginationParams & { entityType?: string; userId?: string }) {
+    await this.dataStore.refreshIfStale();
     let list = [...this.dataStore.auditLogs];
 
     if (query.entityType) {
