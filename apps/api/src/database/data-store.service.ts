@@ -111,19 +111,27 @@ export class DataStoreService implements OnModuleInit {
         connectionTimeoutMillis: 10000,
       });
 
-      // Execute auto table provisioning
-      await this.pool.query(CREATE_TABLES_SQL);
-      this.logger.log('✅ All 14 PostgreSQL database tables verified/created successfully.');
+      // Execute auto table provisioning (if permitted)
+      try {
+        await this.pool.query(CREATE_TABLES_SQL);
+        this.logger.log('✅ All 14 PostgreSQL database tables verified/created successfully.');
+      } catch (ddlErr: any) {
+        this.logger.warn(`Table verification notice (tables may already exist): ${ddlErr.message}`);
+      }
 
       // Execute seed master data
-      await this.pool.query(SEED_MASTER_DATA_SQL);
-      this.logger.log('✅ Initial master data verified in PostgreSQL.');
+      try {
+        await this.pool.query(SEED_MASTER_DATA_SQL);
+        this.logger.log('✅ Initial master data verified in PostgreSQL.');
+      } catch (seedErr: any) {
+        this.logger.warn(`Seed verification notice: ${seedErr.message}`);
+      }
 
       // Hydrate state from PostgreSQL
       await this.loadFromPostgres();
       this.logger.log('✅ In-memory data store synchronized with PostgreSQL.');
     } catch (err: any) {
-      this.logger.error(`PostgreSQL connection/init failed: ${err.message}. Falling back to in-memory mode.`);
+      this.logger.error(`PostgreSQL connection failed: ${err.message}. Falling back to in-memory mode.`);
     }
   }
 
