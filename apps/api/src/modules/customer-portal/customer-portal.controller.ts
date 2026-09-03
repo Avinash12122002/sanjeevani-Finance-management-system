@@ -22,6 +22,8 @@ import {
   ICustomer,
   CustomerStatus,
   KYCStatus,
+  IAccount,
+  AccountStatus,
 } from '@sanjeevani/shared-types';
 
 // In-Memory Stores
@@ -260,6 +262,32 @@ export class CustomerPortalController {
       this.dataStore.customers.unshift(newCustomer);
       this.dataStore.persistCustomer(newCustomer);
       customer = newCustomer;
+
+      // Automatically provision primary Zero-Balance Savings Account
+      const accNumber = this.dataStore.nextAccountNumber(ProductType.SAVINGS);
+      const newSavingsAccount: IAccount = {
+        id: `ACC-${Date.now()}`,
+        accountNumber: accNumber,
+        customerId: newCustomer.id,
+        customerNumber: newCustomer.customerNumber,
+        customerName: `${newCustomer.firstName} ${newCustomer.lastName || ''}`.trim(),
+        productId: 'PRD-001',
+        productName: 'Regular Member Savings',
+        productType: ProductType.SAVINGS,
+        branchId: 'BR-001',
+        branchName: 'Head Office - Main Branch',
+        openingDate: new Date().toISOString().split('T')[0],
+        principalAmount: 0,
+        tenureMonths: 12,
+        currentBalance: 0,
+        status: AccountStatus.ACTIVE,
+        interestRate: 4.0,
+        createdBy: 'PORTAL-SELF-SERVE',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+      this.dataStore.accounts.unshift(newSavingsAccount);
+      this.dataStore.persistAccount(newSavingsAccount);
     }
 
     // Store customer's new password in memory & PostgreSQL
@@ -679,6 +707,7 @@ export class CustomerPortalController {
     };
 
     this.dataStore.complaints.unshift(newComplaint);
+    this.dataStore.persistComplaint(newComplaint);
 
     return {
       success: true,

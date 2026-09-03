@@ -38,10 +38,9 @@ async function bootstrap() {
       // Allow requests with no origin (server-to-server, curl, Postman, mobile apps)
       if (!origin) return callback(null, true);
       if (ALLOWED_ORIGINS.includes(origin)) return callback(null, true);
-      // In development, also allow any localhost port
-      if (process.env.NODE_ENV !== 'production' && /^http:\/\/localhost:\d+$/.test(origin)) {
-        return callback(null, true);
-      }
+      // Allow Vercel preview deployments and localhost ports
+      if (/^https:\/\/.*\.vercel\.app$/.test(origin)) return callback(null, true);
+      if (/^http:\/\/(localhost|127\.0\.0\.1):\d+$/.test(origin)) return callback(null, true);
       return callback(new Error(`CORS: origin '${origin}' not allowed`), false);
     },
     credentials: true,
