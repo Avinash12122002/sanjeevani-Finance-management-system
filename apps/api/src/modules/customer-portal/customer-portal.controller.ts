@@ -50,7 +50,9 @@ export class CustomerPortalController {
     // If live authKey is present, call MSG91 SendOTP API
     if (authKey) {
       try {
-        const url = `https://control.msg91.com/api/v5/otp?template_id=${templateId || ''}&mobile=91${mobile}&authkey=${authKey}&otp=${otp}&widget_id=${widgetId}`;
+        const url = templateId
+          ? `https://control.msg91.com/api/v5/otp?template_id=${templateId}&mobile=91${mobile}&authkey=${authKey}&otp=${otp}&otp_length=4`
+          : `https://control.msg91.com/api/v5/otp?mobile=91${mobile}&authkey=${authKey}&otp=${otp}&otp_length=4`;
         const res = await fetch(url, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -146,8 +148,8 @@ export class CustomerPortalController {
       throw new BadRequestException('An OTP was just sent. Please wait 60 seconds before requesting another code.');
     }
 
-    // Generate 6-digit secure numerical OTP
-    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    // Generate 4-digit secure numerical OTP (matching MSG91 Widget settings)
+    const otp = Math.floor(1000 + Math.random() * 9000).toString();
     const expiresAt = Date.now() + 5 * 60 * 1000; // 5 minutes expiry
 
     otpStore.set(cleanMobile, {
@@ -723,7 +725,7 @@ export class CustomerPortalController {
     }
 
     const cleanMobile = (customer.mobile || '').replace(/\D/g, '').slice(-10);
-    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const otp = Math.floor(1000 + Math.random() * 9000).toString();
     const expiresAt = Date.now() + 5 * 60 * 1000;
 
     otpStore.set(cleanMobile, {
