@@ -56,42 +56,6 @@ export default function CustomerPortalLoginPage() {
     return () => clearInterval(timer);
   }, [resendCooldown]);
 
-  // Initialize MSG91 Web SDK (SecureOTPWidgetAR57)
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-
-    (window as any).configuration = {
-      widgetId: '3669636e5954383136343531',
-      tokenAuth: '567345TDntaag2IWuj6a998adeP1',
-      exposeMethods: true,
-      captchaRenderId: '',
-      success: (data: any) => {
-        console.log('[MSG91 SDK] Success response:', data);
-      },
-      failure: (error: any) => {
-        console.warn('[MSG91 SDK] Failure reason:', error);
-      },
-    };
-
-    if (!document.getElementById('msg91-otp-script')) {
-      const script = document.createElement('script');
-      script.id = 'msg91-otp-script';
-      script.type = 'text/javascript';
-      script.src = 'https://verify.msg91.com/otp-provider.js';
-      script.onload = () => {
-        if (typeof (window as any).initSendOTP === 'function') {
-          try {
-            (window as any).initSendOTP((window as any).configuration);
-            console.log('✅ MSG91 Web SDK initialized');
-          } catch (e) {
-            console.warn('MSG91 init error:', e);
-          }
-        }
-      };
-      document.body.appendChild(script);
-    }
-  }, []);
-
   const handleAuthSuccess = (resData: any) => {
     if (resData.accessToken) {
       localStorage.setItem('sfms_customer_token', resData.accessToken);
@@ -161,17 +125,6 @@ export default function CustomerPortalLoginPage() {
 
       setInfoMsg(data.message || `OTP sent to +91 ${targetMobile} via SMS & WhatsApp`);
       setResendCooldown(30);
-
-      // Trigger MSG91 Client SDK if active
-      if (typeof (window as any).sendOtp === 'function') {
-        try {
-          (window as any).sendOtp(
-            '91' + targetMobile,
-            (d: any) => console.log('[MSG91 SDK] Client OTP dispatched:', d),
-            (e: any) => console.warn('[MSG91 SDK] Client error:', e),
-          );
-        } catch (_) {}
-      }
 
       if (data.data?.devOtp) {
         setDevOtp(data.data.devOtp);
