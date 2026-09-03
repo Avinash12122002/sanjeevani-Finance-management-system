@@ -148,6 +148,8 @@ export class TransactionsController {
 
     originalTxn.status = TransactionStatus.REVERSED;
     this.dataStore.transactions.unshift(reversalTxn);
+    this.dataStore.persistTransaction(reversalTxn);
+    this.dataStore.persistTransaction(originalTxn);
 
     // Rollback loan or account changes with arbitrary decimal precision
     if (originalTxn.loanId) {
@@ -155,11 +157,13 @@ export class TransactionsController {
       if (loan) {
         loan.outstandingPrincipal = FinancialEngine.add(loan.outstandingPrincipal, originalTxn.amount * 0.8);
         loan.totalPaid = Math.max(0, FinancialEngine.subtract(loan.totalPaid, originalTxn.amount));
+        this.dataStore.persistLoan(loan);
       }
     } else if (originalTxn.accountId) {
       const acc = this.dataStore.accounts.find((a) => a.id === originalTxn.accountId);
       if (acc) {
         acc.currentBalance = Math.max(0, FinancialEngine.subtract(acc.currentBalance, originalTxn.amount));
+        this.dataStore.persistAccount(acc);
       }
     }
 

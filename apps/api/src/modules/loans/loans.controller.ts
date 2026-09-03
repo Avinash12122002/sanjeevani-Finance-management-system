@@ -517,6 +517,8 @@ export class LoansController {
     if (body.overdueAmount !== undefined) currentLoan.overdueAmount = Number(body.overdueAmount);
     if (body.daysPastDue !== undefined) currentLoan.daysPastDue = Number(body.daysPastDue);
 
+    this.dataStore.persistLoan(currentLoan);
+
     this.dataStore.logAudit(
       user.id,
       user.employeeName || 'Admin',

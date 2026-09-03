@@ -977,5 +977,151 @@ export class DataStoreService implements OnModuleInit {
       this.logger.error(`Failed to persist closure ${c.id} to PostgreSQL: ${e.message}`);
     }
   }
+
+  async persistProduct(p: IProduct) {
+    if (!this.pool) return;
+    try {
+      await this.pool.query(
+        `INSERT INTO products (id, product_code, product_name, product_type, interest_rate, min_tenure_months, max_tenure_months, min_amount, max_amount, is_enabled)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+         ON CONFLICT (id) DO UPDATE SET
+           product_name = EXCLUDED.product_name,
+           interest_rate = EXCLUDED.interest_rate,
+           min_tenure_months = EXCLUDED.min_tenure_months,
+           max_tenure_months = EXCLUDED.max_tenure_months,
+           min_amount = EXCLUDED.min_amount,
+           max_amount = EXCLUDED.max_amount,
+           is_enabled = EXCLUDED.is_enabled`,
+        [
+          p.id,
+          p.productCode,
+          p.productName,
+          p.productType,
+          p.interestRate || 0,
+          p.minimumTenureMonths || 12,
+          p.maximumTenureMonths || 60,
+          p.minimumAmount || 100,
+          p.maximumAmount || 1000000,
+          p.isEnabled !== false,
+        ],
+      );
+    } catch (e: any) {
+      this.logger.error(`Failed to persist product ${p.id} to PostgreSQL: ${e.message}`);
+    }
+  }
+
+  async deleteProduct(id: string) {
+    if (!this.pool) return;
+    try {
+      await this.pool.query('DELETE FROM products WHERE id = $1', [id]);
+    } catch (e: any) {
+      this.logger.error(`Failed to delete product ${id} from PostgreSQL: ${e.message}`);
+    }
+  }
+
+  async persistBranch(b: IBranch) {
+    if (!this.pool) return;
+    try {
+      await this.pool.query(
+        `INSERT INTO branches (id, branch_code, name, address, city, state, phone, status)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+         ON CONFLICT (id) DO UPDATE SET
+           name = EXCLUDED.name,
+           address = EXCLUDED.address,
+           city = EXCLUDED.city,
+           state = EXCLUDED.state,
+           phone = EXCLUDED.phone,
+           status = EXCLUDED.status`,
+        [
+          b.id,
+          b.branchCode,
+          b.name,
+          b.address || null,
+          b.city || null,
+          b.state || null,
+          b.phone || null,
+          b.status || 'ACTIVE',
+        ],
+      );
+    } catch (e: any) {
+      this.logger.error(`Failed to persist branch ${b.id} to PostgreSQL: ${e.message}`);
+    }
+  }
+
+  async deleteBranch(id: string) {
+    if (!this.pool) return;
+    try {
+      await this.pool.query('DELETE FROM branches WHERE id = $1', [id]);
+    } catch (e: any) {
+      this.logger.error(`Failed to delete branch ${id} from PostgreSQL: ${e.message}`);
+    }
+  }
+
+  async persistEmployee(e: IEmployee) {
+    if (!this.pool) return;
+    try {
+      await this.pool.query(
+        `INSERT INTO employees (id, employee_number, branch_id, name, mobile, email, designation, joining_date, salary, employment_status)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+         ON CONFLICT (id) DO UPDATE SET
+           name = EXCLUDED.name,
+           mobile = EXCLUDED.mobile,
+           email = EXCLUDED.email,
+           designation = EXCLUDED.designation,
+           salary = EXCLUDED.salary,
+           employment_status = EXCLUDED.employment_status`,
+        [
+          e.id,
+          e.employeeNumber,
+          e.branchId || 'BR-001',
+          e.name,
+          e.mobile,
+          e.email || null,
+          e.designation,
+          e.joiningDate ? new Date(e.joiningDate) : new Date(),
+          e.salary || 0,
+          e.employmentStatus || 'ACTIVE',
+        ],
+      );
+    } catch (err: any) {
+      this.logger.error(`Failed to persist employee ${e.id} to PostgreSQL: ${err.message}`);
+    }
+  }
+
+  async deleteEmployee(id: string) {
+    if (!this.pool) return;
+    try {
+      await this.pool.query('DELETE FROM employees WHERE id = $1', [id]);
+    } catch (e: any) {
+      this.logger.error(`Failed to delete employee ${id} from PostgreSQL: ${e.message}`);
+    }
+  }
+
+  async deleteAccount(id: string) {
+    if (!this.pool) return;
+    try {
+      await this.pool.query('DELETE FROM accounts WHERE id = $1', [id]);
+    } catch (e: any) {
+      this.logger.error(`Failed to delete account ${id} from PostgreSQL: ${e.message}`);
+    }
+  }
+
+  async deleteCustomer(id: string) {
+    if (!this.pool) return;
+    try {
+      await this.pool.query('DELETE FROM customers WHERE id = $1', [id]);
+    } catch (e: any) {
+      this.logger.error(`Failed to delete customer ${id} from PostgreSQL: ${e.message}`);
+    }
+  }
+
+  async deleteLoan(id: string) {
+    if (!this.pool) return;
+    try {
+      await this.pool.query('DELETE FROM loans WHERE id = $1', [id]);
+    } catch (e: any) {
+      this.logger.error(`Failed to delete loan ${id} from PostgreSQL: ${e.message}`);
+    }
+  }
 }
 

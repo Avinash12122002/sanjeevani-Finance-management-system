@@ -197,6 +197,8 @@ export class AccountsController {
     if (body.currentBalance !== undefined) currentAcc.currentBalance = Number(body.currentBalance);
     currentAcc.updatedAt = new Date().toISOString();
 
+    this.dataStore.persistAccount(currentAcc);
+
     this.dataStore.logAudit(
       user.id || 'USR-001',
       user.employeeName || 'Admin',
@@ -219,6 +221,7 @@ export class AccountsController {
     }
 
     const removed = this.dataStore.accounts.splice(accIndex, 1)[0];
+    this.dataStore.deleteAccount(removed.id);
 
     this.dataStore.logAudit(
       user.id || 'USR-001',

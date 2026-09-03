@@ -241,6 +241,7 @@ export class CustomersController {
     };
 
     this.dataStore.customers[index] = updated;
+    this.dataStore.persistCustomer(updated);
 
     this.dataStore.logAudit(
       user.id || 'USR-001',

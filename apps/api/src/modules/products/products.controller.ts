@@ -69,6 +69,7 @@ export class ProductsController {
     };
 
     this.dataStore.products.push(newProduct);
+    this.dataStore.persistProduct(newProduct);
 
     this.dataStore.logAudit(
       user.id || 'USR-001',
@@ -102,6 +103,7 @@ export class ProductsController {
     };
 
     this.dataStore.products[index] = updated;
+    this.dataStore.persistProduct(updated);
 
     this.dataStore.logAudit(
       user.id || 'USR-001',
@@ -125,6 +127,7 @@ export class ProductsController {
     }
 
     const removed = this.dataStore.products.splice(index, 1)[0];
+    this.dataStore.deleteProduct(removed.id);
 
     this.dataStore.logAudit(
       user.id || 'USR-001',

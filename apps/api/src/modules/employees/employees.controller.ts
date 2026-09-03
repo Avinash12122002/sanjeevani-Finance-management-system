@@ -54,6 +54,7 @@ export class EmployeesController {
     };
 
     this.dataStore.employees.push(newEmp);
+    this.dataStore.persistEmployee(newEmp);
 
     // Map designation to UserRole
     let assignedRole: UserRole = UserRole.LOAN_OFFICER;
@@ -82,6 +83,7 @@ export class EmployeesController {
     };
 
     this.dataStore.users.push(newUser);
+    this.dataStore.persistUser(newUser);
 
     this.dataStore.logAudit(
       user.id,
@@ -156,7 +158,10 @@ export class EmployeesController {
         else if (des.includes('ADMIN') || des.includes('DIRECTOR')) assignedRole = UserRole.SUPER_ADMIN;
         associatedUser.roles = [assignedRole];
       }
+      this.dataStore.persistUser(associatedUser);
     }
+
+    this.dataStore.persistEmployee(currentEmp);
 
     this.dataStore.logAudit(
       user.id,
@@ -180,6 +185,7 @@ export class EmployeesController {
     }
 
     const removed = this.dataStore.employees.splice(empIndex, 1)[0];
+    this.dataStore.deleteEmployee(removed.id);
 
     // Remove or deactivate associated user
     const userIndex = this.dataStore.users.findIndex(

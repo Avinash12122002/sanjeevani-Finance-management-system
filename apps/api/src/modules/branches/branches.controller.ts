@@ -47,6 +47,7 @@ export class BranchesController {
     };
 
     this.dataStore.branches.push(newBranch);
+    this.dataStore.persistBranch(newBranch);
 
     this.dataStore.logAudit(
       user.id,
@@ -83,6 +84,8 @@ export class BranchesController {
     if (body.phone) currentBranch.phone = body.phone;
     if (body.status) currentBranch.status = body.status;
 
+    this.dataStore.persistBranch(currentBranch);
+
     this.dataStore.logAudit(
       user.id,
       user.employeeName || 'Admin',
@@ -105,6 +108,7 @@ export class BranchesController {
     }
 
     const removed = this.dataStore.branches.splice(branchIndex, 1)[0];
+    this.dataStore.deleteBranch(removed.id);
 
     this.dataStore.logAudit(
       user.id,
