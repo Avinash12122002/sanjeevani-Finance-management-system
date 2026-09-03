@@ -142,14 +142,11 @@ export class CustomerPortalController {
     if (!customer) {
       // First-time visitor who is not yet in the customer database
       return {
-        success: true,
-        data: {
-          exists: false,
-          isNew: true,
-          hasPassword: false,
-          customerName: 'New Member',
-          mobile: cleanMobile,
-        },
+        exists: false,
+        isNew: true,
+        hasPassword: false,
+        customerName: 'New Member',
+        mobile: cleanMobile,
       };
     }
 
@@ -157,16 +154,13 @@ export class CustomerPortalController {
     const fullName = `${customer.firstName} ${customer.lastName || ''}`.trim();
 
     return {
-      success: true,
-      data: {
-        exists: true,
-        isNew: false,
-        hasPassword,
-        customerId: customer.id,
-        customerNumber: customer.customerNumber,
-        customerName: fullName,
-        mobile: cleanMobile,
-      },
+      exists: true,
+      isNew: false,
+      hasPassword,
+      customerId: customer.id,
+      customerNumber: customer.customerNumber,
+      customerName: fullName,
+      mobile: cleanMobile,
     };
   }
 

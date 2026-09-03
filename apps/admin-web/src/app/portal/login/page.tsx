@@ -88,9 +88,11 @@ export default function CustomerPortalLoginPage() {
       }
 
       setMobile(cleanMobile);
-      setCustomerInfo(data.data);
+      const info = data.data?.data || data.data || {};
+      setCustomerInfo(info);
 
-      if (!data.data.hasPassword) {
+      const hasPassword = Boolean(info.hasPassword);
+      if (!hasPassword) {
         // First-time customer: automatically dispatch OTP
         await dispatchOtp(cleanMobile, 'FIRST_TIME_OTP');
       } else {
