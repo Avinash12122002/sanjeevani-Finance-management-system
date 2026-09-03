@@ -60,50 +60,32 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   }, [pathname]);
 
   useEffect(() => {
-    // Instant prefetch of all portal routes for 0ms transitions
-    const routes = [
-      '/',
-      '/customers',
-      '/accounts',
-      '/loans',
-      '/collections',
-      '/cash',
-      '/accounting',
-      '/daily-closing',
-      '/reports',
-      '/settings',
-    ];
-    routes.forEach((r) => {
-      router.prefetch(r);
-    });
-  }, [router]);
+    if (pathname === '/login') {
+      setIsAuthChecked(true);
+      return;
+    }
 
-  useEffect(() => {
     if (typeof window !== 'undefined') {
       const token = localStorage.getItem('sfms_access_token') || localStorage.getItem('sjf_auth_token');
       const stored = localStorage.getItem('sfms_user');
 
       if (!token || !stored) {
-        if (pathname !== '/login') {
-          router.replace('/login');
-          return;
-        }
-      } else {
-        try {
-          setCurrentUser(JSON.parse(stored));
-        } catch (e) {
-          // ignore
-        }
+        router.replace('/login');
+        return;
+      }
+
+      try {
+        setCurrentUser(JSON.parse(stored));
+      } catch (e) {
+        // ignore
       }
       setIsAuthChecked(true);
-    }
 
-    if (pathname !== '/login') {
       fetchApi('/dashboard/red-alerts').then((res) => {
         if (res.success && res.data) {
           setRedAlerts(res.data);
         }
-      });
+      }).catch(() => {});
     }
   }, [pathname, router]);
 
