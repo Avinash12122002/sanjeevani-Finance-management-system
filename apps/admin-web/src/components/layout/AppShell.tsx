@@ -70,7 +70,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       const stored = localStorage.getItem('sfms_user');
 
       if (!token || !stored) {
-        router.replace('/login');
+        window.location.replace('/login');
         return;
       }
 

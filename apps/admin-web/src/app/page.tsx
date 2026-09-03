@@ -105,14 +105,17 @@ export default function OwnerDashboardPage() {
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
+      const token = localStorage.getItem('sfms_access_token') || localStorage.getItem('sjf_auth_token');
       const stored = localStorage.getItem('sfms_user');
       if (stored) {
         try {
           setCurrentUser(JSON.parse(stored));
         } catch (e) {}
       }
+      if (token) {
+        loadDashboard();
+      }
     }
-    loadDashboard();
   }, []);
 
   const loadDashboard = async () => {
