@@ -260,8 +260,8 @@ VALUES ('USR-001', 'owner_admin', 'owner@sanjeevanifinance.com', '9876543210', '
 ON CONFLICT (id) DO NOTHING;
 
 -- Seed Super Admin Employee
-INSERT INTO employees (id, employee_number, user_id, branch_id, branch_code, branch_name, name, mobile, email, designation, employment_status)
-VALUES ('EMP-001', 'SJF-EMP-000001', 'USR-001', 'BR-001', 'SJF-BR001', 'Head Office - Main Branch', 'System Administrator (Owner)', '9876543210', 'owner@sanjeevanifinance.com', 'SUPER_ADMIN', 'ACTIVE')
+INSERT INTO employees (id, employee_number, user_id, branch_id, branch_code, branch_name, name, mobile, email, designation, employment_status, joining_date)
+VALUES ('EMP-001', 'SJF-EMP-000001', 'USR-001', 'BR-001', 'SJF-BR001', 'Head Office - Main Branch', 'System Administrator (Owner)', '9876543210', 'owner@sanjeevanifinance.com', 'SUPER_ADMIN', 'ACTIVE', CURRENT_DATE)
 ON CONFLICT (id) DO NOTHING;
 
 -- Seed Products
