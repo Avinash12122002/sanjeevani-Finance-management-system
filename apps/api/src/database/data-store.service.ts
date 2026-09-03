@@ -105,8 +105,10 @@ export class DataStoreService implements OnModuleInit {
 
     try {
       this.logger.log('Connecting to PostgreSQL database...');
+      // Strip sslmode parameter from URL so ssl: { rejectUnauthorized: false } works seamlessly with cloud poolers
+      const cleanUrl = dbUrl.replace(/[?&]sslmode=[^&]+/g, '').replace(/[?&]uselibpqcompat=[^&]+/g, '');
       this.pool = new Pool({
-        connectionString: dbUrl,
+        connectionString: cleanUrl,
         ssl: { rejectUnauthorized: false },
         connectionTimeoutMillis: 10000,
       });
