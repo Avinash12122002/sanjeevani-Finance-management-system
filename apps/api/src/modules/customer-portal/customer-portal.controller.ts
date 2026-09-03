@@ -26,8 +26,8 @@ import {
   AccountStatus,
 } from '@sanjeevani/shared-types';
 
-// Active OTP Store (cleanMobile -> { otp, customerId, expiresAt, attempts, verified? })
-const otpStore = new Map<string, { otp: string; customerId: string; expiresAt: number; attempts: number; verified?: boolean }>();
+// Active OTP Store (cleanMobile -> { otp, customerId, expiresAt, attempts, verified?, reqId? })
+const otpStore = new Map<string, { otp: string; customerId: string; expiresAt: number; attempts: number; verified?: boolean; reqId?: string }>();
 
 @Controller('api/v1/portal')
 export class CustomerPortalController {
@@ -39,34 +39,83 @@ export class CustomerPortalController {
   ) {}
 
   /**
-   * Helper: Dispatch OTP via MSG91 SendOTP API (SMS / WhatsApp / Voice)
+   * Helper: Dispatch OTP via MSG91 OTP Widget API (SMS & WhatsApp)
    */
   private async dispatchMsg91Otp(mobile: string, otp: string): Promise<boolean> {
-    const authKey = process.env.MSG91_AUTH_KEY;
+    const tokenAuth = process.env.MSG91_TOKEN_AUTH || process.env.MSG91_AUTH_KEY;
     const widgetId = process.env.MSG91_WIDGET_ID || '3669636e5954383136343531';
-    const templateId = process.env.MSG91_OTP_TEMPLATE_ID;
 
-    // If live authKey is present, call MSG91 SendOTP API
-    if (authKey) {
+    // 1. Primary: Use MSG91 Official OTP Widget API
+    if (tokenAuth && widgetId) {
       try {
-        const url = templateId
-          ? `https://control.msg91.com/api/v5/otp?template_id=${templateId}&mobile=91${mobile}&authkey=${authKey}&otp=${otp}&otp_length=4`
-          : `https://control.msg91.com/api/v5/otp?mobile=91${mobile}&authkey=${authKey}&otp=${otp}&otp_length=4`;
-        const res = await fetch(url, {
+        const res = await fetch('https://api.msg91.com/api/v5/widget/sendOtp', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            widgetId,
+            tokenAuth,
+            identifier: `91${mobile}`,
+            otp,
+          }),
         });
+        const resJson = await res.json();
+        this.logger.log(`MSG91 Widget API response for +91${mobile}: ${JSON.stringify(resJson)}`);
+        if (resJson.message && resJson.type === 'success') {
+          const rec = otpStore.get(mobile);
+          if (rec) {
+            rec.reqId = resJson.message;
+          }
+          return true;
+        }
+      } catch (err: any) {
+        this.logger.error(`Failed to send MSG91 Widget OTP: ${err.message}`);
+      }
+    }
+
+    // 2. Fallback: Direct SendOTP API
+    const authKey = process.env.MSG91_AUTH_KEY;
+    if (authKey) {
+      try {
+        const url = `https://control.msg91.com/api/v5/otp?mobile=91${mobile}&authkey=${authKey}&otp=${otp}&otp_length=4`;
+        const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' } });
         const resJson = await res.json();
         this.logger.log(`MSG91 API response for +91${mobile}: ${JSON.stringify(resJson)}`);
         return true;
       } catch (err: any) {
-        this.logger.error(`Failed to send MSG91 OTP: ${err.message}`);
-        return false;
+        this.logger.error(`Fallback MSG91 error: ${err.message}`);
       }
-    } else {
-      // In Development or if Auth Key not yet configured, log to server console
-      this.logger.warn(`[MSG91 Simulation] Live Auth Key not configured. OTP for +91${mobile} is: ${otp}`);
-      return true;
+    }
+
+    this.logger.warn(`[MSG91 Simulation] Live Auth Key not configured. OTP for +91${mobile} is: ${otp}`);
+    return true;
+  }
+
+  /**
+   * Helper: Verify OTP with MSG91 Widget API
+   */
+  private async verifyWithMsg91(mobile: string, otp: string, reqId?: string): Promise<boolean> {
+    const tokenAuth = process.env.MSG91_TOKEN_AUTH || process.env.MSG91_AUTH_KEY;
+    const widgetId = process.env.MSG91_WIDGET_ID || '3669636e5954383136343531';
+    if (!tokenAuth || !widgetId) return false;
+
+    try {
+      const res = await fetch('https://api.msg91.com/api/v5/widget/verifyOtp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          widgetId,
+          tokenAuth,
+          identifier: `91${mobile}`,
+          otp,
+          ...(reqId ? { reqId } : {}),
+        }),
+      });
+      const data = await res.json();
+      this.logger.log(`MSG91 Widget verifyOtp response: ${JSON.stringify(data)}`);
+      return data.type === 'success' || data.message === 'otp_verified' || data.status === 'success';
+    } catch (err: any) {
+      this.logger.warn(`MSG91 verification error: ${err.message}`);
+      return false;
     }
   }
 
@@ -198,7 +247,12 @@ export class CustomerPortalController {
       throw new BadRequestException('OTP has expired. Please request a new code.');
     }
 
-    if (record.otp !== otp) {
+    let isMatch = record.otp === otp;
+    if (!isMatch && record.reqId) {
+      isMatch = await this.verifyWithMsg91(cleanMobile, otp, record.reqId);
+    }
+
+    if (!isMatch) {
       record.attempts += 1;
       if (record.attempts >= 4) {
         otpStore.delete(cleanMobile);
@@ -248,7 +302,12 @@ export class CustomerPortalController {
     }
 
     const isPreVerified = record.verified === true;
-    if (!isPreVerified && record.otp !== otp) {
+    let isMatch = record.otp === otp;
+    if (!isMatch && record.reqId) {
+      isMatch = await this.verifyWithMsg91(cleanMobile, otp, record.reqId);
+    }
+
+    if (!isPreVerified && !isMatch) {
       record.attempts += 1;
       if (record.attempts >= 4) {
         otpStore.delete(cleanMobile);
@@ -390,7 +449,12 @@ export class CustomerPortalController {
       throw new BadRequestException('OTP has expired. Please request a new code.');
     }
 
-    if (record.otp !== otp) {
+    let isMatch = record.otp === otp;
+    if (!isMatch && record.reqId) {
+      isMatch = await this.verifyWithMsg91(cleanMobile, otp, record.reqId);
+    }
+
+    if (!isMatch) {
       record.attempts += 1;
       if (record.attempts >= 4) {
         otpStore.delete(cleanMobile);
