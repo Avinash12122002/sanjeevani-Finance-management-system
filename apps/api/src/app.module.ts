@@ -1,6 +1,7 @@
 import { Module, NestModule, MiddlewareConsumer } from '@nestjs/common';
 import { JwtModule } from '@nestjs/jwt';
 import { ConfigModule } from '@nestjs/config';
+import * as path from 'path';
 
 import { DataStoreService } from './database/data-store.service';
 import { AppController } from './app.controller';
@@ -22,7 +23,17 @@ import { EmojiSanitizerMiddleware } from './common/middleware/emoji-sanitizer.mi
 
 @Module({
   imports: [
-    ConfigModule.forRoot({ isGlobal: true }),
+    // Load .env from monorepo root first, then apps/api/.env overrides it.
+    // This ensures DATABASE_URL and all secrets are found regardless of
+    // where the process is started from (monorepo root or apps/api).
+    ConfigModule.forRoot({
+      isGlobal: true,
+      envFilePath: [
+        path.resolve(__dirname, '../../.env'),       // apps/api/.env  (most specific)
+        path.resolve(__dirname, '../../../../.env'),  // monorepo root .env (fallback)
+        '.env',                                       // CWD .env (final fallback)
+      ],
+    }),
     JwtModule.register({
       global: true,
       secret: process.env.JWT_SECRET || 'sanjeevani-finance-jwt-super-secret-key-2026',
