@@ -30,9 +30,10 @@ export class AccountsController {
   constructor(private dataStore: DataStoreService) {}
 
   @Get()
-  getAccounts(
+  async getAccounts(
     @Query() query: PaginationParams & { customerId?: string; productType?: string },
   ) {
+    await this.dataStore.refreshIfStale();
     let list = [...this.dataStore.accounts];
 
     if (query.search) {

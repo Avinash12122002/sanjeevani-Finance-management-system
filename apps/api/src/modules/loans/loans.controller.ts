@@ -41,9 +41,10 @@ export class LoansController {
   // ==========================================
 
   @Get('loan-applications')
-  getLoanApplications(
+  async getLoanApplications(
     @Query() query: PaginationParams & { status?: string; customerId?: string },
   ) {
+    await this.dataStore.refreshIfStale();
     let list = [...this.dataStore.loanApplications];
 
     if (query.status) {
@@ -417,9 +418,10 @@ export class LoansController {
   // ==========================================
 
   @Get('loans')
-  getActiveLoans(
+  async getActiveLoans(
     @Query() query: PaginationParams & { status?: string; customerId?: string },
   ) {
+    await this.dataStore.refreshIfStale();
     let list = [...this.dataStore.loans];
 
     if (query.search) {

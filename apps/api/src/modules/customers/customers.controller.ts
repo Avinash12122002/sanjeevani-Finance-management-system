@@ -31,9 +31,10 @@ export class CustomersController {
   constructor(private dataStore: DataStoreService) {}
 
   @Get()
-  getCustomers(
+  async getCustomers(
     @Query() query: PaginationParams & { branchId?: string; kycStatus?: string },
   ) {
+    await this.dataStore.refreshIfStale();
     let list = [...this.dataStore.customers];
 
     if (query.search) {

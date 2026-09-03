@@ -27,7 +27,8 @@ export class AccountingController {
   constructor(private dataStore: DataStoreService) {}
 
   @Get('chart-of-accounts')
-  getChartOfAccounts() {
+  async getChartOfAccounts() {
+    await this.dataStore.refreshIfStale();
     return this.dataStore.chartOfAccounts;
   }
 

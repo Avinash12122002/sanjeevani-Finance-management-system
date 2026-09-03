@@ -12,7 +12,8 @@ export class DashboardsController {
    * OWNER EXECUTIVE DASHBOARD METRICS (SRS §65)
    */
   @Get('dashboard/metrics')
-  getOwnerDashboardMetrics() {
+  async getOwnerDashboardMetrics() {
+    await this.dataStore.refreshIfStale();
     return this.dataStore.getOwnerDashboardMetrics();
   }
 
@@ -20,7 +21,8 @@ export class DashboardsController {
    * OWNER ANALYTICAL CHARTS (SRS §66) - DYNAMIC COMPUTATION
    */
   @Get('dashboard/charts')
-  getDashboardCharts() {
+  async getDashboardCharts() {
+    await this.dataStore.refreshIfStale();
     // 1. Dynamic Product Distribution from live accounts & loans
     const rdTotal = this.dataStore.accounts
       .filter((a) => a.productType === ProductType.RD)

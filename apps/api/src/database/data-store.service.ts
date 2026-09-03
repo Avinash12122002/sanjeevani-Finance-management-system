@@ -331,9 +331,99 @@ export class DataStoreService implements OnModuleInit {
           closedAt: r.closed_at ? new Date(r.closed_at).toISOString() : undefined,
         }));
       }
+
+      // Products
+      const prodRes = await this.pool.query('SELECT * FROM products ORDER BY created_at ASC');
+      if (prodRes.rows.length > 0) {
+        this.products = prodRes.rows.map((r) => ({
+          id: r.id,
+          productCode: r.product_code,
+          productName: r.product_name,
+          productType: (r.product_type as ProductType) || ProductType.SAVINGS,
+          interestRate: Number(r.interest_rate || 0),
+          minimumTenureMonths: r.min_tenure_months || 12,
+          maximumTenureMonths: r.max_tenure_months || 60,
+          minimumAmount: Number(r.min_amount || 100),
+          maximumAmount: Number(r.max_amount || 1000000),
+          isEnabled: r.is_enabled !== false,
+          interestMethod: InterestMethod.REDUCING_BALANCE,
+          penaltyRate: 2,
+          prematureAllowed: true,
+          effectiveFrom: '2026-04-01',
+          requiresNominee: true,
+          regulatoryStatus: RegulatoryStatus.APPROVED,
+          createdAt: r.created_at ? new Date(r.created_at).toISOString() : '',
+        }));
+      }
+
+      // Employees
+      const empRes = await this.pool.query('SELECT * FROM employees ORDER BY created_at ASC');
+      if (empRes.rows.length > 0) {
+        this.employees = empRes.rows.map((r) => ({
+          id: r.id,
+          employeeNumber: r.employee_number,
+          userId: r.user_id || 'USR-001',
+          branchId: r.branch_id || 'BR-001',
+          branchCode: r.branch_code || 'SJF-BR001',
+          branchName: r.branch_name || 'Head Office - Main Branch',
+          name: r.name,
+          mobile: r.mobile,
+          email: r.email,
+          designation: r.designation,
+          joiningDate: r.joining_date ? new Date(r.joining_date).toISOString().split('T')[0] : '',
+          employmentStatus: r.employment_status || 'ACTIVE',
+          salary: Number(r.salary || 0),
+          createdAt: r.created_at ? new Date(r.created_at).toISOString() : '',
+        }));
+        this.counters.employee = this.employees.length;
+      }
+
+      // Chart of Accounts
+      const coaRes = await this.pool.query('SELECT * FROM chart_of_accounts ORDER BY account_code ASC');
+      if (coaRes.rows.length > 0) {
+        this.chartOfAccounts = coaRes.rows.map((r) => ({
+          id: r.id,
+          accountCode: r.account_code,
+          accountName: r.account_name,
+          accountType: r.account_type as any,
+          currentBalance: Number(r.current_balance || 0),
+          isActive: r.is_active !== false,
+          currency: 'INR',
+          createdAt: r.created_at ? new Date(r.created_at).toISOString() : '',
+        }));
+      }
     } catch (e: any) {
       this.logger.warn(`Could not load initial rows from PostgreSQL: ${e.message}`);
     }
+  }
+
+  private lastSyncTime = 0;
+  private isSyncing = false;
+
+  /**
+   * Refreshes in-memory store from PostgreSQL if stale (default maxAge = 1.5 seconds).
+   * This ensures any edits made directly in pgAdmin 4 or Supabase are visible on the web portal immediately!
+   */
+  async refreshIfStale(maxAgeMs = 1500): Promise<void> {
+    const now = Date.now();
+    if (now - this.lastSyncTime < maxAgeMs || this.isSyncing || !this.pool) {
+      return;
+    }
+    this.isSyncing = true;
+    try {
+      await this.loadFromPostgres();
+      this.lastSyncTime = Date.now();
+    } catch (e: any) {
+      this.logger.warn(`Auto-refresh notice: ${e.message}`);
+    } finally {
+      this.isSyncing = false;
+    }
+  }
+
+  async forceSync(): Promise<void> {
+    if (!this.pool) return;
+    await this.loadFromPostgres();
+    this.lastSyncTime = Date.now();
   }
 
   // ==========================================

@@ -20,7 +20,8 @@ export class BranchesController {
   constructor(private dataStore: DataStoreService) {}
 
   @Get()
-  getBranches() {
+  async getBranches() {
+    await this.dataStore.refreshIfStale();
     return this.dataStore.branches;
   }
 

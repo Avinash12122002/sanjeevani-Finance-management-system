@@ -27,7 +27,8 @@ export class ProductsController {
   constructor(private dataStore: DataStoreService) {}
 
   @Get()
-  getAllProducts() {
+  async getAllProducts() {
+    await this.dataStore.refreshIfStale();
     return this.dataStore.products;
   }
 

@@ -21,7 +21,8 @@ export class EmployeesController {
   constructor(private dataStore: DataStoreService) {}
 
   @Get()
-  getEmployees() {
+  async getEmployees() {
+    await this.dataStore.refreshIfStale();
     return this.dataStore.employees;
   }
 
