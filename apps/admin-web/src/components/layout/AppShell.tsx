@@ -65,7 +65,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     // Wait until client has mounted so window/localStorage is available
     if (!mounted) return;
 
-    if (pathname === '/login') {
+    if (pathname === '/login' || pathname.startsWith('/portal')) {
       setIsAuthChecked(true);
       return;
     }
@@ -107,7 +107,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
   const siderWidth = collapsed ? 80 : 260;
 
-  if (pathname === '/login') {
+  if (pathname === '/login' || pathname.startsWith('/portal')) {
     return <>{children}</>;
   }
 

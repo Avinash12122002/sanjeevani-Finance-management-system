@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { Form, Input, Button, Alert, message } from 'antd';
 import {
   UserOutlined,
@@ -159,8 +160,16 @@ export default function LoginPage() {
             </Form>
           </div>
 
-          <div className="mt-6 pt-4 border-t border-slate-100 text-center text-xs text-slate-400">
-            Protected by End-to-End Enterprise Encryption
+          <div className="mt-6 pt-4 border-t border-slate-100 flex flex-col items-center gap-3">
+            <Link
+              href="/portal/login"
+              className="w-full py-2.5 px-4 rounded-xl bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-800 text-xs font-bold flex items-center justify-center gap-2 transition-colors"
+            >
+              <UserOutlined /> Are you a Member / Customer? Open Customer Portal →
+            </Link>
+            <div className="text-center text-xs text-slate-400">
+              Protected by End-to-End Enterprise Encryption
+            </div>
           </div>
         </div>
       </div>

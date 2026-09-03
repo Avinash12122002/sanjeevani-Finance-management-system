@@ -19,6 +19,7 @@ import { DashboardsController } from './modules/dashboards/dashboards.controller
 import { BranchesController } from './modules/branches/branches.controller';
 import { EmployeesController } from './modules/employees/employees.controller';
 import { ComplaintsController } from './modules/complaints/complaints.controller';
+import { CustomerPortalController } from './modules/customer-portal/customer-portal.controller';
 import { EmojiSanitizerMiddleware } from './common/middleware/emoji-sanitizer.middleware';
 
 @Module({
@@ -56,6 +57,7 @@ import { EmojiSanitizerMiddleware } from './common/middleware/emoji-sanitizer.mi
     BranchesController,
     EmployeesController,
     ComplaintsController,
+    CustomerPortalController,
   ],
   providers: [DataStoreService],
   exports: [DataStoreService],
