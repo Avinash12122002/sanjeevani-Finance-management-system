@@ -92,7 +92,7 @@ export class CustomerPortalController {
       );
     }
 
-    const hasPassword = customerPasswordMap.has(customer.id);
+    const hasPassword = this.dataStore.hasCustomerPassword(customer.id);
     const fullName = `${customer.firstName} ${customer.lastName || ''}`.trim();
 
     return {
@@ -215,8 +215,8 @@ export class CustomerPortalController {
       throw new NotFoundException('Customer profile not found');
     }
 
-    // Store customer's new password
-    customerPasswordMap.set(customer.id, newPassword);
+    // Store customer's new password in memory & PostgreSQL
+    await this.dataStore.saveCustomerPassword(customer.id, newPassword);
 
     // Issue JWT Token
     const fullName = `${customer.firstName} ${customer.lastName || ''}`.trim();
@@ -348,7 +348,7 @@ export class CustomerPortalController {
       throw new UnauthorizedException('No account found with this mobile number.');
     }
 
-    const customPass = customerPasswordMap.get(customer.id);
+    const customPass = this.dataStore.getCustomerPassword(customer.id);
     const last4Mobile = customer.mobile ? customer.mobile.slice(-4) : '1234';
     const isValidPass = customPass
       ? customPass === password
@@ -428,7 +428,7 @@ export class CustomerPortalController {
       throw new UnauthorizedException('No account found with this Customer ID or Mobile Number.');
     }
 
-    const customPass = customerPasswordMap.get(customer.id);
+    const customPass = this.dataStore.getCustomerPassword(customer.id);
     const last4Mobile = customer.mobile ? customer.mobile.slice(-4) : '1234';
     const isValidPass = customPass
       ? customPass === password
@@ -651,7 +651,7 @@ export class CustomerPortalController {
       throw new BadRequestException('New password must be at least 4 characters long');
     }
 
-    customerPasswordMap.set(customerId, body.newPassword);
+    await this.dataStore.saveCustomerPassword(customerId, body.newPassword);
 
     return {
       success: true,

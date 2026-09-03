@@ -64,6 +64,7 @@ CREATE TABLE IF NOT EXISTS customers (
     risk_category VARCHAR(20) DEFAULT 'LOW',
     assigned_collector_id VARCHAR(50),
     branch_id VARCHAR(50),
+    portal_password TEXT,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 

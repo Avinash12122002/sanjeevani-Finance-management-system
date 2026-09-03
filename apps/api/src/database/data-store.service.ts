@@ -75,6 +75,7 @@ export class DataStoreService implements OnModuleInit {
   complaints: IComplaint[] = [];
   recoveryCases: IRecoveryCase[] = [];
   redAlerts: IRedAlert[] = [];
+  customerPasswordMap = new Map<string, string>();
 
   // ID Counters (Clean Initial Production State)
   private counters = {
@@ -133,7 +134,10 @@ export class DataStoreService implements OnModuleInit {
       // Execute auto table provisioning (if permitted)
       try {
         await this.pool.query(CREATE_TABLES_SQL);
-        this.logger.log('✅ All 14 PostgreSQL database tables verified/created successfully.');
+        try {
+          await this.pool.query('ALTER TABLE customers ADD COLUMN IF NOT EXISTS portal_password TEXT');
+        } catch (_) {}
+        this.logger.log('✅ All PostgreSQL database tables & columns verified successfully.');
       } catch (ddlErr: any) {
         this.logger.warn(`Table verification notice (tables may already exist): ${ddlErr.message}`);
       }
@@ -222,6 +226,12 @@ export class DataStoreService implements OnModuleInit {
           updatedAt: r.created_at ? new Date(r.created_at).toISOString() : '',
         }));
         this.counters.customer = this.customers.length;
+
+        custRes.rows.forEach((r) => {
+          if (r.portal_password) {
+            this.customerPasswordMap.set(r.id, r.portal_password);
+          }
+        });
       }
 
       // Accounts
@@ -1377,6 +1387,25 @@ export class DataStoreService implements OnModuleInit {
       await this.pool.query('DELETE FROM complaints WHERE id = $1', [id]);
     } catch (e: any) {
       this.logger.error(`Failed to delete complaint ${id} from PostgreSQL: ${e.message}`);
+    }
+  }
+
+  hasCustomerPassword(customerId: string): boolean {
+    return this.customerPasswordMap.has(customerId);
+  }
+
+  getCustomerPassword(customerId: string): string | undefined {
+    return this.customerPasswordMap.get(customerId);
+  }
+
+  async saveCustomerPassword(customerId: string, password: string): Promise<void> {
+    this.customerPasswordMap.set(customerId, password);
+    if (this.pool) {
+      try {
+        await this.pool.query('UPDATE customers SET portal_password = $1 WHERE id = $2', [password, customerId]);
+      } catch (err: any) {
+        this.logger.error(`Failed to persist portal password for customer ${customerId}: ${err.message}`);
+      }
     }
   }
 }
