@@ -502,6 +502,15 @@ export default function SettingsPage() {
     );
   }
 
+  const renderTabHeader = (title: string, count?: number, fullTitle?: string) => (
+    <span
+      className="text-xs font-medium max-w-[110px] md:max-w-[135px] truncate inline-block align-middle"
+      title={fullTitle || `${title}${count !== undefined ? ` (${count})` : ''}`}
+    >
+      {title}{count !== undefined ? ` (${count})` : ''}
+    </span>
+  );
+
   return (
     <div className="space-y-6">
       {/* Header Banner */}
@@ -555,10 +564,12 @@ export default function SettingsPage() {
 
       <Tabs
         defaultActiveKey="staff"
+        size="small"
+        tabBarStyle={{ marginBottom: 16 }}
         items={[
           {
             key: 'staff',
-            label: `Staff Members (${employees.length})`,
+            label: renderTabHeader('Staff', employees.length, 'Staff Members'),
             children: (
               <Card
                 className="glass-card"
@@ -666,7 +677,7 @@ export default function SettingsPage() {
           },
           {
             key: 'users',
-            label: `User Accounts & Logins (${users.length})`,
+            label: renderTabHeader('Users', users.length, 'User Accounts & Logins'),
             children: (
               <Card
                 className="glass-card"
@@ -778,7 +789,7 @@ export default function SettingsPage() {
           },
           {
             key: 'products',
-            label: `Financial Products Master (${products.length})`,
+            label: renderTabHeader('Products', products.length, 'Financial Products Master'),
             children: (
               <Card
                 className="glass-card"
@@ -868,7 +879,7 @@ export default function SettingsPage() {
           },
           {
             key: 'branches',
-            label: `Operating Branches (${branches.length})`,
+            label: renderTabHeader('Branches', branches.length, 'Operating Branches'),
             children: (
               <Card
                 className="glass-card"
@@ -957,7 +968,7 @@ export default function SettingsPage() {
           },
           {
             key: 'complaints',
-            label: `Complaints & Grievances (${complaints.length})`,
+            label: renderTabHeader('Complaints', complaints.length, 'Complaints & Grievances'),
             children: (
               <Card
                 className="glass-card"
@@ -1075,7 +1086,7 @@ export default function SettingsPage() {
           },
           {
             key: 'flags',
-            label: 'Compliance Feature Flags (§43, BR-019)',
+            label: renderTabHeader('Compliance', undefined, 'Compliance Feature Flags (§43, BR-019)'),
             children: (
               <Card className="glass-card" title="Operational Compliance & Legal Feature Switches">
                 <div className="space-y-4">
@@ -1110,7 +1121,7 @@ export default function SettingsPage() {
           },
           {
             key: 'config',
-            label: 'System Parameters (§104)',
+            label: renderTabHeader('Parameters', undefined, 'System Parameters (§104)'),
             children: (
               <Card className="glass-card" title="Global Operational Parameters">
                 <Descriptions bordered column={2} size="small">
