@@ -85,7 +85,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
       if (!token || !stored) {
         if (pathname !== '/login') {
-          window.location.replace('/login');
+          router.replace('/login');
           return;
         }
       } else {
@@ -115,7 +115,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     }
     setCurrentUser(null);
     message.success('Signed out successfully');
-    window.location.replace('/login');
+    router.replace('/login');
   };
 
   const siderWidth = collapsed ? 80 : 260;
@@ -131,7 +131,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           S
         </div>
         <div className="font-extrabold text-xl tracking-wider text-white mb-1">SANJEEVANI FINANCE</div>
-        <div className="text-emerald-400 text-xs font-semibold tracking-widest uppercase mb-6">Redirecting to Secure Portal...</div>
+        <div className="text-emerald-400 text-xs font-semibold tracking-widest uppercase mb-6">Authenticating Session...</div>
         <Spin size="large" />
       </div>
     );
