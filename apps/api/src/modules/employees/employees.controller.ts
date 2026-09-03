@@ -27,7 +27,8 @@ export class EmployeesController {
   }
 
   @Get(':id')
-  getEmployeeById(@Param('id') id: string) {
+  async getEmployeeById(@Param('id') id: string) {
+    await this.dataStore.refreshIfStale();
     const emp = this.dataStore.employees.find((e) => e.id === id || e.employeeNumber === id);
     if (!emp) throw new NotFoundException(`Employee not found: ${id}`);
     return emp;

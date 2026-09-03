@@ -68,7 +68,8 @@ export class AccountsController {
   }
 
   @Get(':id')
-  getAccountById(@Param('id') id: string) {
+  async getAccountById(@Param('id') id: string) {
+    await this.dataStore.refreshIfStale();
     const account = this.dataStore.accounts.find((a) => a.id === id || a.accountNumber === id);
     if (!account) {
       throw new NotFoundException(`Account not found: ${id}`);

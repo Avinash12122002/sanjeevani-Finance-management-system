@@ -7,7 +7,7 @@
     "apps/*"
   ],
   "scripts": {
-    "dev": "concurrently -n \"API,WEB\" -c \"cyan,green\" \"npm --workspace=apps/api run start\" \"npm --workspace=apps/admin-web run dev\"",
+    "dev": "concurrently -k -n \"API,WEB\" -c \"cyan,green\" \"npm --workspace=apps/api run start:dev\" \"npm --workspace=apps/admin-web run dev\"",
     "start": "concurrently -n \"API,WEB\" -c \"cyan,green\" \"npm --workspace=apps/api run start\" \"npm --workspace=apps/admin-web run start\"",
     "dev:api": "npm --workspace=apps/api run start:dev",
     "dev:web": "npm --workspace=apps/admin-web run dev",

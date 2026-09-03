@@ -160,7 +160,8 @@ export class CustomersController {
    * Aggregates Accounts, Loans, KYC, Nominees, Payments, and Complaints
    */
   @Get(':id/360')
-  getCustomer360(@Param('id') id: string) {
+  async getCustomer360(@Param('id') id: string) {
+    await this.dataStore.refreshIfStale();
     const customer = this.dataStore.customers.find((c) => c.id === id || c.customerNumber === id);
     if (!customer) {
       throw new NotFoundException(`Customer not found for identifier: ${id}`);
@@ -215,7 +216,8 @@ export class CustomersController {
   }
 
   @Get(':id')
-  getCustomerById(@Param('id') id: string) {
+  async getCustomerById(@Param('id') id: string) {
+    await this.dataStore.refreshIfStale();
     const customer = this.dataStore.customers.find((c) => c.id === id || c.customerNumber === id);
     if (!customer) {
       throw new NotFoundException(`Customer not found for identifier: ${id}`);

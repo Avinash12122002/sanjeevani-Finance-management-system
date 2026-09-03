@@ -128,7 +128,8 @@ export class AccountingController {
   }
 
   @Get('journals')
-  getJournalEntries() {
+  async getJournalEntries() {
+    await this.dataStore.refreshIfStale();
     return this.dataStore.journalEntries;
   }
 
@@ -240,7 +241,8 @@ export class AccountingController {
    * Trial Balance Report (SRS §68)
    */
   @Get('trial-balance')
-  getTrialBalance() {
+  async getTrialBalance() {
+    await this.dataStore.refreshIfStale();
     const items = this.dataStore.chartOfAccounts.map((account) => {
       const isDebitNature =
         account.accountType === AccountClassification.ASSET ||
@@ -275,7 +277,8 @@ export class AccountingController {
    * Profit & Loss Statement (SRS §68)
    */
   @Get('profit-loss')
-  getProfitAndLoss() {
+  async getProfitAndLoss() {
+    await this.dataStore.refreshIfStale();
     const incomeAccounts = this.dataStore.chartOfAccounts.filter((a) => a.accountType === AccountClassification.INCOME);
     const expenseAccounts = this.dataStore.chartOfAccounts.filter((a) => a.accountType === AccountClassification.EXPENSE);
 
@@ -305,7 +308,8 @@ export class AccountingController {
    * Balance Sheet (SRS §68)
    */
   @Get('balance-sheet')
-  getBalanceSheet() {
+  async getBalanceSheet() {
+    await this.dataStore.refreshIfStale();
     const assets = this.dataStore.chartOfAccounts.filter((a) => a.accountType === AccountClassification.ASSET);
     const liabilities = this.dataStore.chartOfAccounts.filter((a) => a.accountType === AccountClassification.LIABILITY);
     const equity = this.dataStore.chartOfAccounts.filter((a) => a.accountType === AccountClassification.EQUITY);

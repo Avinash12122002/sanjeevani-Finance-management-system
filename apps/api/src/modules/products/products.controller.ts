@@ -33,7 +33,8 @@ export class ProductsController {
   }
 
   @Get(':id')
-  getProductById(@Param('id') id: string) {
+  async getProductById(@Param('id') id: string) {
+    await this.dataStore.refreshIfStale();
     const product = this.dataStore.products.find((p) => p.id === id || p.productCode === id);
     if (!product) {
       throw new NotFoundException(`Product not found for: ${id}`);

@@ -449,7 +449,8 @@ export class LoansController {
   }
 
   @Get('loans/:id')
-  getLoanDetails(@Param('id') id: string) {
+  async getLoanDetails(@Param('id') id: string) {
+    await this.dataStore.refreshIfStale();
     const loan = this.dataStore.loans.find((l) => l.id === id || l.loanNumber === id);
     if (!loan) {
       throw new NotFoundException(`Loan not found for identifier: ${id}`);

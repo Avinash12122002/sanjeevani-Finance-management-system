@@ -29,26 +29,63 @@ export class CashController {
     let drawer = this.dataStore.cashDrawers.find((d) => d.businessDate === today && d.status === CashDrawerStatus.OPEN);
 
     if (!drawer) {
-      // Auto-initialize day drawer if not found
+      // Dynamic carry-forward from last closed drawer (or 0 if none)
+      const lastClosed = this.dataStore.cashDrawers
+        .filter((d) => d.status === CashDrawerStatus.MATCHED || d.status === CashDrawerStatus.MISMATCH || (d.status as any) === 'CLOSED')
+        .sort((a, b) => (b.openedAt || '').localeCompare(a.openedAt || ''))[0];
+      const carryForwardBalance = lastClosed ? Number(lastClosed.physicalClosingBalance ?? lastClosed.expectedClosingBalance ?? 0) : 0;
+
       drawer = {
         id: `CD-${Date.now()}`,
         branchId: user.branchId || 'BR-001',
         branchName: user.branchName || 'Head Office Agra',
         cashierId: user.id || 'USR-003',
-        cashierName: user.employeeName || 'Pooja Singh',
+        cashierName: user.employeeName || 'Cashier',
         businessDate: today,
-        openingBalance: 125000,
+        openingBalance: carryForwardBalance,
         cashReceived: 0,
         cashPaid: 0,
-        expectedClosingBalance: 125000,
+        expectedClosingBalance: carryForwardBalance,
         status: CashDrawerStatus.OPEN,
         openedAt: new Date().toISOString(),
       };
-      this.dataStore.cashDrawers.push(drawer);
+      this.dataStore.cashDrawers.unshift(drawer);
       this.dataStore.persistCashDrawer(drawer);
     }
 
     return drawer;
+  }
+
+  @Post('open')
+  async openDrawer(
+    @Body() body: { openingBalance?: number; branchId?: string },
+    @CurrentUser() user: IUser,
+  ) {
+    await this.dataStore.refreshIfStale();
+    const today = new Date().toISOString().split('T')[0];
+    const existing = this.dataStore.cashDrawers.find((d) => d.businessDate === today && d.status === CashDrawerStatus.OPEN);
+    if (existing) {
+      return existing;
+    }
+    const opening = Number(body.openingBalance) || 0;
+    const branch = this.dataStore.branches.find((b) => b.id === (body.branchId || user.branchId)) || this.dataStore.branches[0];
+    const newDrawer: ICashDrawer = {
+      id: `CD-${Date.now()}`,
+      branchId: branch?.id || 'BR-001',
+      branchName: branch?.name || 'Head Office Agra',
+      cashierId: user.id || 'USR-001',
+      cashierName: user.employeeName || user.username || 'Cashier',
+      businessDate: today,
+      openingBalance: opening,
+      cashReceived: 0,
+      cashPaid: 0,
+      expectedClosingBalance: opening,
+      status: CashDrawerStatus.OPEN,
+      openedAt: new Date().toISOString(),
+    };
+    this.dataStore.cashDrawers.unshift(newDrawer);
+    await this.dataStore.persistCashDrawer(newDrawer);
+    return newDrawer;
   }
 
   @Get('history')

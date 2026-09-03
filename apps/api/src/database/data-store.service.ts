@@ -277,7 +277,7 @@ export class DataStoreService implements OnModuleInit {
           transactionId: r.transaction_id || '',
           customerId: r.customer_id,
           customerName: r.customer_name,
-          customerNumber: `SJF-CUS-${r.customer_id.slice(-6)}`,
+          customerNumber: this.customers.find((c) => c.id === r.customer_id)?.customerNumber || r.customer_id,
           amount: Number(r.amount || 0),
           paymentMode: (r.payment_mode as PaymentMode) || PaymentMode.CASH,
           paymentFor: 'Payment Collection',

@@ -26,7 +26,8 @@ export class BranchesController {
   }
 
   @Get(':id')
-  getBranchById(@Param('id') id: string) {
+  async getBranchById(@Param('id') id: string) {
+    await this.dataStore.refreshIfStale();
     const branch = this.dataStore.branches.find((b) => b.id === id || b.branchCode === id);
     if (!branch) throw new NotFoundException('Branch not found');
     return branch;

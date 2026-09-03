@@ -65,10 +65,10 @@ export class DashboardsController {
       staff: this.dataStore.employees.filter((e) => e.branchId === b.id).length,
     }));
 
-    const interestIncome = this.dataStore.chartOfAccounts.find((a) => a.accountCode === 'COA-4010')?.currentBalance || 0;
-    const feeIncome = this.dataStore.chartOfAccounts.find((a) => a.accountCode === 'COA-4020')?.currentBalance || 0;
-    const interestExpense = this.dataStore.chartOfAccounts.find((a) => a.accountCode === 'COA-5010')?.currentBalance || 0;
-    const salaryExpense = this.dataStore.chartOfAccounts.find((a) => a.accountCode === 'COA-5020')?.currentBalance || 0;
+    const interestIncome = this.dataStore.chartOfAccounts.find((a) => a.accountCode === '4010' || a.id === 'COA-4010')?.currentBalance || 0;
+    const feeIncome = this.dataStore.chartOfAccounts.find((a) => a.accountCode === '4020' || a.id === 'COA-4020')?.currentBalance || 0;
+    const interestExpense = this.dataStore.chartOfAccounts.find((a) => a.accountCode === '5010' || a.id === 'COA-5010')?.currentBalance || 0;
+    const salaryExpense = this.dataStore.chartOfAccounts.find((a) => a.accountCode === '5020' || a.id === 'COA-5020')?.currentBalance || 0;
 
     return {
       monthlyCollectionTrend,
@@ -88,7 +88,8 @@ export class DashboardsController {
    * RED ALERT SURVEILLANCE DASHBOARD (SRS §67)
    */
   @Get('dashboard/red-alerts')
-  getRedAlerts() {
+  async getRedAlerts() {
+    await this.dataStore.refreshIfStale();
     return this.dataStore.redAlerts;
   }
 
