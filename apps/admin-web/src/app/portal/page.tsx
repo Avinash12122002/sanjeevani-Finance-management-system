@@ -163,7 +163,19 @@ export default function CustomerPortalPage() {
 
   if (!data) return null;
 
-  const { customer, summary, accounts, loans, passbook, receipts, complaints, nominees } = data;
+  const customer = data?.customer || {};
+  const summary = data?.summary || { totalSavings: 0, totalRdDeposited: 0, totalFdPrincipal: 0, totalLoanOutstanding: 0, nextEmiAmount: 0, nextDueDate: '' };
+  const accounts = {
+    savings: data?.accounts?.savings || [],
+    rd: data?.accounts?.rd || [],
+    fd: data?.accounts?.fd || [],
+    rdInstallments: data?.accounts?.rdInstallments || [],
+  };
+  const loans = data?.loans || [];
+  const passbook = data?.passbook || [];
+  const receipts = data?.receipts || [];
+  const complaints = data?.complaints || [];
+  const nominees = data?.nominees || [];
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-800 pb-16">
