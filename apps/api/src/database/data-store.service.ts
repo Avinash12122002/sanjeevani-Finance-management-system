@@ -109,10 +109,25 @@ export class DataStoreService implements OnModuleInit {
       this.logger.log('Connecting to PostgreSQL database...');
       // Strip sslmode parameter from URL so ssl: { rejectUnauthorized: false } works seamlessly with cloud poolers
       const cleanUrl = dbUrl.replace(/[?&]sslmode=[^&]+/g, '').replace(/[?&]uselibpqcompat=[^&]+/g, '');
+      // Resolve host to IPv4 before connecting (Render doesn't support IPv6 outbound)
+      const parsedUrl = new URL(cleanUrl);
+      let resolvedHost = parsedUrl.hostname;
+      try {
+        const dns = await import('dns/promises');
+        const addresses = await dns.resolve4(parsedUrl.hostname);
+        if (addresses && addresses[0]) {
+          resolvedHost = addresses[0];
+          this.logger.log(`Resolved ${parsedUrl.hostname} → ${resolvedHost} (IPv4)`);
+        }
+      } catch (_dnsErr) {
+        // DNS resolve4 failed — fall back to original hostname
+      }
+
+      const ipv4Url = cleanUrl.replace(parsedUrl.hostname, resolvedHost);
       this.pool = new Pool({
-        connectionString: cleanUrl,
+        connectionString: ipv4Url,
         ssl: { rejectUnauthorized: false },
-        connectionTimeoutMillis: 10000,
+        connectionTimeoutMillis: 15000,
       });
 
       // Execute auto table provisioning (if permitted)
