@@ -40,6 +40,7 @@ import {
 } from '@ant-design/icons';
 import { useRouter } from 'next/navigation';
 import { FinancialEngine } from '@/shared/financial-engine';
+import { fetchApi, postApi } from '@/lib/api-client';
 
 export default function CustomerPortalPage() {
   const [data, setData] = useState<any>(null);
@@ -59,26 +60,18 @@ export default function CustomerPortalPage() {
   }, []);
 
   const loadCustomerData = async () => {
-    const token = localStorage.getItem('sfms_customer_token');
+    const token = typeof window !== 'undefined' ? localStorage.getItem('sfms_customer_token') : null;
     if (!token) {
       router.replace('/portal/login');
       return;
     }
 
     try {
-      const apiBase = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api/v1';
-      const res = await fetch(`${apiBase}/portal/me`, {
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-      });
-
-      const json = await res.json();
-      if (res.ok && json.success && json.data) {
-        setData(json.data);
+      const res = await fetchApi('/portal/me');
+      if (res.success && res.data) {
+        setData(res.data);
       } else {
-        message.error('Session expired. Please sign in again.');
+        message.error(res.message || 'Session expired. Please sign in again.');
         localStorage.removeItem('sfms_customer_token');
         router.replace('/portal/login');
       }
@@ -98,26 +91,15 @@ export default function CustomerPortalPage() {
 
   const handleFileComplaint = async (values: any) => {
     setSubmittingComplaint(true);
-    const token = localStorage.getItem('sfms_customer_token');
     try {
-      const apiBase = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api/v1';
-      const res = await fetch(`${apiBase}/portal/complaint`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify(values),
-      });
-
-      const json = await res.json();
-      if (res.ok && json.success) {
-        message.success(json.message || 'Support ticket created successfully!');
+      const res = await postApi('/portal/complaint', values);
+      if (res.success) {
+        message.success(res.message || 'Support ticket created successfully!');
         setComplaintModal(false);
         complaintForm.resetFields();
         loadCustomerData();
       } else {
-        message.error(json.message || 'Failed to submit complaint.');
+        message.error(res.message || 'Failed to submit complaint.');
       }
     } catch (err: any) {
       message.error(err.message || 'Network error');
@@ -127,25 +109,14 @@ export default function CustomerPortalPage() {
   };
 
   const handleChangePassword = async (values: any) => {
-    const token = localStorage.getItem('sfms_customer_token');
     try {
-      const apiBase = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api/v1';
-      const res = await fetch(`${apiBase}/portal/change-password`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify(values),
-      });
-
-      const json = await res.json();
-      if (res.ok && json.success) {
-        message.success(json.message || 'Password updated successfully!');
+      const res = await postApi('/portal/change-password', values);
+      if (res.success) {
+        message.success(res.message || 'Password updated successfully!');
         setPasswordModal(false);
         passwordForm.resetFields();
       } else {
-        message.error(json.message || 'Failed to change password.');
+        message.error(res.message || 'Failed to change password.');
       }
     } catch (err: any) {
       message.error(err.message || 'Network error');

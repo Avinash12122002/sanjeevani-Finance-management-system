@@ -32,6 +32,7 @@ import {
   HomeOutlined,
   CheckCircleOutlined,
   ClockCircleOutlined,
+  ShareAltOutlined,
 } from '@ant-design/icons';
 import { fetchApi, postApi, patchApi, deleteApi } from '@/lib/api-client';
 import { FinancialEngine } from '@sanjeevani/financial-engine';
@@ -563,6 +564,36 @@ export default function CustomersPage() {
                 </div>
               </Col>
             </Row>
+
+            {/* Customer Self-Service Portal Access Banner */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-3 bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-200 rounded-xl text-xs">
+              <div className="flex items-center gap-2.5">
+                <SafetyCertificateOutlined className="text-emerald-700 text-lg shrink-0" />
+                <div>
+                  <div className="font-bold text-emerald-950 flex items-center gap-1.5">
+                    <span>Customer Self-Service Portal</span>
+                    <Tag color="success" className="text-[10px] m-0">MSG91 OTP ENABLED</Tag>
+                  </div>
+                  <div className="text-[11px] text-emerald-700 mt-0.5">
+                    Login Mobile: +91 {selectedCustomer360.profile.mobile}
+                  </div>
+                </div>
+              </div>
+              <Button
+                size="small"
+                type="primary"
+                ghost
+                icon={<ShareAltOutlined />}
+                onClick={() => {
+                  const portalUrl = `${typeof window !== 'undefined' ? window.location.origin : ''}/portal/login`;
+                  const inviteText = `Dear ${selectedCustomer360.profile.firstName}, you can now view your Sanjeevani Finance Savings, RD, Loans, and Passbook on your mobile: ${portalUrl}\nSign in with your registered mobile: ${selectedCustomer360.profile.mobile}`;
+                  navigator.clipboard.writeText(inviteText);
+                  message.success('Customer Portal invitation text copied to clipboard!');
+                }}
+              >
+                Copy Portal Invite
+              </Button>
+            </div>
 
             <Tabs
               defaultActiveKey="overview"
