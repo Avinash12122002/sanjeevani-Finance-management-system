@@ -163,6 +163,7 @@ export class AccountsController {
     };
 
     this.dataStore.accounts.unshift(newAccount);
+    this.dataStore.persistAccount(newAccount);
 
     this.dataStore.logAudit(
       user.id || 'USR-001',

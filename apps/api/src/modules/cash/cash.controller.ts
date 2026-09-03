@@ -103,6 +103,8 @@ export class CashController {
       });
     }
 
+    this.dataStore.persistCashDrawer(drawer);
+
     this.dataStore.logAudit(
       user.id,
       user.employeeName || 'Cashier',

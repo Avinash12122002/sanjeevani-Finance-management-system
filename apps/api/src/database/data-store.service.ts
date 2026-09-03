@@ -1,7 +1,9 @@
-import { Injectable, OnModuleInit } from '@nestjs/common';
+import { Injectable, OnModuleInit, Logger } from '@nestjs/common';
+import { Pool } from 'pg';
 import {
   UserRole,
   CustomerStatus,
+  KYCStatus,
   ProductType,
   RegulatoryStatus,
   AccountStatus,
@@ -12,6 +14,8 @@ import {
   CashDrawerStatus,
   BusinessDateStatus,
   AccountClassification,
+  RecoveryBucket,
+  PaymentMode,
   IBranch,
   IUser,
   IEmployee,
@@ -38,9 +42,13 @@ import {
   IRedAlert,
 } from '@sanjeevani/shared-types';
 import { FinancialEngine } from '@sanjeevani/financial-engine';
+import { CREATE_TABLES_SQL, SEED_MASTER_DATA_SQL } from './schema.sql';
 
 @Injectable()
 export class DataStoreService implements OnModuleInit {
+  private readonly logger = new Logger(DataStoreService.name);
+  private pool: Pool | null = null;
+
   // Primary Collections (Clean Initial State)
   branches: IBranch[] = [];
   users: IUser[] = [];
@@ -80,8 +88,242 @@ export class DataStoreService implements OnModuleInit {
     complaint: 0,
   };
 
-  onModuleInit() {
+  async onModuleInit() {
+    // 1. Always seed clean in-memory defaults first
     this.seedInitialMasterData();
+
+    // 2. Automatically connect, provision tables and sync with PostgreSQL
+    await this.initPostgres();
+  }
+
+  private async initPostgres() {
+    const dbUrl = process.env.DATABASE_URL;
+    if (!dbUrl) {
+      this.logger.warn('DATABASE_URL not configured. Operating in high-speed in-memory mode.');
+      return;
+    }
+
+    try {
+      this.logger.log('Connecting to PostgreSQL database...');
+      this.pool = new Pool({
+        connectionString: dbUrl,
+        ssl: { rejectUnauthorized: false },
+        connectionTimeoutMillis: 10000,
+      });
+
+      // Execute auto table provisioning
+      await this.pool.query(CREATE_TABLES_SQL);
+      this.logger.log('✅ All 14 PostgreSQL database tables verified/created successfully.');
+
+      // Execute seed master data
+      await this.pool.query(SEED_MASTER_DATA_SQL);
+      this.logger.log('✅ Initial master data verified in PostgreSQL.');
+
+      // Hydrate state from PostgreSQL
+      await this.loadFromPostgres();
+      this.logger.log('✅ In-memory data store synchronized with PostgreSQL.');
+    } catch (err: any) {
+      this.logger.error(`PostgreSQL connection/init failed: ${err.message}. Falling back to in-memory mode.`);
+    }
+  }
+
+  private async loadFromPostgres() {
+    if (!this.pool) return;
+    try {
+      // Branches
+      const branchRes = await this.pool.query('SELECT * FROM branches');
+      if (branchRes.rows.length > 0) {
+        this.branches = branchRes.rows.map((r) => ({
+          id: r.id,
+          branchCode: r.branch_code,
+          name: r.name,
+          address: r.address,
+          city: r.city,
+          state: r.state,
+          phone: r.phone,
+          status: r.status,
+          openedAt: r.opened_at ? new Date(r.opened_at).toISOString().split('T')[0] : '',
+          createdAt: r.created_at ? new Date(r.created_at).toISOString() : '',
+        }));
+      }
+
+      // Users
+      const userRes = await this.pool.query('SELECT * FROM users');
+      if (userRes.rows.length > 0) {
+        this.users = userRes.rows.map((r) => ({
+          id: r.id,
+          username: r.username,
+          email: r.email,
+          mobile: r.mobile,
+          roles: r.roles || [],
+          branchId: r.branch_id,
+          branchName: r.branch_name,
+          employeeId: r.employee_id,
+          employeeName: r.employee_name,
+          isActive: r.is_active,
+          is2faEnabled: r.is_2fa_enabled,
+          createdAt: r.created_at ? new Date(r.created_at).toISOString() : '',
+        }));
+      }
+
+      // Customers
+      const custRes = await this.pool.query('SELECT * FROM customers ORDER BY created_at ASC');
+      if (custRes.rows.length > 0) {
+        this.customers = custRes.rows.map((r) => ({
+          id: r.id,
+          customerNumber: r.customer_number,
+          branchId: r.branch_id || 'BR-001',
+          branchCode: 'SJF-BR001',
+          branchName: 'Head Office - Main Branch',
+          firstName: r.full_name?.split(' ')[0] || r.full_name || 'Member',
+          middleName: undefined,
+          lastName: r.full_name?.split(' ').slice(1).join(' ') || '',
+          fatherOrSpouseName: 'Not Specified',
+          dateOfBirth: '1990-01-01',
+          gender: 'MALE',
+          mobile: r.mobile,
+          email: r.email || undefined,
+          addressLine1: r.address || 'Address not specified',
+          city: r.city || 'Agra',
+          state: r.state || 'Uttar Pradesh',
+          postalCode: '282001',
+          joiningDate: r.created_at ? new Date(r.created_at).toISOString().split('T')[0] : '',
+          status: CustomerStatus.ACTIVE,
+          kycStatus: r.kyc_status === 'VERIFIED' ? KYCStatus.VERIFIED : KYCStatus.PENDING,
+          createdBy: 'USR-001',
+          createdAt: r.created_at ? new Date(r.created_at).toISOString() : '',
+          updatedAt: r.created_at ? new Date(r.created_at).toISOString() : '',
+        }));
+        this.counters.customer = this.customers.length;
+      }
+
+      // Accounts
+      const accRes = await this.pool.query('SELECT * FROM accounts ORDER BY created_at ASC');
+      if (accRes.rows.length > 0) {
+        this.accounts = accRes.rows.map((r) => ({
+          id: r.id,
+          accountNumber: r.account_number,
+          customerId: r.customer_id,
+          customerName: r.customer_name,
+          productId: r.product_id || 'PRD-001',
+          productName: r.product_name || 'Savings',
+          productType: (r.product_type as ProductType) || ProductType.SAVINGS,
+          branchId: r.branch_id || 'BR-001',
+          branchName: r.branch_name || 'Head Office Agra',
+          openingDate: r.opened_at ? new Date(r.opened_at).toISOString().split('T')[0] : '',
+          principalAmount: Number(r.monthly_deposit || r.balance || 0),
+          interestRate: Number(r.interest_rate || 0),
+          tenureMonths: r.tenure_months || 12,
+          maturityAmount: Number(r.maturity_amount || 0),
+          maturityDate: r.maturity_date ? new Date(r.maturity_date).toISOString().split('T')[0] : '',
+          currentBalance: Number(r.balance || 0),
+          status: r.status === 'ACTIVE' ? AccountStatus.ACTIVE : AccountStatus.CLOSED,
+          createdBy: 'USR-001',
+          createdAt: r.created_at ? new Date(r.created_at).toISOString() : '',
+          updatedAt: r.created_at ? new Date(r.created_at).toISOString() : '',
+        }));
+        this.counters.account = this.accounts.length;
+      }
+
+      // Loans
+      const loanRes = await this.pool.query('SELECT * FROM loans ORDER BY created_at ASC');
+      if (loanRes.rows.length > 0) {
+        this.loans = loanRes.rows.map((r) => ({
+          id: r.id,
+          loanNumber: r.loan_number,
+          customerId: r.customer_id,
+          customerName: r.customer_name,
+          loanApplicationId: `LA-${r.id}`,
+          branchId: r.branch_id || 'BR-001',
+          principal: Number(r.principal_amount || 0),
+          annualInterestRate: Number(r.interest_rate || 0),
+          interestMethod: (r.interest_method as InterestMethod) || InterestMethod.REDUCING_BALANCE,
+          tenureMonths: r.tenure_months || 12,
+          emiAmount: Number(r.emi_amount || 0),
+          totalPayable: Number(r.total_payable || 0),
+          totalInterest: Number(r.total_payable || 0) - Number(r.principal_amount || 0),
+          disbursementDate: r.disbursed_at ? new Date(r.disbursed_at).toISOString().split('T')[0] : '',
+          firstDueDate: r.disbursed_at ? new Date(r.disbursed_at).toISOString().split('T')[0] : '',
+          finalDueDate: r.mature_at ? new Date(r.mature_at).toISOString().split('T')[0] : '',
+          outstandingPrincipal: Number(r.principal_outstanding || 0),
+          totalPaid: Number(r.total_paid || 0),
+          overdueAmount: 0,
+          daysPastDue: 0,
+          recoveryBucket: RecoveryBucket.CURRENT,
+          status: (r.status as any) || 'ACTIVE',
+          createdAt: r.created_at ? new Date(r.created_at).toISOString() : '',
+        }));
+        this.counters.loan = this.loans.length;
+      }
+
+      // Receipts
+      const rcpRes = await this.pool.query('SELECT * FROM receipts ORDER BY created_at ASC');
+      if (rcpRes.rows.length > 0) {
+        this.receipts = rcpRes.rows.map((r) => ({
+          id: r.id,
+          receiptNumber: r.receipt_number,
+          transactionId: r.transaction_id || '',
+          customerId: r.customer_id,
+          customerName: r.customer_name,
+          customerNumber: `SJF-CUS-${r.customer_id.slice(-6)}`,
+          amount: Number(r.amount || 0),
+          paymentMode: (r.payment_mode as PaymentMode) || PaymentMode.CASH,
+          paymentFor: 'Payment Collection',
+          collectorId: r.collector_id || 'USR-006',
+          collectorName: r.collector_name || 'Collector',
+          branchName: 'Head Office Agra',
+          generatedAt: r.created_at ? new Date(r.created_at).toISOString() : '',
+          deliveryStatus: 'SENT',
+        }));
+        this.counters.receipt = this.receipts.length;
+      }
+
+      // Transactions
+      const txnRes = await this.pool.query('SELECT * FROM transactions ORDER BY created_at ASC');
+      if (txnRes.rows.length > 0) {
+        this.transactions = txnRes.rows.map((r) => ({
+          id: r.id,
+          transactionNumber: r.transaction_number,
+          branchId: r.branch_id || 'BR-001',
+          customerId: r.customer_id,
+          accountId: r.account_id,
+          transactionType: (r.transaction_type as TransactionType) || TransactionType.DEPOSIT,
+          amount: Number(r.amount || 0),
+          paymentMode: (r.payment_mode as PaymentMode) || PaymentMode.CASH,
+          transactionDate: r.created_at ? new Date(r.created_at).toISOString().split('T')[0] : '',
+          status: TransactionStatus.POSTED,
+          createdBy: 'USR-001',
+          referenceNumber: r.reference_no,
+          remarks: r.description,
+          createdAt: r.created_at ? new Date(r.created_at).toISOString() : '',
+        }));
+        this.counters.transaction = this.transactions.length;
+      }
+
+      // Cash Drawers
+      const cdRes = await this.pool.query('SELECT * FROM cash_drawers ORDER BY opened_at DESC LIMIT 10');
+      if (cdRes.rows.length > 0) {
+        this.cashDrawers = cdRes.rows.map((r) => ({
+          id: r.id,
+          branchId: r.branch_id,
+          branchName: r.branch_name,
+          cashierId: r.cashier_id,
+          cashierName: r.cashier_name,
+          businessDate: r.business_date ? new Date(r.business_date).toISOString().split('T')[0] : '',
+          openingBalance: Number(r.opening_balance || 0),
+          cashReceived: Number(r.cash_received || 0),
+          cashPaid: Number(r.cash_paid || 0),
+          expectedClosingBalance: Number(r.expected_closing_balance || 0),
+          physicalClosingBalance: Number(r.physical_closing_balance || 0),
+          difference: Number(r.difference || 0),
+          status: r.status,
+          openedAt: r.opened_at ? new Date(r.opened_at).toISOString() : '',
+          closedAt: r.closed_at ? new Date(r.closed_at).toISOString() : undefined,
+        }));
+      }
+    } catch (e: any) {
+      this.logger.warn(`Could not load initial rows from PostgreSQL: ${e.message}`);
+    }
   }
 
   // ==========================================
@@ -484,6 +726,256 @@ export class DataStoreService implements OnModuleInit {
     if (!date) return false;
     const closure = this.businessDayClosures.find((c) => c.businessDate === date);
     return closure ? closure.status === BusinessDateStatus.LOCKED : false;
+  }
+
+  // ==========================================
+  // ASYNCHRONOUS POSTGRESQL PERSISTENCE HELPERS
+  // ==========================================
+  async persistCustomer(c: ICustomer) {
+    if (!this.pool) return;
+    try {
+      const fullName = `${c.firstName || ''} ${c.lastName || ''}`.trim() || 'Member';
+      await this.pool.query(
+        `INSERT INTO customers (id, customer_number, full_name, mobile, email, address, city, state, kyc_status, risk_category, branch_id)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+         ON CONFLICT (id) DO UPDATE SET
+           full_name = EXCLUDED.full_name,
+           mobile = EXCLUDED.mobile,
+           kyc_status = EXCLUDED.kyc_status,
+           address = EXCLUDED.address,
+           city = EXCLUDED.city,
+           state = EXCLUDED.state`,
+        [
+          c.id,
+          c.customerNumber,
+          fullName,
+          c.mobile,
+          c.email || null,
+          c.addressLine1 || null,
+          c.city || null,
+          c.state || null,
+          c.kycStatus || 'VERIFIED',
+          'LOW',
+          c.branchId || null,
+        ],
+      );
+    } catch (e: any) {
+      this.logger.error(`Failed to persist customer ${c.id} to PostgreSQL: ${e.message}`);
+    }
+  }
+
+  async persistAccount(a: IAccount) {
+    if (!this.pool) return;
+    try {
+      await this.pool.query(
+        `INSERT INTO accounts (id, account_number, customer_id, customer_name, product_id, product_name, product_type, branch_id, branch_name, balance, interest_rate, tenure_months, monthly_deposit, maturity_amount, maturity_date, status)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
+         ON CONFLICT (id) DO UPDATE SET
+           balance = EXCLUDED.balance,
+           status = EXCLUDED.status`,
+        [
+          a.id,
+          a.accountNumber,
+          a.customerId,
+          a.customerName || 'Account Holder',
+          a.productId || null,
+          a.productName || null,
+          a.productType || null,
+          a.branchId || null,
+          a.branchName || null,
+          a.currentBalance || 0,
+          a.interestRate || 0,
+          a.tenureMonths || 12,
+          a.principalAmount || 0,
+          a.maturityAmount || 0,
+          a.maturityDate ? new Date(a.maturityDate) : null,
+          a.status || 'ACTIVE',
+        ],
+      );
+    } catch (e: any) {
+      this.logger.error(`Failed to persist account ${a.id} to PostgreSQL: ${e.message}`);
+    }
+  }
+
+  async persistLoan(l: ILoan) {
+    if (!this.pool) return;
+    try {
+      await this.pool.query(
+        `INSERT INTO loans (id, loan_number, customer_id, customer_name, branch_id, principal_amount, sanctioned_amount, disbursed_amount, interest_rate, interest_method, tenure_months, emi_amount, total_payable, total_paid, principal_outstanding, status, disbursed_at, mature_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)
+         ON CONFLICT (id) DO UPDATE SET
+           principal_outstanding = EXCLUDED.principal_outstanding,
+           total_paid = EXCLUDED.total_paid,
+           status = EXCLUDED.status`,
+        [
+          l.id,
+          l.loanNumber,
+          l.customerId,
+          l.customerName || 'Borrower',
+          l.branchId || null,
+          l.principal || 0,
+          l.principal || 0,
+          l.principal || 0,
+          l.annualInterestRate || 0,
+          l.interestMethod || null,
+          l.tenureMonths || 12,
+          l.emiAmount || 0,
+          l.totalPayable || 0,
+          l.totalPaid || 0,
+          l.outstandingPrincipal || 0,
+          l.status || 'ACTIVE',
+          l.disbursementDate ? new Date(l.disbursementDate) : null,
+          l.finalDueDate ? new Date(l.finalDueDate) : null,
+        ],
+      );
+    } catch (e: any) {
+      this.logger.error(`Failed to persist loan ${l.id} to PostgreSQL: ${e.message}`);
+    }
+  }
+
+  async persistReceipt(r: IReceipt) {
+    if (!this.pool) return;
+    try {
+      await this.pool.query(
+        `INSERT INTO receipts (id, receipt_number, transaction_id, customer_id, customer_name, payment_mode, amount, collector_id, collector_name, remarks)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+         ON CONFLICT (id) DO NOTHING`,
+        [
+          r.id,
+          r.receiptNumber,
+          r.transactionId || null,
+          r.customerId,
+          r.customerName,
+          r.paymentMode || 'CASH',
+          r.amount || 0,
+          r.collectorId || null,
+          r.collectorName || null,
+          r.paymentFor || null,
+        ],
+      );
+    } catch (e: any) {
+      this.logger.error(`Failed to persist receipt ${r.id} to PostgreSQL: ${e.message}`);
+    }
+  }
+
+  async persistTransaction(t: ITransaction) {
+    if (!this.pool) return;
+    try {
+      await this.pool.query(
+        `INSERT INTO transactions (id, transaction_number, account_id, customer_id, transaction_type, payment_mode, amount, reference_no, branch_id, performed_by, description)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+         ON CONFLICT (id) DO NOTHING`,
+        [
+          t.id,
+          t.transactionNumber,
+          t.accountId || null,
+          t.customerId || null,
+          t.transactionType,
+          t.paymentMode || 'CASH',
+          t.amount || 0,
+          t.referenceNumber || null,
+          t.branchId || null,
+          t.createdBy || null,
+          t.remarks || null,
+        ],
+      );
+    } catch (e: any) {
+      this.logger.error(`Failed to persist transaction ${t.id} to PostgreSQL: ${e.message}`);
+    }
+  }
+
+  async persistCashDrawer(cd: ICashDrawer) {
+    if (!this.pool) return;
+    try {
+      await this.pool.query(
+        `INSERT INTO cash_drawers (id, branch_id, branch_name, cashier_id, cashier_name, business_date, opening_balance, cash_received, cash_paid, expected_closing_balance, physical_closing_balance, difference, status, opened_at, closed_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+         ON CONFLICT (id) DO UPDATE SET
+           cash_received = EXCLUDED.cash_received,
+           cash_paid = EXCLUDED.cash_paid,
+           expected_closing_balance = EXCLUDED.expected_closing_balance,
+           physical_closing_balance = EXCLUDED.physical_closing_balance,
+           difference = EXCLUDED.difference,
+           status = EXCLUDED.status,
+           closed_at = EXCLUDED.closed_at`,
+        [
+          cd.id,
+          cd.branchId,
+          cd.branchName,
+          cd.cashierId,
+          cd.cashierName,
+          cd.businessDate ? new Date(cd.businessDate) : new Date(),
+          cd.openingBalance || 0,
+          cd.cashReceived || 0,
+          cd.cashPaid || 0,
+          cd.expectedClosingBalance || 0,
+          cd.physicalClosingBalance || 0,
+          cd.difference || 0,
+          cd.status || 'OPEN',
+          cd.openedAt ? new Date(cd.openedAt) : new Date(),
+          cd.closedAt ? new Date(cd.closedAt) : null,
+        ],
+      );
+    } catch (e: any) {
+      this.logger.error(`Failed to persist cash drawer ${cd.id} to PostgreSQL: ${e.message}`);
+    }
+  }
+
+  async persistUser(u: IUser) {
+    if (!this.pool) return;
+    try {
+      await this.pool.query(
+        `INSERT INTO users (id, username, email, mobile, roles, branch_id, branch_name, employee_id, employee_name, is_active, is_2fa_enabled, password_hash)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+         ON CONFLICT (id) DO UPDATE SET
+           is_active = EXCLUDED.is_active`,
+        [
+          u.id,
+          u.username,
+          u.email || null,
+          u.mobile || null,
+          u.roles || ['SUPER_ADMIN'],
+          u.branchId || null,
+          u.branchName || null,
+          u.employeeId || null,
+          u.employeeName || null,
+          u.isActive !== false,
+          u.is2faEnabled || false,
+          (u as any).passwordHash || 'Password@123',
+        ],
+      );
+    } catch (e: any) {
+      this.logger.error(`Failed to persist user ${u.id} to PostgreSQL: ${e.message}`);
+    }
+  }
+
+  async persistClosure(c: IBusinessDayClosure) {
+    if (!this.pool) return;
+    try {
+      await this.pool.query(
+        `INSERT INTO daily_closures (id, branch_id, branch_name, business_date, opening_cash, total_collections, total_disbursements, closing_cash, status, closed_by_id, closed_at, can_reopen)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+         ON CONFLICT (id) DO UPDATE SET
+           status = EXCLUDED.status,
+           can_reopen = EXCLUDED.can_reopen`,
+        [
+          c.id,
+          c.branchId,
+          c.branchName || 'Main Branch',
+          c.businessDate ? new Date(c.businessDate) : new Date(),
+          c.cashInHand || 0,
+          c.totalCollections || 0,
+          c.totalDisbursements || 0,
+          c.cashInHand || 0,
+          c.status || 'LOCKED',
+          c.closedBy || null,
+          c.closedAt ? new Date(c.closedAt) : new Date(),
+          true,
+        ],
+      );
+    } catch (e: any) {
+      this.logger.error(`Failed to persist closure ${c.id} to PostgreSQL: ${e.message}`);
+    }
   }
 }
 

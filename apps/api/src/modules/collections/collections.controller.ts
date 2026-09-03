@@ -183,6 +183,7 @@ export class CollectionsController {
     };
 
     this.dataStore.transactions.unshift(transaction);
+    this.dataStore.persistTransaction(transaction);
 
     // 4. Create Digital Receipt (BR-013, SRS §18)
     const receipt: IReceipt = {
@@ -204,6 +205,15 @@ export class CollectionsController {
     };
 
     this.dataStore.receipts.unshift(receipt);
+    this.dataStore.persistReceipt(receipt);
+
+    if (body.loanId) {
+      const l = this.dataStore.loans.find((loan) => loan.id === body.loanId);
+      if (l) this.dataStore.persistLoan(l);
+    } else if (body.accountId) {
+      const a = this.dataStore.accounts.find((acc) => acc.id === body.accountId);
+      if (a) this.dataStore.persistAccount(a);
+    }
 
     // 5. Update Cash Drawer if Payment Mode is CASH (BR-006, SRS §34)
     if (body.paymentMode === PaymentMode.CASH || !body.paymentMode) {
@@ -211,6 +221,7 @@ export class CollectionsController {
       if (drawer) {
         drawer.cashReceived = FinancialEngine.add(drawer.cashReceived, amount);
         drawer.expectedClosingBalance = FinancialEngine.add(drawer.expectedClosingBalance, amount);
+        this.dataStore.persistCashDrawer(drawer);
       }
     }
 

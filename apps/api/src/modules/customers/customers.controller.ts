@@ -124,6 +124,7 @@ export class CustomersController {
     };
 
     this.dataStore.customers.unshift(newCustomer);
+    this.dataStore.persistCustomer(newCustomer);
 
     if (hasKyc) {
       this.dataStore.kycDocuments.push({

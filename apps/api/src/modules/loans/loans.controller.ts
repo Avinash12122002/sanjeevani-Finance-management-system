@@ -329,6 +329,7 @@ export class LoansController {
     };
 
     this.dataStore.loans.unshift(newLoan);
+    this.dataStore.persistLoan(newLoan);
 
     // Save installments (BR-008)
     const installments: ILoanInstallment[] = emiCalculation.schedule.map((item) => ({

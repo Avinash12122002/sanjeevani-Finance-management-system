@@ -135,6 +135,8 @@ export class DailyClosingController {
       closure.closedAt = new Date().toISOString();
     }
 
+    this.dataStore.persistClosure(closure);
+
     this.dataStore.logAudit(
       user.id,
       user.employeeName || 'Manager',
@@ -177,6 +179,8 @@ export class DailyClosingController {
 
     closure.status = BusinessDateStatus.REOPENED;
     closure.reopenedReason = body.reason;
+
+    this.dataStore.persistClosure(closure);
 
     this.dataStore.logAudit(
       user.id,
