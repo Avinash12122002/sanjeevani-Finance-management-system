@@ -142,14 +142,32 @@ export default function CustomerPortalLoginPage() {
   };
 
   /**
-   * STEP 2A: First-Time Customer - Verify OTP
+   * STEP 2A: First-Time Customer - Verify OTP with Server
    */
   const handleVerifyFirstTimeOtp = async (values: { otp: string }) => {
     const enteredOtp = values.otp.trim();
-    setOtp(enteredOtp);
+    setLoading(true);
     setErrorMsg(null);
-    setInfoMsg('OTP verified successfully! Now create your account password below.');
-    setStep('FIRST_TIME_PASSWORD');
+    try {
+      const res = await fetch(`${apiBase}/portal/verify-otp`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mobile, otp: enteredOtp }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        setErrorMsg(data.message || 'Incorrect or expired OTP code.');
+        return;
+      }
+
+      setOtp(enteredOtp);
+      setInfoMsg('OTP verified successfully! Now create your account password below.');
+      setStep('FIRST_TIME_PASSWORD');
+    } catch (err: any) {
+      setErrorMsg(err.message || 'Network error while verifying OTP');
+    } finally {
+      setLoading(false);
+    }
   };
 
   /**
@@ -457,7 +475,7 @@ export default function CustomerPortalLoginPage() {
               </Tag>
               <h2 className="text-xl font-bold text-slate-900 m-0">Verify Your Mobile</h2>
               <p className="text-xs text-slate-500 mt-1">
-                A 6-digit OTP has been dispatched to <span className="font-semibold text-slate-800">+91 {mobile}</span> via SMS & WhatsApp
+                An OTP verification code has been dispatched to <span className="font-semibold text-slate-800">+91 {mobile}</span> via SMS & WhatsApp
               </p>
             </div>
 
@@ -502,6 +520,21 @@ export default function CustomerPortalLoginPage() {
               >
                 Verify OTP →
               </Button>
+
+              <div className="text-center mt-3">
+                <Button
+                  type="link"
+                  size="small"
+                  onClick={() => {
+                    setStep('ENTER_MOBILE');
+                    setErrorMsg(null);
+                    setInfoMsg(null);
+                  }}
+                  className="text-slate-400 hover:text-emerald-700 text-xs p-0"
+                >
+                  ← Entered wrong number? Change
+                </Button>
+              </div>
             </Form>
           </div>
         )}
@@ -573,6 +606,20 @@ export default function CustomerPortalLoginPage() {
               >
                 Set Password & Enter Portal 🚀
               </Button>
+
+              <div className="text-center mt-3">
+                <Button
+                  type="link"
+                  size="small"
+                  onClick={() => {
+                    setStep('FIRST_TIME_OTP');
+                    setErrorMsg(null);
+                  }}
+                  className="text-slate-400 hover:text-emerald-700 text-xs p-0"
+                >
+                  ← Back to OTP verification
+                </Button>
+              </div>
             </Form>
           </div>
         )}
@@ -717,6 +764,21 @@ export default function CustomerPortalLoginPage() {
                 },
               ]}
             />
+
+            <div className="text-center mt-2">
+              <Button
+                type="link"
+                size="small"
+                onClick={() => {
+                  setStep('ENTER_MOBILE');
+                  setErrorMsg(null);
+                  setInfoMsg(null);
+                }}
+                className="text-slate-400 hover:text-emerald-700 text-xs p-0"
+              >
+                ← Use a different mobile number
+              </Button>
+            </div>
           </div>
         )}
 

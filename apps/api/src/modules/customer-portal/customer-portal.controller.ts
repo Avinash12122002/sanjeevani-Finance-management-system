@@ -178,6 +178,47 @@ export class CustomerPortalController {
   }
 
   /**
+   * 2.5 VERIFY OTP CODE (Pre-Check Before Setting Password)
+   */
+  @Post('verify-otp')
+  async verifyOtpCode(@Body() body: { mobile?: string; otp?: string }) {
+    await this.dataStore.refreshIfStale();
+
+    const cleanMobile = (body.mobile || '').replace(/\D/g, '').slice(-10);
+    const otp = body.otp?.trim();
+
+    if (!cleanMobile || !otp) {
+      throw new BadRequestException('Please provide your mobile number and OTP code');
+    }
+
+    const record = otpStore.get(cleanMobile);
+    if (!record) {
+      throw new BadRequestException('No active OTP found. Please request a new OTP.');
+    }
+
+    if (Date.now() > record.expiresAt) {
+      otpStore.delete(cleanMobile);
+      throw new BadRequestException('OTP has expired. Please request a new code.');
+    }
+
+    if (record.otp !== otp) {
+      record.attempts += 1;
+      if (record.attempts >= 4) {
+        otpStore.delete(cleanMobile);
+        throw new BadRequestException('Too many incorrect attempts. Please request a new OTP.');
+      }
+      throw new BadRequestException(`Incorrect OTP. ${4 - record.attempts} attempt(s) remaining.`);
+    }
+
+    (record as any).verified = true;
+
+    return {
+      success: true,
+      message: 'OTP verified successfully.',
+    };
+  }
+
+  /**
    * 3. FIRST-TIME LOGIN: VERIFY OTP AND CREATE PASSWORD
    * Verifies OTP, saves the password, marks customer as having password, and logs them in!
    */
@@ -201,7 +242,7 @@ export class CustomerPortalController {
 
     const record = otpStore.get(cleanMobile);
     if (!record) {
-      throw new BadRequestException('No active OTP found. Please request a new OTP.');
+      throw new BadRequestException('No active OTP session found. Please request a new OTP.');
     }
 
     if (Date.now() > record.expiresAt) {
@@ -209,7 +250,8 @@ export class CustomerPortalController {
       throw new BadRequestException('OTP has expired. Please request a new code.');
     }
 
-    if (record.otp !== otp) {
+    const isPreVerified = (record as any).verified === true;
+    if (!isPreVerified && record.otp !== otp) {
       record.attempts += 1;
       if (record.attempts >= 4) {
         otpStore.delete(cleanMobile);
