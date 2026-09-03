@@ -514,50 +514,50 @@ export default function SettingsPage() {
   return (
     <div className="space-y-6">
       {/* Header Banner */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+      <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-3 bg-white px-5 py-3 rounded-xl border border-slate-200 shadow-sm">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900 m-0">System Configuration & Master Control</h1>
-          <p className="text-slate-500 text-sm mt-1 m-0">
-            Full admin power: Manage staff logins, branches, financial products, compliance switches, and global parameters without accessing the database.
+          <h1 className="text-base font-bold text-slate-900 m-0">System Configuration & Master Control</h1>
+          <p className="text-slate-500 text-xs mt-0.5 m-0">
+            Full admin power: Manage staff, branches, products, compliance switches, and system parameters without accessing the database.
           </p>
         </div>
-        <Space wrap>
+        <Space wrap size={6}>
           <Button
             icon={<UserOutlined />}
-            size="large"
+            size="small"
             onClick={() => setAddUserModal(true)}
           >
-            + Add User Account
+            + User
           </Button>
           <Button
             icon={<CustomerServiceOutlined />}
-            size="large"
+            size="small"
             onClick={() => setAddComplaintModal(true)}
           >
-            + Log Complaint
+            + Complaint
           </Button>
           <Button
             icon={<ShoppingOutlined />}
-            size="large"
+            size="small"
             onClick={() => setAddProductModal(true)}
           >
-            + Add Product
+            + Product
           </Button>
           <Button
             icon={<BankOutlined />}
-            size="large"
+            size="small"
             onClick={() => setAddBranchModal(true)}
           >
-            + Add Branch
+            + Branch
           </Button>
           <Button
             type="primary"
             icon={<UserAddOutlined />}
-            size="large"
+            size="small"
             style={{ background: '#059669', borderColor: '#059669' }}
             onClick={() => setAddStaffModal(true)}
           >
-            + Add Staff Member
+            + Staff Member
           </Button>
         </Space>
       </div>
