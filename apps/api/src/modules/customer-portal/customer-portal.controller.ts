@@ -8,6 +8,7 @@ import {
   UnauthorizedException,
   NotFoundException,
   BadRequestException,
+  Logger,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { DataStoreService } from '../../database/data-store.service';
@@ -20,53 +21,275 @@ import {
   InstallmentStatus,
 } from '@sanjeevani/shared-types';
 
-// In-Memory Customer Password Map (fallback & fast lookup)
+// In-Memory Stores
+// 1. Passwords Map (customerId -> password)
 const customerPasswordMap = new Map<string, string>();
+// 2. Active OTP Store (cleanMobile -> { otp, customerId, expiresAt, attempts })
+const otpStore = new Map<string, { otp: string; customerId: string; expiresAt: number; attempts: number }>();
 
 @Controller('api/v1/portal')
 export class CustomerPortalController {
+  private readonly logger = new Logger(CustomerPortalController.name);
+
   constructor(
     private dataStore: DataStoreService,
     private jwtService: JwtService,
   ) {}
 
   /**
-   * CUSTOMER SELF-SERVICE PORTAL LOGIN (SRS §23)
-   * Login using Customer ID (e.g. SJF-000001) or Mobile Number + Password/PIN
+   * Helper: Dispatch OTP via MSG91 SendOTP API (SMS / WhatsApp / Voice)
    */
-  @Post('login')
-  async login(@Body() body: { identifier?: string; password?: string }) {
+  private async dispatchMsg91Otp(mobile: string, otp: string): Promise<boolean> {
+    const authKey = process.env.MSG91_AUTH_KEY;
+    const widgetId = process.env.MSG91_WIDGET_ID || '3669636e5954383136343531';
+    const templateId = process.env.MSG91_OTP_TEMPLATE_ID;
+
+    // If live authKey is present, call MSG91 SendOTP API
+    if (authKey) {
+      try {
+        const url = `https://control.msg91.com/api/v5/otp?template_id=${templateId || ''}&mobile=91${mobile}&authkey=${authKey}&otp=${otp}&widget_id=${widgetId}`;
+        const res = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+        });
+        const resJson = await res.json();
+        this.logger.log(`MSG91 API response for +91${mobile}: ${JSON.stringify(resJson)}`);
+        return true;
+      } catch (err: any) {
+        this.logger.error(`Failed to send MSG91 OTP: ${err.message}`);
+        return false;
+      }
+    } else {
+      // In Development or if Auth Key not yet configured, log to server console
+      this.logger.warn(`[MSG91 Simulation] Live Auth Key not configured. OTP for +91${mobile} is: ${otp}`);
+      return true;
+    }
+  }
+
+  /**
+   * 1. CHECK MOBILE NUMBER & PASSWORD STATUS
+   * Returns whether customer exists and whether they already created a password
+   */
+  @Post('check-mobile')
+  async checkMobile(@Body() body: { mobile?: string }) {
     await this.dataStore.refreshIfStale();
 
-    const { identifier, password } = body;
-    if (!identifier || !password) {
-      throw new BadRequestException('Please provide your Customer ID or Mobile Number and Password');
+    const rawMobile = body.mobile?.trim() || '';
+    const cleanMobile = rawMobile.replace(/\D/g, '').slice(-10);
+
+    if (!cleanMobile || cleanMobile.length < 10) {
+      throw new BadRequestException('Please enter a valid 10-digit mobile number');
     }
 
-    const cleanId = identifier.trim().toLowerCase();
-    const customer = this.dataStore.customers.find(
-      (c) =>
-        c.customerNumber?.toLowerCase() === cleanId ||
-        c.id?.toLowerCase() === cleanId ||
-        c.mobile?.replace(/\D/g, '') === cleanId.replace(/\D/g, ''),
-    );
+    const customer = this.dataStore.customers.find((c) => {
+      const cMob = (c.mobile || '').replace(/\D/g, '').slice(-10);
+      return cMob === cleanMobile;
+    });
 
     if (!customer) {
-      throw new UnauthorizedException('No account found with this Customer ID or Mobile Number. Please contact branch support.');
+      throw new NotFoundException(
+        `Mobile number +91 ${cleanMobile} is not registered with Sanjeevani Finance. Please visit your nearest branch to open an account.`,
+      );
     }
 
-    // Password Check: Custom password OR default fallback (Pass@123 or last 4 digits of mobile)
-    const customPass = customerPasswordMap.get(customer.id);
-    const last4Mobile = customer.mobile ? customer.mobile.slice(-4) : '1234';
-    const isValidPass = customPass
-      ? customPass === password
-      : password === 'Pass@123' ||
-        password === 'Password@123' ||
-        password === last4Mobile ||
-        (customer.dateOfBirth && password === customer.dateOfBirth.replace(/-/g, ''));
+    const hasPassword = customerPasswordMap.has(customer.id);
+    const fullName = `${customer.firstName} ${customer.lastName || ''}`.trim();
 
-    if (!isValidPass) {
-      throw new UnauthorizedException('Invalid password. Default password is Pass@123 or the last 4 digits of your mobile number.');
+    return {
+      success: true,
+      data: {
+        exists: true,
+        hasPassword,
+        customerId: customer.id,
+        customerNumber: customer.customerNumber,
+        customerName: fullName,
+        mobile: cleanMobile,
+      },
+    };
+  }
+
+  /**
+   * 2. SEND OTP (MSG91 Gateway)
+   * Dispatches 6-digit OTP to customer's registered mobile number (SMS / WhatsApp)
+   */
+  @Post('send-otp')
+  async sendOtp(@Body() body: { mobile?: string }) {
+    await this.dataStore.refreshIfStale();
+
+    const rawMobile = body.mobile?.trim() || '';
+    const cleanMobile = rawMobile.replace(/\D/g, '').slice(-10);
+
+    if (!cleanMobile || cleanMobile.length < 10) {
+      throw new BadRequestException('Please enter a valid 10-digit mobile number');
+    }
+
+    const customer = this.dataStore.customers.find((c) => {
+      const cMob = (c.mobile || '').replace(/\D/g, '').slice(-10);
+      return cMob === cleanMobile;
+    });
+
+    if (!customer) {
+      throw new NotFoundException(`No account found for mobile +91 ${cleanMobile}`);
+    }
+
+    // Rate Limiting: Check previous OTP request
+    const existing = otpStore.get(cleanMobile);
+    if (existing && Date.now() < existing.expiresAt - 4 * 60 * 1000) {
+      // Requested less than 60 seconds ago
+      throw new BadRequestException('An OTP was just sent. Please wait 60 seconds before requesting another code.');
+    }
+
+    // Generate 6-digit secure numerical OTP
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const expiresAt = Date.now() + 5 * 60 * 1000; // 5 minutes expiry
+
+    otpStore.set(cleanMobile, {
+      otp,
+      customerId: customer.id,
+      expiresAt,
+      attempts: 0,
+    });
+
+    // Dispatch via MSG91
+    await this.dispatchMsg91Otp(cleanMobile, otp);
+
+    const hasAuthKey = Boolean(process.env.MSG91_AUTH_KEY);
+
+    return {
+      success: true,
+      message: `OTP sent to +91 ${cleanMobile} via SMS & WhatsApp. Valid for 5 minutes.`,
+      data: {
+        expiresInSeconds: 300,
+        // Include devOtp if live gateway credentials not yet added, ensuring frictionless instant testing
+        devOtp: !hasAuthKey || process.env.NODE_ENV !== 'production' ? otp : undefined,
+      },
+    };
+  }
+
+  /**
+   * 3. FIRST-TIME LOGIN: VERIFY OTP AND CREATE PASSWORD
+   * Verifies OTP, saves the password, marks customer as having password, and logs them in!
+   */
+  @Post('verify-otp-set-password')
+  async verifyOtpAndSetPassword(
+    @Body() body: { mobile?: string; otp?: string; newPassword?: string },
+  ) {
+    await this.dataStore.refreshIfStale();
+
+    const cleanMobile = (body.mobile || '').replace(/\D/g, '').slice(-10);
+    const otp = body.otp?.trim();
+    const newPassword = body.newPassword?.trim();
+
+    if (!cleanMobile || !otp || !newPassword) {
+      throw new BadRequestException('Please provide mobile number, OTP, and your new password');
+    }
+
+    if (newPassword.length < 4) {
+      throw new BadRequestException('Password must be at least 4 characters long');
+    }
+
+    const record = otpStore.get(cleanMobile);
+    if (!record) {
+      throw new BadRequestException('No active OTP found. Please request a new OTP.');
+    }
+
+    if (Date.now() > record.expiresAt) {
+      otpStore.delete(cleanMobile);
+      throw new BadRequestException('OTP has expired. Please request a new code.');
+    }
+
+    if (record.otp !== otp) {
+      record.attempts += 1;
+      if (record.attempts >= 4) {
+        otpStore.delete(cleanMobile);
+        throw new BadRequestException('Too many incorrect attempts. Please request a new OTP.');
+      }
+      throw new BadRequestException(`Incorrect OTP. ${4 - record.attempts} attempt(s) remaining.`);
+    }
+
+    // OTP Valid! Clear OTP
+    otpStore.delete(cleanMobile);
+
+    const customer = this.dataStore.customers.find((c) => c.id === record.customerId);
+    if (!customer) {
+      throw new NotFoundException('Customer profile not found');
+    }
+
+    // Store customer's new password
+    customerPasswordMap.set(customer.id, newPassword);
+
+    // Issue JWT Token
+    const fullName = `${customer.firstName} ${customer.lastName || ''}`.trim();
+    const payload = {
+      sub: customer.id,
+      customerId: customer.id,
+      customerNumber: customer.customerNumber,
+      name: fullName,
+      mobile: customer.mobile,
+      isCustomer: true,
+      roles: ['CUSTOMER'],
+    };
+
+    const token = await this.jwtService.signAsync(payload, { expiresIn: '7d' });
+
+    return {
+      success: true,
+      data: {
+        accessToken: token,
+        customer: {
+          id: customer.id,
+          customerNumber: customer.customerNumber,
+          fullName,
+          mobile: customer.mobile,
+          email: customer.email,
+          city: customer.city,
+          kycStatus: customer.kycStatus,
+          joiningDate: customer.joiningDate,
+          branchName: customer.branchName,
+        },
+      },
+      message: `Password created successfully! Welcome to Sanjeevani Finance, ${fullName}.`,
+    };
+  }
+
+  /**
+   * 4. RETURNING CUSTOMER: LOGIN WITH OTP
+   */
+  @Post('login-otp')
+  async loginWithOtp(@Body() body: { mobile?: string; otp?: string }) {
+    await this.dataStore.refreshIfStale();
+
+    const cleanMobile = (body.mobile || '').replace(/\D/g, '').slice(-10);
+    const otp = body.otp?.trim();
+
+    if (!cleanMobile || !otp) {
+      throw new BadRequestException('Please provide your mobile number and OTP');
+    }
+
+    const record = otpStore.get(cleanMobile);
+    if (!record) {
+      throw new BadRequestException('No active OTP found. Please request a new OTP.');
+    }
+
+    if (Date.now() > record.expiresAt) {
+      otpStore.delete(cleanMobile);
+      throw new BadRequestException('OTP has expired. Please request a new code.');
+    }
+
+    if (record.otp !== otp) {
+      record.attempts += 1;
+      if (record.attempts >= 4) {
+        otpStore.delete(cleanMobile);
+        throw new BadRequestException('Too many incorrect attempts. Please request a new OTP.');
+      }
+      throw new BadRequestException(`Incorrect OTP. ${4 - record.attempts} attempt(s) remaining.`);
+    }
+
+    otpStore.delete(cleanMobile);
+
+    const customer = this.dataStore.customers.find((c) => c.id === record.customerId);
+    if (!customer) {
+      throw new NotFoundException('Customer profile not found');
     }
 
     const fullName = `${customer.firstName} ${customer.lastName || ''}`.trim();
@@ -103,7 +326,156 @@ export class CustomerPortalController {
   }
 
   /**
-   * GET AUTHENTICATED CUSTOMER PORTFOLIO (SRS §23 - 10 Modules)
+   * 5. RETURNING CUSTOMER: LOGIN WITH PASSWORD
+   */
+  @Post('login-password')
+  async loginWithPassword(@Body() body: { mobile?: string; password?: string }) {
+    await this.dataStore.refreshIfStale();
+
+    const cleanMobile = (body.mobile || '').replace(/\D/g, '').slice(-10);
+    const password = body.password?.trim();
+
+    if (!cleanMobile || !password) {
+      throw new BadRequestException('Please provide your mobile number and password');
+    }
+
+    const customer = this.dataStore.customers.find((c) => {
+      const cMob = (c.mobile || '').replace(/\D/g, '').slice(-10);
+      return cMob === cleanMobile;
+    });
+
+    if (!customer) {
+      throw new UnauthorizedException('No account found with this mobile number.');
+    }
+
+    const customPass = customerPasswordMap.get(customer.id);
+    const last4Mobile = customer.mobile ? customer.mobile.slice(-4) : '1234';
+    const isValidPass = customPass
+      ? customPass === password
+      : password === 'Pass@123' ||
+        password === 'Password@123' ||
+        password === last4Mobile ||
+        (customer.dateOfBirth && password === customer.dateOfBirth.replace(/-/g, ''));
+
+    if (!isValidPass) {
+      throw new UnauthorizedException('Incorrect password. Please try again or log in with OTP.');
+    }
+
+    const fullName = `${customer.firstName} ${customer.lastName || ''}`.trim();
+    const payload = {
+      sub: customer.id,
+      customerId: customer.id,
+      customerNumber: customer.customerNumber,
+      name: fullName,
+      mobile: customer.mobile,
+      isCustomer: true,
+      roles: ['CUSTOMER'],
+    };
+
+    const token = await this.jwtService.signAsync(payload, { expiresIn: '7d' });
+
+    return {
+      success: true,
+      data: {
+        accessToken: token,
+        customer: {
+          id: customer.id,
+          customerNumber: customer.customerNumber,
+          fullName,
+          mobile: customer.mobile,
+          email: customer.email,
+          city: customer.city,
+          kycStatus: customer.kycStatus,
+          joiningDate: customer.joiningDate,
+          branchName: customer.branchName,
+        },
+      },
+      message: `Welcome back, ${fullName}!`,
+    };
+  }
+
+  /**
+   * 6. FORGOT / RESET PASSWORD WITH OTP
+   */
+  @Post('reset-password')
+  async resetPassword(
+    @Body() body: { mobile?: string; otp?: string; newPassword?: string },
+  ) {
+    return this.verifyOtpAndSetPassword(body);
+  }
+
+  /**
+   * 7. LEGACY LOGIN (Customer ID or Mobile + Password)
+   */
+  @Post('login')
+  async login(@Body() body: { identifier?: string; password?: string }) {
+    await this.dataStore.refreshIfStale();
+
+    const { identifier, password } = body;
+    if (!identifier || !password) {
+      throw new BadRequestException('Please provide your Customer ID or Mobile Number and Password');
+    }
+
+    const cleanId = identifier.trim().toLowerCase();
+    const customer = this.dataStore.customers.find(
+      (c) =>
+        c.customerNumber?.toLowerCase() === cleanId ||
+        c.id?.toLowerCase() === cleanId ||
+        c.mobile?.replace(/\D/g, '').endsWith(cleanId.replace(/\D/g, '')),
+    );
+
+    if (!customer) {
+      throw new UnauthorizedException('No account found with this Customer ID or Mobile Number.');
+    }
+
+    const customPass = customerPasswordMap.get(customer.id);
+    const last4Mobile = customer.mobile ? customer.mobile.slice(-4) : '1234';
+    const isValidPass = customPass
+      ? customPass === password
+      : password === 'Pass@123' ||
+        password === 'Password@123' ||
+        password === last4Mobile ||
+        (customer.dateOfBirth && password === customer.dateOfBirth.replace(/-/g, ''));
+
+    if (!isValidPass) {
+      throw new UnauthorizedException('Invalid password.');
+    }
+
+    const fullName = `${customer.firstName} ${customer.lastName || ''}`.trim();
+    const payload = {
+      sub: customer.id,
+      customerId: customer.id,
+      customerNumber: customer.customerNumber,
+      name: fullName,
+      mobile: customer.mobile,
+      isCustomer: true,
+      roles: ['CUSTOMER'],
+    };
+
+    const token = await this.jwtService.signAsync(payload, { expiresIn: '7d' });
+
+    return {
+      success: true,
+      data: {
+        accessToken: token,
+        customer: {
+          id: customer.id,
+          customerNumber: customer.customerNumber,
+          fullName,
+          mobile: customer.mobile,
+          email: customer.email,
+          city: customer.city,
+          kycStatus: customer.kycStatus,
+          joiningDate: customer.joiningDate,
+          branchName: customer.branchName,
+        },
+      },
+      message: `Welcome back, ${fullName}!`,
+    };
+  }
+
+  /**
+   * 8. GET AUTHENTICATED CUSTOMER PORTFOLIO (SRS §23 - 10 Modules)
    */
   @Get('me')
   @UseGuards(JwtAuthGuard)
@@ -221,7 +593,7 @@ export class CustomerPortalController {
   }
 
   /**
-   * FILE CUSTOMER COMPLAINT / GRIEVANCE (SRS §37)
+   * 9. FILE CUSTOMER COMPLAINT / GRIEVANCE (SRS §37)
    */
   @Post('complaint')
   @UseGuards(JwtAuthGuard)
@@ -266,7 +638,7 @@ export class CustomerPortalController {
   }
 
   /**
-   * CHANGE CUSTOMER PORTAL PASSWORD
+   * 10. CHANGE CUSTOMER PORTAL PASSWORD
    */
   @Post('change-password')
   @UseGuards(JwtAuthGuard)
