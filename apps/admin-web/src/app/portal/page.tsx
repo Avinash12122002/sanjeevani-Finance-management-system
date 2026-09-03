@@ -817,12 +817,12 @@ export default function CustomerPortalPage() {
 
             <Form.Item
               name="otp"
-              label={<span className="text-xs font-semibold text-slate-700">6-Digit Verification Code</span>}
-              rules={[{ required: true, len: 6, message: 'Enter 6-digit OTP' }]}
+              label={<span className="text-xs font-semibold text-slate-700">Verification Code (OTP)</span>}
+              rules={[{ required: true, min: 4, max: 6, message: 'Enter valid OTP (4 to 6 digits)' }]}
             >
               <Input
                 prefix={<KeyOutlined className="text-emerald-600" />}
-                placeholder="• • • • • •"
+                placeholder="• • • •"
                 maxLength={6}
                 className="rounded-xl font-mono text-center text-lg tracking-widest font-bold"
                 autoFocus

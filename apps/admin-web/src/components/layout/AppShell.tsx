@@ -31,6 +31,7 @@ import {
   PlusCircleOutlined,
   LockOutlined,
   LogoutOutlined,
+  MobileOutlined,
 } from '@ant-design/icons';
 import { fetchApi } from '@/lib/api-client';
 
@@ -255,6 +256,12 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       },
       { type: 'divider' as const },
       {
+        key: 'portal',
+        icon: <MobileOutlined style={{ color: '#059669' }} />,
+        label: 'Open Customer Portal',
+        onClick: () => window.open('/portal/login', '_blank'),
+      },
+      {
         key: 'settings',
         label: 'Security & 2FA Settings',
         onClick: () => router.push('/settings'),
@@ -417,6 +424,27 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
             {/* Right Header Actions */}
             <div className="flex items-center gap-3">
+              {/* Member Self-Serve Portal Link */}
+              <Button
+                icon={<MobileOutlined style={{ color: '#059669' }} />}
+                onClick={() => window.open('/portal/login', '_blank')}
+                style={{
+                  borderColor: '#a7f3d0',
+                  color: '#065f46',
+                  background: '#f0fdf4',
+                  fontWeight: 600,
+                  fontSize: '13px',
+                  height: 38,
+                  borderRadius: 8,
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 6,
+                }}
+                className="hidden md:inline-flex"
+              >
+                Customer Portal ↗
+              </Button>
+
               {/* Record Payment Button */}
               <Button
                 type="primary"
