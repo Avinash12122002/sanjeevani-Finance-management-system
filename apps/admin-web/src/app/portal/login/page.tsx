@@ -32,6 +32,8 @@ export default function CustomerPortalLoginPage() {
   const [devOtp, setDevOtp] = useState<string | null>(null);
   const [resendCooldown, setResendCooldown] = useState(0);
   const [loading, setLoading] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [infoMsg, setInfoMsg] = useState<string | null>(null);
   const [returningTab, setReturningTab] = useState<'password' | 'otp'>('password');
   const [otpSentForReturning, setOtpSentForReturning] = useState(false);
 
@@ -45,7 +47,7 @@ export default function CustomerPortalLoginPage() {
   const router = useRouter();
   const apiBase = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api/v1';
 
-  // Resend Countdown Timer
+  // 30-Second Resend Countdown Timer
   useEffect(() => {
     if (resendCooldown <= 0) return;
     const timer = setInterval(() => {
@@ -54,7 +56,6 @@ export default function CustomerPortalLoginPage() {
     return () => clearInterval(timer);
   }, [resendCooldown]);
 
-  // Helper to save session and redirect
   const handleAuthSuccess = (resData: any) => {
     if (resData.accessToken) {
       localStorage.setItem('sfms_customer_token', resData.accessToken);
@@ -65,10 +66,12 @@ export default function CustomerPortalLoginPage() {
   };
 
   /**
-   * STEP 1: Check mobile number
+   * STEP 1: Validate mobile number in Sanjeevani database
    */
   const handleCheckMobile = async (values: { mobile: string }) => {
     setLoading(true);
+    setErrorMsg(null);
+    setInfoMsg(null);
     setDevOtp(null);
     try {
       const cleanMobile = values.mobile.replace(/\D/g, '').slice(-10);
@@ -80,7 +83,7 @@ export default function CustomerPortalLoginPage() {
       const data = await res.json();
 
       if (!res.ok || !data.success) {
-        message.error(data.message || 'Mobile number not found in our records.');
+        setErrorMsg(data.message || 'Mobile number not found in our records. Please contact your nearest Sanjeevani branch.');
         return;
       }
 
@@ -88,24 +91,25 @@ export default function CustomerPortalLoginPage() {
       setCustomerInfo(data.data);
 
       if (!data.data.hasPassword) {
-        // First-time customer: automatically trigger OTP dispatch
+        // First-time customer: automatically dispatch OTP
         await dispatchOtp(cleanMobile, 'FIRST_TIME_OTP');
       } else {
-        // Returning customer: offer Password or OTP choices
+        // Returning customer: show Password or OTP choices
         setStep('RETURNING_OPTIONS');
       }
     } catch (err: any) {
-      message.error(err.message || 'Unable to connect to authentication server');
+      setErrorMsg(err.message || 'Unable to connect to Sanjeevani authentication server');
     } finally {
       setLoading(false);
     }
   };
 
   /**
-   * Helper: Dispatch OTP via backend MSG91 integration
+   * Helper: Dispatch OTP via backend MSG91 Gateway
    */
   const dispatchOtp = async (targetMobile: string, nextStep?: AuthStep) => {
     setLoading(true);
+    setErrorMsg(null);
     try {
       const res = await fetch(`${apiBase}/portal/send-otp`, {
         method: 'POST',
@@ -115,11 +119,11 @@ export default function CustomerPortalLoginPage() {
       const data = await res.json();
 
       if (!res.ok || !data.success) {
-        message.error(data.message || 'Failed to send OTP.');
+        setErrorMsg(data.message || 'Failed to dispatch OTP. Please retry.');
         return false;
       }
 
-      message.success(data.message || 'OTP sent successfully!');
+      setInfoMsg(data.message || `OTP sent to +91 ${targetMobile} via SMS & WhatsApp`);
       setResendCooldown(30);
       if (data.data?.devOtp) {
         setDevOtp(data.data.devOtp);
@@ -129,7 +133,7 @@ export default function CustomerPortalLoginPage() {
       }
       return true;
     } catch (err: any) {
-      message.error(err.message || 'Failed to dispatch OTP');
+      setErrorMsg(err.message || 'Network error while dispatching OTP');
       return false;
     } finally {
       setLoading(false);
@@ -142,7 +146,8 @@ export default function CustomerPortalLoginPage() {
   const handleVerifyFirstTimeOtp = async (values: { otp: string }) => {
     const enteredOtp = values.otp.trim();
     setOtp(enteredOtp);
-    // Move to create password step
+    setErrorMsg(null);
+    setInfoMsg('OTP verified successfully! Now create your account password below.');
     setStep('FIRST_TIME_PASSWORD');
   };
 
@@ -151,11 +156,12 @@ export default function CustomerPortalLoginPage() {
    */
   const handleSavePasswordAndLogin = async (values: { newPassword: string; confirmPassword: string }) => {
     if (values.newPassword !== values.confirmPassword) {
-      message.error('Passwords do not match. Please re-enter.');
+      setErrorMsg('Passwords do not match. Please re-enter.');
       return;
     }
 
     setLoading(true);
+    setErrorMsg(null);
     try {
       const res = await fetch(`${apiBase}/portal/verify-otp-set-password`, {
         method: 'POST',
@@ -169,8 +175,7 @@ export default function CustomerPortalLoginPage() {
       const data = await res.json();
 
       if (!res.ok || !data.success) {
-        message.error(data.message || 'Failed to create password.');
-        // If OTP expired, go back to OTP step
+        setErrorMsg(data.message || 'Failed to create password.');
         if (data.message?.toLowerCase().includes('otp')) {
           setStep('FIRST_TIME_OTP');
         }
@@ -179,7 +184,7 @@ export default function CustomerPortalLoginPage() {
 
       handleAuthSuccess(data.data);
     } catch (err: any) {
-      message.error(err.message || 'Server error');
+      setErrorMsg(err.message || 'Server error while setting password');
     } finally {
       setLoading(false);
     }
@@ -190,6 +195,7 @@ export default function CustomerPortalLoginPage() {
    */
   const handleReturningPasswordLogin = async (values: { password: string }) => {
     setLoading(true);
+    setErrorMsg(null);
     try {
       const res = await fetch(`${apiBase}/portal/login-password`, {
         method: 'POST',
@@ -202,13 +208,13 @@ export default function CustomerPortalLoginPage() {
       const data = await res.json();
 
       if (!res.ok || !data.success) {
-        message.error(data.message || 'Invalid password. You can also log in using OTP.');
+        setErrorMsg(data.message || 'Incorrect password. You can also switch to OTP login above.');
         return;
       }
 
       handleAuthSuccess(data.data);
     } catch (err: any) {
-      message.error(err.message || 'Network error');
+      setErrorMsg(err.message || 'Network error');
     } finally {
       setLoading(false);
     }
@@ -229,6 +235,7 @@ export default function CustomerPortalLoginPage() {
    */
   const handleReturningOtpLogin = async (values: { otp: string }) => {
     setLoading(true);
+    setErrorMsg(null);
     try {
       const res = await fetch(`${apiBase}/portal/login-otp`, {
         method: 'POST',
@@ -241,25 +248,25 @@ export default function CustomerPortalLoginPage() {
       const data = await res.json();
 
       if (!res.ok || !data.success) {
-        message.error(data.message || 'Invalid OTP code.');
+        setErrorMsg(data.message || 'Invalid or expired OTP.');
         return;
       }
 
       handleAuthSuccess(data.data);
     } catch (err: any) {
-      message.error(err.message || 'Network error');
+      setErrorMsg(err.message || 'Network error');
     } finally {
       setLoading(false);
     }
   };
 
   /**
-   * Reset / Forgot Password via OTP
+   * Forgot / Reset Password
    */
   const handleInitiateForgotPassword = async () => {
     const success = await dispatchOtp(mobile, 'FORGOT_PASSWORD_OTP');
     if (success) {
-      message.info('Enter the OTP sent to your phone to set a new password');
+      setInfoMsg('Enter the 6-digit OTP sent to your phone to set a new password');
     }
   };
 
@@ -270,11 +277,12 @@ export default function CustomerPortalLoginPage() {
 
   const handleSaveResetPassword = async (values: { newPassword: string; confirmPassword: string }) => {
     if (values.newPassword !== values.confirmPassword) {
-      message.error('Passwords do not match.');
+      setErrorMsg('Passwords do not match.');
       return;
     }
 
     setLoading(true);
+    setErrorMsg(null);
     try {
       const res = await fetch(`${apiBase}/portal/reset-password`, {
         method: 'POST',
@@ -288,13 +296,13 @@ export default function CustomerPortalLoginPage() {
       const data = await res.json();
 
       if (!res.ok || !data.success) {
-        message.error(data.message || 'Failed to reset password.');
+        setErrorMsg(data.message || 'Failed to update password.');
         return;
       }
 
       handleAuthSuccess(data.data);
     } catch (err: any) {
-      message.error(err.message || 'Network error');
+      setErrorMsg(err.message || 'Network error');
     } finally {
       setLoading(false);
     }
@@ -304,6 +312,8 @@ export default function CustomerPortalLoginPage() {
     setStep('ENTER_MOBILE');
     setCustomerInfo(null);
     setDevOtp(null);
+    setErrorMsg(null);
+    setInfoMsg(null);
     setOtpSentForReturning(false);
   };
 
@@ -322,32 +332,72 @@ export default function CustomerPortalLoginPage() {
 
       {/* Main Card */}
       <Card className="w-full max-w-md bg-white/95 backdrop-blur-md rounded-2xl shadow-2xl border border-white/20 p-2 sm:p-4">
-        {/* Customer Identity Tag if identified */}
+        {/* Identified Member Header Card */}
         {customerInfo && step !== 'ENTER_MOBILE' && (
           <div className="mb-4 p-3 bg-emerald-50 rounded-xl border border-emerald-200 flex items-center justify-between">
-            <div>
-              <div className="text-xs font-bold text-emerald-900">{customerInfo.customerName}</div>
-              <div className="text-[11px] text-emerald-700 font-mono">
-                +91 {mobile} • {customerInfo.customerNumber}
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-emerald-200 text-emerald-800 flex items-center justify-center text-base">
+                <UserOutlined />
+              </div>
+              <div>
+                <div className="text-xs font-bold text-emerald-950 flex items-center gap-1.5">
+                  <span>{customerInfo.customerName}</span>
+                  <Tag color="success" className="text-[10px] m-0 font-mono">
+                    {customerInfo.customerNumber}
+                  </Tag>
+                </div>
+                <div className="text-[11px] text-emerald-700 font-mono mt-0.5">
+                  +91 {mobile}
+                </div>
               </div>
             </div>
-            <Button size="small" type="link" onClick={resetToMobileInput} className="text-xs text-slate-500 hover:text-slate-800 p-0">
+            <Button
+              size="small"
+              type="link"
+              onClick={resetToMobileInput}
+              icon={<ArrowLeftOutlined />}
+              className="text-xs text-slate-500 hover:text-slate-800 p-0"
+            >
               Change
             </Button>
           </div>
         )}
 
-        {/* Development Mode Quick OTP Preview Badge */}
+        {/* Informational Alert */}
+        {infoMsg && (
+          <Alert
+            message={infoMsg}
+            type="info"
+            showIcon
+            closable
+            onClose={() => setInfoMsg(null)}
+            className="mb-4 text-xs rounded-xl"
+          />
+        )}
+
+        {/* Error Alert */}
+        {errorMsg && (
+          <Alert
+            message={errorMsg}
+            type="error"
+            showIcon
+            closable
+            onClose={() => setErrorMsg(null)}
+            className="mb-4 text-xs rounded-xl"
+          />
+        )}
+
+        {/* Development Mode OTP Simulation Badge */}
         {devOtp && (
           <div className="mb-4 p-2.5 bg-amber-50 border border-amber-300 rounded-xl text-xs text-amber-900 flex items-center justify-between">
             <div className="flex items-center gap-1.5 font-medium">
               <SafetyCertificateOutlined className="text-amber-600" />
-              <span>MSG91 OTP (Preview):</span>
+              <span>MSG91 OTP (Live Preview):</span>
               <span className="font-mono font-bold bg-amber-200 px-1.5 py-0.5 rounded text-amber-950 tracking-wider text-sm">
                 {devOtp}
               </span>
             </div>
-            <Tag color="orange" className="text-[10px] m-0">Live Simulation</Tag>
+            <Tag color="orange" className="text-[10px] m-0">Dev Simulation</Tag>
           </div>
         )}
 
@@ -373,7 +423,7 @@ export default function CustomerPortalLoginPage() {
                 ]}
               >
                 <Input
-                  prefix={<span className="text-slate-400 font-semibold mr-1">+91</span>}
+                  prefix={<MobileOutlined className="text-emerald-600 mr-1" />}
                   placeholder="e.g. 9876543210"
                   maxLength={10}
                   className="rounded-xl font-semibold tracking-wider text-base"
@@ -400,12 +450,12 @@ export default function CustomerPortalLoginPage() {
         {step === 'FIRST_TIME_OTP' && (
           <div>
             <div className="mb-4 text-center">
-              <Tag color="green" className="mb-2 px-2 py-0.5 font-bold uppercase text-[11px]">
+              <Tag color="green" className="mb-2 px-2.5 py-0.5 font-bold uppercase text-[11px] rounded-md">
                 First Time Login
               </Tag>
-              <h2 className="text-xl font-bold text-slate-900 m-0">Verify Your Phone</h2>
+              <h2 className="text-xl font-bold text-slate-900 m-0">Verify Your Mobile</h2>
               <p className="text-xs text-slate-500 mt-1">
-                We sent a 6-digit verification code to <span className="font-semibold text-slate-800">+91 {mobile}</span> via SMS & WhatsApp
+                A 6-digit OTP has been dispatched to <span className="font-semibold text-slate-800">+91 {mobile}</span> via SMS & WhatsApp
               </p>
             </div>
 
@@ -434,7 +484,8 @@ export default function CustomerPortalLoginPage() {
                   size="small"
                   disabled={resendCooldown > 0 || loading}
                   onClick={() => dispatchOtp(mobile)}
-                  className="p-0 text-emerald-700 font-semibold"
+                  icon={<ReloadOutlined spin={resendCooldown > 0} />}
+                  className="p-0 text-emerald-700 font-semibold flex items-center gap-1"
                 >
                   {resendCooldown > 0 ? `Resend in ${resendCooldown}s` : 'Resend OTP'}
                 </Button>
@@ -459,8 +510,8 @@ export default function CustomerPortalLoginPage() {
         {step === 'FIRST_TIME_PASSWORD' && (
           <div>
             <div className="mb-4 text-center">
-              <div className="w-10 h-10 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center mx-auto mb-2 text-xl">
-                <CheckOutlined />
+              <div className="w-12 h-12 rounded-2xl bg-emerald-100 text-emerald-600 flex items-center justify-center mx-auto mb-2 text-2xl shadow-sm">
+                <CheckCircleFilled />
               </div>
               <h2 className="text-xl font-bold text-slate-900 m-0">Create Account Password</h2>
               <p className="text-xs text-slate-500 mt-1">
@@ -488,10 +539,10 @@ export default function CustomerPortalLoginPage() {
               <Form.Item
                 name="confirmPassword"
                 label={<span className="text-xs font-semibold text-slate-700">Confirm Password</span>}
-                rules={[{ required: true, message: 'Confirm your password' }]}
+                rules={[{ required: true, message: 'Please confirm your password' }]}
               >
                 <Input.Password
-                  prefix={<LockOutlined className="text-emerald-600" />}
+                  prefix={<CheckOutlined className="text-emerald-600" />}
                   placeholder="Re-enter password"
                   className="rounded-xl"
                 />
@@ -524,14 +575,17 @@ export default function CustomerPortalLoginPage() {
 
             <Tabs
               activeKey={returningTab}
-              onChange={(k) => setReturningTab(k as 'password' | 'otp')}
+              onChange={(k) => {
+                setReturningTab(k as 'password' | 'otp');
+                setErrorMsg(null);
+              }}
               centered
               className="mb-4"
               items={[
                 {
                   key: 'password',
                   label: (
-                    <span className="font-semibold text-xs px-2 flex items-center gap-1">
+                    <span className="font-semibold text-xs px-2 flex items-center gap-1.5">
                       <LockOutlined /> Login with Password
                     </span>
                   ),
@@ -576,7 +630,7 @@ export default function CustomerPortalLoginPage() {
                 {
                   key: 'otp',
                   label: (
-                    <span className="font-semibold text-xs px-2 flex items-center gap-1">
+                    <span className="font-semibold text-xs px-2 flex items-center gap-1.5">
                       <MobileOutlined /> Login with OTP
                     </span>
                   ),
@@ -592,7 +646,8 @@ export default function CustomerPortalLoginPage() {
                             loading={loading}
                             onClick={handleRequestReturningOtp}
                             block
-                            className="rounded-xl font-bold h-11 bg-emerald-700 hover:bg-emerald-600 border-none shadow-md"
+                            icon={<SafetyCertificateOutlined />}
+                            className="rounded-xl font-bold h-12 bg-emerald-700 hover:bg-emerald-600 border-none shadow-md text-sm"
                           >
                             Send OTP via SMS & WhatsApp
                           </Button>
@@ -623,7 +678,8 @@ export default function CustomerPortalLoginPage() {
                               size="small"
                               disabled={resendCooldown > 0 || loading}
                               onClick={handleRequestReturningOtp}
-                              className="p-0 text-emerald-700 font-semibold"
+                              icon={<ReloadOutlined spin={resendCooldown > 0} />}
+                              className="p-0 text-emerald-700 font-semibold flex items-center gap-1"
                             >
                               {resendCooldown > 0 ? `Resend in ${resendCooldown}s` : 'Resend OTP'}
                             </Button>
