@@ -566,6 +566,7 @@ export class LoansController {
     }
 
     const removed = this.dataStore.loans.splice(index, 1)[0];
+    this.dataStore.deleteLoan(removed.id);
 
     // Remove associated installments
     this.dataStore.loanInstallments = this.dataStore.loanInstallments.filter((i) => i.loanId !== removed.id);

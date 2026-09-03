@@ -30,7 +30,8 @@ export class CollectionsController {
    * Today's Collection Queue for Collector or Cashier (SRS §31, §32)
    */
   @Get('today')
-  getTodaysCollectionList(@CurrentUser() user: IUser) {
+  async getTodaysCollectionList(@CurrentUser() user: IUser) {
+    await this.dataStore.refreshIfStale();
     const dueLoans = this.dataStore.loans.filter((l) => l.status === 'ACTIVE' || l.status === 'OVERDUE');
     const dueAccounts = this.dataStore.accounts.filter((a) => a.status === 'ACTIVE' && a.productType === 'RD');
 
@@ -296,7 +297,8 @@ export class CollectionsController {
   }
 
   @Get('receipts')
-  getAllReceipts() {
+  async getAllReceipts() {
+    await this.dataStore.refreshIfStale();
     return this.dataStore.receipts;
   }
 }

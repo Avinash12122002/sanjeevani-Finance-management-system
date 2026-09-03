@@ -56,6 +56,8 @@ export class AuthController {
     const usernameOrMobile = (body.username || body.mobile || '').trim().toLowerCase();
     const password = body.password || '';
 
+    await this.dataStore.refreshIfStale();
+
     // Find user in database
     const user = this.dataStore.users.find(
       (u) =>

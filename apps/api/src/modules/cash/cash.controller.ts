@@ -23,7 +23,8 @@ export class CashController {
   constructor(private dataStore: DataStoreService) {}
 
   @Get('current')
-  getCurrentDrawer(@CurrentUser() user: IUser) {
+  async getCurrentDrawer(@CurrentUser() user: IUser) {
+    await this.dataStore.refreshIfStale();
     const today = new Date().toISOString().split('T')[0];
     let drawer = this.dataStore.cashDrawers.find((d) => d.businessDate === today && d.status === CashDrawerStatus.OPEN);
 
@@ -44,13 +45,15 @@ export class CashController {
         openedAt: new Date().toISOString(),
       };
       this.dataStore.cashDrawers.push(drawer);
+      this.dataStore.persistCashDrawer(drawer);
     }
 
     return drawer;
   }
 
   @Get('history')
-  getDrawerHistory() {
+  async getDrawerHistory() {
+    await this.dataStore.refreshIfStale();
     return this.dataStore.cashDrawers;
   }
 

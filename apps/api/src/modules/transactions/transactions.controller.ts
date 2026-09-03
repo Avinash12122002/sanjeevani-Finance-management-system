@@ -27,7 +27,7 @@ export class TransactionsController {
   constructor(private dataStore: DataStoreService) {}
 
   @Get()
-  getTransactions(
+  async getTransactions(
     @Query()
     query: PaginationParams & {
       customerId?: string;
@@ -36,6 +36,7 @@ export class TransactionsController {
       type?: string;
     },
   ) {
+    await this.dataStore.refreshIfStale();
     let list = [...this.dataStore.transactions];
 
     if (query.search) {
@@ -74,12 +75,13 @@ export class TransactionsController {
       total: list.length,
       page,
       limit,
-      totalPages: Math.ceil(list.length / limit),
+      totalPages: Math.ceil(list.length / limit) || 1,
     };
   }
 
   @Get(':id')
-  getTransactionById(@Param('id') id: string) {
+  async getTransactionById(@Param('id') id: string) {
+    await this.dataStore.refreshIfStale();
     const txn = this.dataStore.transactions.find((t) => t.id === id || t.transactionNumber === id);
     if (!txn) {
       throw new NotFoundException(`Transaction not found for identifier: ${id}`);

@@ -25,7 +25,8 @@ export class DailyClosingController {
   constructor(private dataStore: DataStoreService) {}
 
   @Get('status')
-  getDailyClosingStatus() {
+  async getDailyClosingStatus() {
+    await this.dataStore.refreshIfStale();
     const today = new Date().toISOString().split('T')[0];
     let closure = this.dataStore.businessDayClosures.find((c) => c.businessDate === today);
 
@@ -77,7 +78,8 @@ export class DailyClosingController {
   }
 
   @Get('history')
-  getClosingHistory() {
+  async getClosingHistory() {
+    await this.dataStore.refreshIfStale();
     return this.dataStore.businessDayClosures;
   }
 

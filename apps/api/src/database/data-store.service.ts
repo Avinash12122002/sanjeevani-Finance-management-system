@@ -16,6 +16,8 @@ import {
   AccountClassification,
   RecoveryBucket,
   PaymentMode,
+  ComplaintStatus,
+  PriorityLevel,
   IBranch,
   IUser,
   IEmployee,
@@ -392,6 +394,24 @@ export class DataStoreService implements OnModuleInit {
           createdAt: r.created_at ? new Date(r.created_at).toISOString() : '',
         }));
       }
+
+      // Complaints
+      const cmpRes = await this.pool.query('SELECT * FROM complaints ORDER BY created_at DESC LIMIT 100');
+      if (cmpRes.rows.length > 0) {
+        this.complaints = cmpRes.rows.map((r) => ({
+          id: r.id,
+          complaintNumber: r.complaint_number,
+          customerId: r.customer_id,
+          customerName: r.customer_name,
+          customerNumber: r.customer_number,
+          category: r.category || 'Service Request',
+          description: r.description,
+          priority: (r.priority as PriorityLevel) || PriorityLevel.MEDIUM,
+          status: (r.status as ComplaintStatus) || ComplaintStatus.OPEN,
+          resolution: r.resolution,
+          createdAt: r.created_at ? new Date(r.created_at).toISOString() : '',
+        }));
+      }
     } catch (e: any) {
       this.logger.warn(`Could not load initial rows from PostgreSQL: ${e.message}`);
     }
@@ -509,6 +529,23 @@ export class DataStoreService implements OnModuleInit {
       timestamp: new Date().toISOString(),
     };
     this.auditLogs.unshift(log);
+
+    // Asynchronously persist to PostgreSQL
+    if (this.pool) {
+      this.pool.query(
+        `INSERT INTO audit_logs (id, user_id, user_name, action, entity, entity_id, details)
+         VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+        [
+          log.id,
+          userId || 'SYSTEM',
+          userName || 'System',
+          eventType,
+          entityType,
+          entityId || null,
+          reason || JSON.stringify(newValue || {}),
+        ],
+      ).catch((e) => this.logger.warn(`Failed to persist audit log: ${e.message}`));
+    }
   }
 
   // ==========================================
@@ -962,9 +999,11 @@ export class DataStoreService implements OnModuleInit {
     if (!this.pool) return;
     try {
       await this.pool.query(
-        `INSERT INTO transactions (id, transaction_number, account_id, customer_id, transaction_type, payment_mode, amount, reference_no, branch_id, performed_by, description)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
-         ON CONFLICT (id) DO NOTHING`,
+        `INSERT INTO transactions (id, transaction_number, account_id, customer_id, transaction_type, payment_mode, amount, running_balance, status, reference_no, branch_id, performed_by, description)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+         ON CONFLICT (id) DO UPDATE SET
+           status = EXCLUDED.status,
+           running_balance = EXCLUDED.running_balance`,
         [
           t.id,
           t.transactionNumber,
@@ -973,6 +1012,8 @@ export class DataStoreService implements OnModuleInit {
           t.transactionType,
           t.paymentMode || 'CASH',
           t.amount || 0,
+          (t as any).runningBalance || 0,
+          t.status || 'POSTED',
           t.referenceNumber || null,
           t.branchId || null,
           t.createdBy || null,
@@ -1221,6 +1262,70 @@ export class DataStoreService implements OnModuleInit {
       await this.pool.query('DELETE FROM loans WHERE id = $1', [id]);
     } catch (e: any) {
       this.logger.error(`Failed to delete loan ${id} from PostgreSQL: ${e.message}`);
+    }
+  }
+
+  async persistChartOfAccount(coa: IChartOfAccount) {
+    if (!this.pool) return;
+    try {
+      await this.pool.query(
+        `INSERT INTO chart_of_accounts (id, account_code, account_name, account_type, current_balance, is_active)
+         VALUES ($1, $2, $3, $4, $5, $6)
+         ON CONFLICT (id) DO UPDATE SET
+           account_name = EXCLUDED.account_name,
+           current_balance = EXCLUDED.current_balance,
+           is_active = EXCLUDED.is_active`,
+        [coa.id, coa.accountCode, coa.accountName, coa.accountType, coa.currentBalance || 0, coa.isActive !== false],
+      );
+    } catch (e: any) {
+      this.logger.error(`Failed to persist COA ${coa.accountCode} to PostgreSQL: ${e.message}`);
+    }
+  }
+
+  async deleteChartOfAccount(id: string) {
+    if (!this.pool) return;
+    try {
+      await this.pool.query('DELETE FROM chart_of_accounts WHERE id = $1 OR account_code = $1', [id]);
+    } catch (e: any) {
+      this.logger.error(`Failed to delete COA ${id} from PostgreSQL: ${e.message}`);
+    }
+  }
+
+  async persistComplaint(c: IComplaint) {
+    if (!this.pool) return;
+    try {
+      await this.pool.query(
+        `INSERT INTO complaints (id, complaint_number, customer_id, customer_name, customer_number, category, description, priority, status, resolution, resolved_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+         ON CONFLICT (id) DO UPDATE SET
+           status = EXCLUDED.status,
+           resolution = EXCLUDED.resolution,
+           resolved_at = EXCLUDED.resolved_at`,
+        [
+          c.id,
+          c.complaintNumber,
+          c.customerId || null,
+          c.customerName || null,
+          c.customerNumber || null,
+          c.category || 'General',
+          c.description || '',
+          c.priority || 'MEDIUM',
+          c.status || 'OPEN',
+          c.resolution || null,
+          c.resolvedAt ? new Date(c.resolvedAt) : null,
+        ],
+      );
+    } catch (e: any) {
+      this.logger.error(`Failed to persist complaint ${c.id} to PostgreSQL: ${e.message}`);
+    }
+  }
+
+  async deleteComplaint(id: string) {
+    if (!this.pool) return;
+    try {
+      await this.pool.query('DELETE FROM complaints WHERE id = $1', [id]);
+    } catch (e: any) {
+      this.logger.error(`Failed to delete complaint ${id} from PostgreSQL: ${e.message}`);
     }
   }
 }

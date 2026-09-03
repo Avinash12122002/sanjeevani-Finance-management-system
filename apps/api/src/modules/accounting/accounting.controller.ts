@@ -52,6 +52,7 @@ export class AccountingController {
     };
 
     this.dataStore.chartOfAccounts.push(newAccount);
+    this.dataStore.persistChartOfAccount(newAccount);
 
     this.dataStore.logAudit(
       user.id,
@@ -86,6 +87,8 @@ export class AccountingController {
     if (body.description) currentAcc.description = body.description;
     if (body.isActive !== undefined) currentAcc.isActive = body.isActive;
 
+    this.dataStore.persistChartOfAccount(currentAcc);
+
     this.dataStore.logAudit(
       user.id,
       user.employeeName || 'Admin',
@@ -108,6 +111,7 @@ export class AccountingController {
     }
 
     const removed = this.dataStore.chartOfAccounts.splice(accIndex, 1)[0];
+    this.dataStore.deleteChartOfAccount(removed.id);
 
     this.dataStore.logAudit(
       user.id,

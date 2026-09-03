@@ -10,12 +10,14 @@ export class ComplaintsController {
   constructor(private dataStore: DataStoreService) {}
 
   @Get()
-  getComplaints() {
+  async getComplaints() {
+    await this.dataStore.refreshIfStale();
     return this.dataStore.complaints;
   }
 
   @Get(':id')
-  getComplaintById(@Param('id') id: string) {
+  async getComplaintById(@Param('id') id: string) {
+    await this.dataStore.refreshIfStale();
     const complaint = this.dataStore.complaints.find((c) => c.id === id || c.complaintNumber === id);
     if (!complaint) throw new NotFoundException(`Complaint not found: ${id}`);
     return complaint;
@@ -49,6 +51,7 @@ export class ComplaintsController {
     };
 
     this.dataStore.complaints.unshift(newComplaint);
+    this.dataStore.persistComplaint(newComplaint);
     return newComplaint;
   }
 
@@ -65,6 +68,7 @@ export class ComplaintsController {
     complaint.resolution = body.resolution;
     complaint.resolvedAt = new Date().toISOString();
 
+    this.dataStore.persistComplaint(complaint);
     return complaint;
   }
 
@@ -74,6 +78,7 @@ export class ComplaintsController {
     if (index === -1) throw new NotFoundException('Complaint not found');
 
     const removed = this.dataStore.complaints.splice(index, 1)[0];
+    this.dataStore.deleteComplaint(removed.id);
     return { message: `Complaint ${removed.complaintNumber} deleted.`, id: removed.id };
   }
 }

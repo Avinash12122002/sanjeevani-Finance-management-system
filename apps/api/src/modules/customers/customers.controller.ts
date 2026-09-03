@@ -283,6 +283,7 @@ export class CustomersController {
 
     this.dataStore.kycDocuments.push(newKyc);
     customer.kycStatus = KYCStatus.VERIFIED;
+    this.dataStore.persistCustomer(customer);
 
     this.dataStore.logAudit(
       user.id || 'USR-001',
@@ -306,6 +307,7 @@ export class CustomersController {
     }
 
     const removed = this.dataStore.customers.splice(index, 1)[0];
+    this.dataStore.deleteCustomer(removed.id);
 
     this.dataStore.logAudit(
       user.id || 'USR-001',
