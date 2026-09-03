@@ -63,7 +63,9 @@ export class AuthController {
         u.mobile?.toLowerCase() === usernameOrMobile ||
         u.email?.toLowerCase() === usernameOrMobile ||
         (usernameOrMobile === 'admin' && u.roles?.includes(UserRole.SUPER_ADMIN)) ||
-        (usernameOrMobile === 'admin@sanjeevani.com' && u.roles?.includes(UserRole.SUPER_ADMIN)),
+        (usernameOrMobile === 'admin@sanjeevani.com' && u.roles?.includes(UserRole.SUPER_ADMIN)) ||
+        (usernameOrMobile === 'owner_admin' && u.roles?.includes(UserRole.SUPER_ADMIN)) ||
+        (usernameOrMobile === 'owner@sanjeevanifinance.com' && u.roles?.includes(UserRole.SUPER_ADMIN)),
     );
 
     // Support configured password or standard setup master password

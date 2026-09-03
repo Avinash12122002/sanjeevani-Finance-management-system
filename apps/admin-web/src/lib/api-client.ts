@@ -31,6 +31,21 @@ export async function fetchApi<T = any>(
     });
 
     if (res.status === 401) {
+      if (endpoint.includes('/auth/login')) {
+        let json: any = {};
+        try {
+          const text = await res.text();
+          json = text ? JSON.parse(text) : {};
+        } catch {
+          // ignore
+        }
+        return {
+          success: false,
+          error: json.message || 'Invalid username or password.',
+          message: json.message || 'Invalid username or password.',
+        };
+      }
+
       if (typeof window !== 'undefined' && window.location.pathname !== '/login') {
         localStorage.removeItem('sfms_access_token');
         localStorage.removeItem('sfms_user');
