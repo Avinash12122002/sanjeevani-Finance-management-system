@@ -37,6 +37,8 @@ import {
   AlertOutlined,
   ArrowUpOutlined,
   ArrowDownOutlined,
+  KeyOutlined,
+  ReloadOutlined,
 } from '@ant-design/icons';
 import { useRouter } from 'next/navigation';
 import { FinancialEngine } from '@/shared/financial-engine';
@@ -51,6 +53,10 @@ export default function CustomerPortalPage() {
   const [selectedReceipt, setSelectedReceipt] = useState<any>(null);
   const [receiptModal, setReceiptModal] = useState(false);
   const [submittingComplaint, setSubmittingComplaint] = useState(false);
+  const [changePassOtpSent, setChangePassOtpSent] = useState(false);
+  const [changePassCooldown, setChangePassCooldown] = useState(0);
+  const [changePassDevOtp, setChangePassDevOtp] = useState<string | null>(null);
+  const [changePassLoading, setChangePassLoading] = useState(false);
   const [complaintForm] = Form.useForm();
   const [passwordForm] = Form.useForm();
   const router = useRouter();
@@ -58,6 +64,14 @@ export default function CustomerPortalPage() {
   useEffect(() => {
     loadCustomerData();
   }, []);
+
+  useEffect(() => {
+    if (changePassCooldown <= 0) return;
+    const timer = setInterval(() => {
+      setChangePassCooldown((p) => p - 1);
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [changePassCooldown]);
 
   const loadCustomerData = async () => {
     const token = typeof window !== 'undefined' ? localStorage.getItem('sfms_customer_token') : null;
@@ -108,18 +122,52 @@ export default function CustomerPortalPage() {
     }
   };
 
-  const handleChangePassword = async (values: any) => {
+  const handleSendChangePassOtp = async () => {
+    setChangePassLoading(true);
     try {
-      const res = await postApi('/portal/change-password', values);
+      const res = await postApi('/portal/send-change-password-otp');
+      if (res.success) {
+        message.success(res.message || 'OTP sent successfully!');
+        setChangePassOtpSent(true);
+        setChangePassCooldown(30);
+        if (res.data?.devOtp) {
+          setChangePassDevOtp(res.data.devOtp);
+        }
+      } else {
+        message.error(res.message || 'Failed to send OTP.');
+      }
+    } catch (err: any) {
+      message.error(err.message || 'Network error');
+    } finally {
+      setChangePassLoading(false);
+    }
+  };
+
+  const handleVerifyAndChangePassword = async (values: any) => {
+    if (values.newPassword !== values.confirmPassword) {
+      message.error('Passwords do not match. Please re-enter.');
+      return;
+    }
+
+    setChangePassLoading(true);
+    try {
+      const res = await postApi('/portal/verify-change-password', {
+        otp: values.otp,
+        newPassword: values.newPassword,
+      });
       if (res.success) {
         message.success(res.message || 'Password updated successfully!');
         setPasswordModal(false);
         passwordForm.resetFields();
+        setChangePassOtpSent(false);
+        setChangePassDevOtp(null);
       } else {
-        message.error(res.message || 'Failed to change password.');
+        message.error(res.message || 'Failed to update password.');
       }
     } catch (err: any) {
       message.error(err.message || 'Network error');
+    } finally {
+      setChangePassLoading(false);
     }
   };
 
@@ -720,36 +768,107 @@ export default function CustomerPortalPage() {
         </Form>
       </Modal>
 
-      {/* Change Password Modal */}
+      {/* Change Password Modal with OTP Verification (SRS §23) */}
       <Modal
         title={
           <div className="flex items-center gap-2 text-slate-800">
             <LockOutlined className="text-emerald-700" />
-            <span>Update Account Password / PIN</span>
+            <span>Update Account Password (OTP Verified)</span>
           </div>
         }
         open={passwordModal}
-        onCancel={() => setPasswordModal(false)}
+        onCancel={() => {
+          setPasswordModal(false);
+          setChangePassOtpSent(false);
+          setChangePassDevOtp(null);
+          passwordForm.resetFields();
+        }}
         footer={null}
       >
-        <Form form={passwordForm} layout="vertical" onFinish={handleChangePassword} className="mt-4">
-          <Form.Item
-            name="newPassword"
-            label="New Password / PIN"
-            rules={[{ required: true, min: 4, message: 'Password must be at least 4 characters' }]}
-          >
-            <Input.Password placeholder="Enter new password" />
-          </Form.Item>
+        {!changePassOtpSent ? (
+          <div className="py-4 text-center space-y-4">
+            <div className="w-12 h-12 rounded-2xl bg-emerald-100 text-emerald-700 flex items-center justify-center mx-auto text-2xl">
+              <SafetyCertificateOutlined />
+            </div>
+            <div>
+              <div className="font-bold text-slate-800 text-base">OTP Verification Required</div>
+              <p className="text-xs text-slate-500 mt-1">
+                For security, an OTP will be dispatched to your registered phone <span className="font-semibold text-slate-800">+91 ******{customer?.mobile?.slice(-4) || '****'}</span> before you can change your password.
+              </p>
+            </div>
+            <Button
+              type="primary"
+              loading={changePassLoading}
+              onClick={handleSendChangePassOtp}
+              block
+              className="bg-emerald-700 hover:bg-emerald-600 rounded-xl h-11 font-bold text-sm"
+            >
+              Send Verification OTP via SMS & WhatsApp
+            </Button>
+          </div>
+        ) : (
+          <Form form={passwordForm} layout="vertical" onFinish={handleVerifyAndChangePassword} className="mt-2">
+            {changePassDevOtp && (
+              <div className="mb-3 p-2 bg-amber-50 border border-amber-300 rounded-xl text-xs text-amber-900 flex items-center justify-between">
+                <span>OTP Preview: <strong className="font-mono">{changePassDevOtp}</strong></span>
+                <Tag color="orange" className="text-[10px] m-0">Dev Preview</Tag>
+              </div>
+            )}
 
-          <Button
-            type="primary"
-            htmlType="submit"
-            block
-            className="bg-emerald-700 hover:bg-emerald-600 rounded-xl h-10 font-bold"
-          >
-            Save New Password
-          </Button>
-        </Form>
+            <Form.Item
+              name="otp"
+              label={<span className="text-xs font-semibold text-slate-700">6-Digit Verification Code</span>}
+              rules={[{ required: true, len: 6, message: 'Enter 6-digit OTP' }]}
+            >
+              <Input
+                prefix={<KeyOutlined className="text-emerald-600" />}
+                placeholder="• • • • • •"
+                maxLength={6}
+                className="rounded-xl font-mono text-center text-lg tracking-widest font-bold"
+                autoFocus
+              />
+            </Form.Item>
+
+            <Form.Item
+              name="newPassword"
+              label={<span className="text-xs font-semibold text-slate-700">New Password</span>}
+              rules={[{ required: true, min: 4, message: 'Password must be at least 4 characters' }]}
+            >
+              <Input.Password prefix={<LockOutlined className="text-emerald-600" />} placeholder="Enter new password" className="rounded-xl" />
+            </Form.Item>
+
+            <Form.Item
+              name="confirmPassword"
+              label={<span className="text-xs font-semibold text-slate-700">Confirm Password</span>}
+              rules={[{ required: true, message: 'Confirm your new password' }]}
+            >
+              <Input.Password prefix={<CheckCircleOutlined className="text-emerald-600" />} placeholder="Re-enter new password" className="rounded-xl" />
+            </Form.Item>
+
+            <div className="flex items-center justify-between mb-4 text-xs">
+              <span className="text-slate-400">Didn't receive code?</span>
+              <Button
+                type="link"
+                size="small"
+                disabled={changePassCooldown > 0 || changePassLoading}
+                onClick={handleSendChangePassOtp}
+                className="p-0 text-emerald-700 font-semibold"
+              >
+                {changePassCooldown > 0 ? `Resend in ${changePassCooldown}s` : 'Resend OTP'}
+              </Button>
+            </div>
+
+            <Button
+              type="primary"
+              htmlType="submit"
+              loading={changePassLoading}
+              block
+              className="bg-emerald-700 hover:bg-emerald-600 rounded-xl h-11 font-bold text-sm"
+            >
+              Verify OTP & Save Password
+            </Button>
+          </Form>
+        )}
       </Modal>
 
       {/* Official Receipt Printable Modal */}

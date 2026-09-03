@@ -19,6 +19,9 @@ import {
   PriorityLevel,
   IComplaint,
   InstallmentStatus,
+  ICustomer,
+  CustomerStatus,
+  KYCStatus,
 } from '@sanjeevani/shared-types';
 
 // In-Memory Stores
@@ -87,9 +90,17 @@ export class CustomerPortalController {
     });
 
     if (!customer) {
-      throw new NotFoundException(
-        `Mobile number +91 ${cleanMobile} is not registered with Sanjeevani Finance. Please visit your nearest branch to open an account.`,
-      );
+      // First-time visitor who is not yet in the customer database
+      return {
+        success: true,
+        data: {
+          exists: false,
+          isNew: true,
+          hasPassword: false,
+          customerName: 'New Member',
+          mobile: cleanMobile,
+        },
+      };
     }
 
     const hasPassword = this.dataStore.hasCustomerPassword(customer.id);
@@ -99,6 +110,7 @@ export class CustomerPortalController {
       success: true,
       data: {
         exists: true,
+        isNew: false,
         hasPassword,
         customerId: customer.id,
         customerNumber: customer.customerNumber,
@@ -110,7 +122,7 @@ export class CustomerPortalController {
 
   /**
    * 2. SEND OTP (MSG91 Gateway)
-   * Dispatches 6-digit OTP to customer's registered mobile number (SMS / WhatsApp)
+   * Dispatches 6-digit OTP to customer's mobile number (SMS / WhatsApp)
    */
   @Post('send-otp')
   async sendOtp(@Body() body: { mobile?: string }) {
@@ -128,14 +140,9 @@ export class CustomerPortalController {
       return cMob === cleanMobile;
     });
 
-    if (!customer) {
-      throw new NotFoundException(`No account found for mobile +91 ${cleanMobile}`);
-    }
-
     // Rate Limiting: Check previous OTP request
     const existing = otpStore.get(cleanMobile);
     if (existing && Date.now() < existing.expiresAt - 4 * 60 * 1000) {
-      // Requested less than 60 seconds ago
       throw new BadRequestException('An OTP was just sent. Please wait 60 seconds before requesting another code.');
     }
 
@@ -172,7 +179,7 @@ export class CustomerPortalController {
    */
   @Post('verify-otp-set-password')
   async verifyOtpAndSetPassword(
-    @Body() body: { mobile?: string; otp?: string; newPassword?: string },
+    @Body() body: { mobile?: string; otp?: string; newPassword?: string; fullName?: string },
   ) {
     await this.dataStore.refreshIfStale();
 
@@ -210,9 +217,47 @@ export class CustomerPortalController {
     // OTP Valid! Clear OTP
     otpStore.delete(cleanMobile);
 
-    const customer = this.dataStore.customers.find((c) => c.id === record.customerId);
+    // Check if customer exists, or auto-create account for new customer!
+    let customer = this.dataStore.customers.find((c) => {
+      const cMob = (c.mobile || '').replace(/\D/g, '').slice(-10);
+      return cMob === cleanMobile;
+    });
+
     if (!customer) {
-      throw new NotFoundException('Customer profile not found');
+      const newCount = this.dataStore.customers.length + 1;
+      const customerNumber = `SJF-${String(newCount).padStart(6, '0')}`;
+      const newId = `CUS-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
+      const nameParts = (body.fullName?.trim() || 'New Member').split(' ');
+      const firstName = nameParts[0] || 'Member';
+      const lastName = nameParts.slice(1).join(' ') || '';
+
+      const newCustomer: ICustomer = {
+        id: newId,
+        customerNumber,
+        branchId: 'BR-001',
+        branchCode: 'SJF-BR001',
+        branchName: 'Head Office - Main Branch',
+        firstName,
+        lastName,
+        fatherOrSpouseName: 'Not Specified',
+        dateOfBirth: '1995-01-01',
+        gender: 'MALE',
+        mobile: cleanMobile,
+        addressLine1: 'Registered via Online Customer Portal',
+        city: 'Agra',
+        state: 'Uttar Pradesh',
+        postalCode: '282001',
+        joiningDate: new Date().toISOString().split('T')[0],
+        status: CustomerStatus.ACTIVE,
+        kycStatus: KYCStatus.PENDING,
+        createdBy: 'PORTAL-SELF-SERVE',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+
+      this.dataStore.customers.unshift(newCustomer);
+      this.dataStore.persistCustomer(newCustomer);
+      customer = newCustomer;
     }
 
     // Store customer's new password in memory & PostgreSQL
@@ -656,6 +701,97 @@ export class CustomerPortalController {
     return {
       success: true,
       message: 'Portal password updated successfully. Please use your new password next time you sign in.',
+    };
+  }
+
+  /**
+   * 11. SEND OTP TO CHANGE PASSWORD (SRS §23)
+   */
+  @Post('send-change-password-otp')
+  @UseGuards(JwtAuthGuard)
+  async sendChangePasswordOtp(@Req() req: any) {
+    await this.dataStore.refreshIfStale();
+
+    const customerId = req.user?.customerId || req.user?.sub;
+    const customer = this.dataStore.customers.find((c) => c.id === customerId);
+
+    if (!customer) {
+      throw new NotFoundException('Customer profile not found');
+    }
+
+    const cleanMobile = (customer.mobile || '').replace(/\D/g, '').slice(-10);
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const expiresAt = Date.now() + 5 * 60 * 1000;
+
+    otpStore.set(cleanMobile, {
+      otp,
+      customerId: customer.id,
+      expiresAt,
+      attempts: 0,
+    });
+
+    await this.dispatchMsg91Otp(cleanMobile, otp);
+    const hasAuthKey = Boolean(process.env.MSG91_AUTH_KEY);
+
+    return {
+      success: true,
+      message: `Verification OTP sent to +91 ******${cleanMobile.slice(-4)} via SMS & WhatsApp.`,
+      data: {
+        devOtp: !hasAuthKey || process.env.NODE_ENV !== 'production' ? otp : undefined,
+      },
+    };
+  }
+
+  /**
+   * 12. VERIFY OTP & UPDATE PASSWORD
+   */
+  @Post('verify-change-password')
+  @UseGuards(JwtAuthGuard)
+  async verifyAndChangePassword(
+    @Req() req: any,
+    @Body() body: { otp?: string; newPassword?: string },
+  ) {
+    await this.dataStore.refreshIfStale();
+
+    const customerId = req.user?.customerId || req.user?.sub;
+    const customer = this.dataStore.customers.find((c) => c.id === customerId);
+
+    if (!customer) {
+      throw new NotFoundException('Customer profile not found');
+    }
+
+    const cleanMobile = (customer.mobile || '').replace(/\D/g, '').slice(-10);
+    const otp = body.otp?.trim();
+    const newPassword = body.newPassword?.trim();
+
+    if (!otp || !newPassword) {
+      throw new BadRequestException('Please provide the OTP and your new password');
+    }
+
+    if (newPassword.length < 4) {
+      throw new BadRequestException('New password must be at least 4 characters long');
+    }
+
+    const record = otpStore.get(cleanMobile);
+    if (!record) {
+      throw new BadRequestException('No active OTP found. Please request an OTP first.');
+    }
+
+    if (Date.now() > record.expiresAt) {
+      otpStore.delete(cleanMobile);
+      throw new BadRequestException('OTP has expired. Please request a new code.');
+    }
+
+    if (record.otp !== otp) {
+      throw new BadRequestException('Incorrect OTP verification code.');
+    }
+
+    otpStore.delete(cleanMobile);
+    await this.dataStore.saveCustomerPassword(customer.id, newPassword);
+
+    return {
+      success: true,
+      message: 'Your account password has been updated successfully!',
     };
   }
 }

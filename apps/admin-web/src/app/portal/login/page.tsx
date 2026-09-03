@@ -154,7 +154,7 @@ export default function CustomerPortalLoginPage() {
   /**
    * STEP 2B: First-Time Customer - Save Password & Enter Portal
    */
-  const handleSavePasswordAndLogin = async (values: { newPassword: string; confirmPassword: string }) => {
+  const handleSavePasswordAndLogin = async (values: { newPassword: string; confirmPassword: string; fullName?: string }) => {
     if (values.newPassword !== values.confirmPassword) {
       setErrorMsg('Passwords do not match. Please re-enter.');
       return;
@@ -170,6 +170,7 @@ export default function CustomerPortalLoginPage() {
           mobile,
           otp,
           newPassword: values.newPassword,
+          fullName: values.fullName,
         }),
       });
       const data = await res.json();
@@ -520,6 +521,20 @@ export default function CustomerPortalLoginPage() {
             </div>
 
             <Form form={formPassword} layout="vertical" onFinish={handleSavePasswordAndLogin} size="large">
+              {customerInfo?.isNew && (
+                <Form.Item
+                  name="fullName"
+                  label={<span className="text-xs font-semibold text-slate-700">Your Full Name</span>}
+                  rules={[{ required: true, message: 'Please enter your full name' }]}
+                >
+                  <Input
+                    prefix={<UserOutlined className="text-emerald-600" />}
+                    placeholder="e.g. Ramesh Kumar"
+                    className="rounded-xl"
+                  />
+                </Form.Item>
+              )}
+
               <Form.Item
                 name="newPassword"
                 label={<span className="text-xs font-semibold text-slate-700">Create New Password</span>}
@@ -532,7 +547,7 @@ export default function CustomerPortalLoginPage() {
                   prefix={<LockOutlined className="text-emerald-600" />}
                   placeholder="Enter new password (min 4 characters)"
                   className="rounded-xl"
-                  autoFocus
+                  autoFocus={!customerInfo?.isNew}
                 />
               </Form.Item>
 
