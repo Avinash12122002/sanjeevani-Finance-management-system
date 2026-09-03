@@ -27,10 +27,22 @@ async function bootstrap() {
   // 2. Performance Compression
   app.use(compression());
 
-  // 3. CORS Configuration (Full Preflight & Credentials Support)
+  // 3. CORS Configuration — explicit allowlist (never wildcard with credentials)
+  const ALLOWED_ORIGINS = (process.env.CORS_ORIGIN || '')
+    .split(',')
+    .map((o) => o.trim())
+    .filter(Boolean);
+
   app.enableCors({
     origin: (origin, callback) => {
-      callback(null, true); // Dynamically reflects origin so credentials: true works cleanly
+      // Allow requests with no origin (server-to-server, curl, Postman, mobile apps)
+      if (!origin) return callback(null, true);
+      if (ALLOWED_ORIGINS.includes(origin)) return callback(null, true);
+      // In development, also allow any localhost port
+      if (process.env.NODE_ENV !== 'production' && /^http:\/\/localhost:\d+$/.test(origin)) {
+        return callback(null, true);
+      }
+      return callback(new Error(`CORS: origin '${origin}' not allowed`), false);
     },
     credentials: true,
     methods: ['GET', 'POST', 'PATCH', 'PUT', 'DELETE', 'OPTIONS', 'HEAD'],
