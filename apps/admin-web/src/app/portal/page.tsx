@@ -285,7 +285,7 @@ export default function CustomerPortalPage() {
     { key: 'loans', icon: <DollarCircleOutlined style={{ fontSize: 18 }} />, label: 'Loans & EMI Engine', badge: loans.length },
     { key: 'receipts', icon: <AuditOutlined style={{ fontSize: 18 }} />, label: 'Collections & Receipts', badge: receipts.length },
     { key: 'support', icon: <CustomerServiceOutlined style={{ fontSize: 18 }} />, label: 'Customer Helpdesk', badge: complaints.length },
-    { key: 'profile', icon: <SettingOutlined style={{ fontSize: 18 }} />, label: 'Profile & Security', badge: undefined },
+    { key: 'profile', icon: <UserOutlined style={{ fontSize: 18 }} />, label: 'Members & KYC (360°)', badge: undefined },
   ];
 
   const currentTabInfo = portalMenuItems.find((t) => t.key === activeTab) || portalMenuItems[0];
@@ -690,7 +690,10 @@ export default function CustomerPortalPage() {
             <div className="space-y-4">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-50 p-4 rounded-2xl border border-slate-200">
                 <div>
-                  <h3 className="text-base font-extrabold text-slate-900 m-0">Digital Passbook & Transaction Ledger</h3>
+                  <h3 className="text-base font-extrabold text-slate-900 m-0 flex items-center gap-2">
+                    <FileTextOutlined className="text-emerald-700" />
+                    <span>Digital Passbook & Transaction Ledger</span>
+                  </h3>
                   <p className="text-xs text-slate-500 m-0 mt-0.5">Real-time ledger entries credited or debited to your member account.</p>
                 </div>
                 <div className="flex items-center gap-2">
@@ -1169,13 +1172,16 @@ export default function CustomerPortalPage() {
             <div className="space-y-6">
               <div className="bg-slate-50 p-5 rounded-2xl border border-slate-200">
                 <div className="flex items-center justify-between mb-4">
-                  <h4 className="font-extrabold text-slate-900 m-0 text-base">Registered Member Account Information</h4>
+                  <h4 className="font-extrabold text-slate-900 m-0 text-base flex items-center gap-2">
+                    <UserOutlined className="text-emerald-700" />
+                    <span>Registered Member Account Information</span>
+                  </h4>
                   <button
                     type="button"
                     onClick={() => setPasswordModal(true)}
                     className="bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-all cursor-pointer"
                   >
-                    <LockOutlined />
+                    <SettingOutlined />
                     <span>Change PIN</span>
                   </button>
                 </div>
@@ -1404,6 +1410,12 @@ export default function CustomerPortalPage() {
 
       {/* OFFICIAL DIGITAL RECEIPT PRINTABLE MODAL */}
       <Modal
+        title={
+          <div className="flex items-center gap-2 text-slate-900 font-bold">
+            <FileTextOutlined className="text-emerald-700" />
+            <span>Official NetBanking Receipt Voucher</span>
+          </div>
+        }
         open={receiptModal}
         onCancel={() => setReceiptModal(false)}
         footer={[
