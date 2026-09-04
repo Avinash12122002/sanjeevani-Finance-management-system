@@ -17,6 +17,7 @@ import {
   Empty,
   Tooltip,
   Progress,
+  Drawer,
 } from 'antd';
 import {
   UserOutlined,
@@ -39,6 +40,7 @@ import {
   CheckOutlined,
   CreditCardOutlined,
   ArrowRightOutlined,
+  MenuOutlined,
 } from '@ant-design/icons';
 import { useRouter } from 'next/navigation';
 import { FinancialEngine } from '@/shared/financial-engine';
@@ -48,6 +50,7 @@ export default function CustomerPortalPage() {
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'overview' | 'rd' | 'fd' | 'loans' | 'receipts' | 'support' | 'profile'>('overview');
+  const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
   const [complaintModal, setComplaintModal] = useState(false);
   const [passwordModal, setPasswordModal] = useState(false);
   const [logoutModal, setLogoutModal] = useState(false);
@@ -269,17 +272,149 @@ export default function CustomerPortalPage() {
     icon: React.ReactNode;
     label: string;
     badge?: number;
+    subtitle?: string;
   }
 
-  const bankingNavTabs: BankingTabItem[] = [
-    { key: 'overview', icon: <FileTextOutlined />, label: 'Passbook & Statement', badge: passbook.length },
-    { key: 'rd', icon: <CalendarOutlined />, label: 'Recurring Deposits', badge: accounts.rd.length },
-    { key: 'fd', icon: <BankOutlined />, label: 'Fixed Deposits', badge: accounts.fd.length },
-    { key: 'loans', icon: <CreditCardOutlined />, label: 'My Loans', badge: loans.length },
-    { key: 'receipts', icon: <PrinterOutlined />, label: 'Official Receipts', badge: receipts.length },
-    { key: 'support', icon: <CustomerServiceOutlined />, label: 'Helpdesk', badge: complaints.length },
-    { key: 'profile', icon: <UserOutlined />, label: 'Profile & Security' },
+  interface BankingNavSection {
+    title: string;
+    items: BankingTabItem[];
+  }
+
+  const bankingNavSections: BankingNavSection[] = [
+    {
+      title: 'ACCOUNTS & PASSBOOK',
+      items: [
+        { key: 'overview', icon: <FileTextOutlined />, label: 'Passbook & Statement', badge: passbook.length, subtitle: 'Transaction history' },
+      ],
+    },
+    {
+      title: 'DEPOSITS & SAVINGS',
+      items: [
+        { key: 'rd', icon: <CalendarOutlined />, label: 'Recurring Deposits', badge: accounts.rd.length, subtitle: 'Monthly installment schemes' },
+        { key: 'fd', icon: <BankOutlined />, label: 'Fixed Deposits', badge: accounts.fd.length, subtitle: 'Term certificates & interest' },
+      ],
+    },
+    {
+      title: 'LENDING & BORROWING',
+      items: [
+        { key: 'loans', icon: <CreditCardOutlined />, label: 'My Loans & EMIs', badge: loans.length, subtitle: 'Disbursals & schedules' },
+      ],
+    },
+    {
+      title: 'SERVICES & UTILITIES',
+      items: [
+        { key: 'receipts', icon: <PrinterOutlined />, label: 'Official Receipts', badge: receipts.length, subtitle: 'Stamped vouchers' },
+        { key: 'support', icon: <CustomerServiceOutlined />, label: 'Helpdesk & Grievance', badge: complaints.length, subtitle: 'Service tickets & support' },
+        { key: 'profile', icon: <UserOutlined />, label: 'Profile & Security', subtitle: 'KYC, Nominees & PIN' },
+      ],
+    },
   ];
+
+  const flatNavTabs: BankingTabItem[] = bankingNavSections.flatMap((s) => s.items);
+  const currentTabInfo = flatNavTabs.find((t) => t.key === activeTab) || flatNavTabs[0];
+
+  const renderSidebarMenu = (isMobile = false) => (
+    <div className="space-y-4">
+      {/* Mini Profile Box inside Sidebar */}
+      <div className="bg-gradient-to-br from-[#0c2340] to-[#123158] rounded-2xl p-4 text-white shadow-md border border-slate-700/60">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-emerald-500 to-teal-400 text-slate-950 font-black text-base flex items-center justify-center shrink-0 ring-2 ring-white/10 shadow-md">
+            {customer.firstName ? customer.firstName[0].toUpperCase() : 'M'}
+          </div>
+          <div className="min-w-0 flex-1">
+            <div className="text-xs font-black text-white truncate">{customer.fullName}</div>
+            <div className="text-[11px] text-emerald-300 font-mono font-bold truncate">CID: {customer.customerNumber}</div>
+          </div>
+        </div>
+        <div className="mt-3 pt-2.5 border-t border-white/10 flex items-center justify-between text-[11px]">
+          <span className="text-emerald-300 font-bold flex items-center gap-1">
+            <SafetyCertificateFilled className="text-emerald-400 text-xs" /> {customer.kycStatus || 'VERIFIED'}
+          </span>
+          <span className="text-slate-300 font-medium truncate max-w-[110px]">{customer.city || 'Main Branch'}</span>
+        </div>
+      </div>
+
+      {/* Categorized Navigation Sections */}
+      <div className="space-y-3">
+        {bankingNavSections.map((section, sIdx) => (
+          <div key={sIdx} className="space-y-1">
+            <div className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 px-3 py-0.5">
+              {section.title}
+            </div>
+            <div className="space-y-1">
+              {section.items.map((tab) => {
+                const isActive = activeTab === tab.key;
+                return (
+                  <button
+                    key={tab.key}
+                    type="button"
+                    onClick={() => {
+                      setActiveTab(tab.key);
+                      if (isMobile) setMobileDrawerOpen(false);
+                    }}
+                    className={`w-full text-left px-3 py-2.5 rounded-xl text-xs font-bold flex items-center justify-between transition-all cursor-pointer group ${
+                      isActive
+                        ? 'bg-gradient-to-r from-emerald-700 to-teal-800 text-white shadow-md shadow-emerald-800/25 ring-1 ring-emerald-500/50'
+                        : 'text-slate-700 hover:bg-slate-100 hover:text-slate-950'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <span className={`text-base shrink-0 transition-transform group-hover:scale-110 ${isActive ? 'text-white' : 'text-emerald-700'}`}>
+                        {tab.icon}
+                      </span>
+                      <div className="min-w-0">
+                        <div className={`truncate ${isActive ? 'text-white font-extrabold' : 'text-slate-800 font-bold'}`}>
+                          {tab.label}
+                        </div>
+                        {tab.subtitle && (
+                          <div className={`text-[10px] truncate ${isActive ? 'text-emerald-100 font-normal' : 'text-slate-400 font-normal'}`}>
+                            {tab.subtitle}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    {typeof tab.badge === 'number' && (
+                      <span
+                        className={`ml-2 px-2 py-0.5 text-[10px] font-black rounded-full shrink-0 ${
+                          isActive
+                            ? 'bg-white/25 text-white'
+                            : tab.badge > 0
+                            ? 'bg-emerald-100 text-emerald-800'
+                            : 'bg-slate-200 text-slate-600'
+                        }`}
+                      >
+                        {tab.badge}
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Security & Bank Support Assurance Box */}
+      <div className="bg-slate-50 border border-slate-200 rounded-2xl p-3 space-y-2 text-xs">
+        <div className="flex items-center justify-between">
+          <span className="text-slate-500 font-medium text-[11px]">Session Auto-Lock</span>
+          <span className="font-mono font-bold text-amber-700 bg-amber-100 px-1.5 py-0.5 rounded text-[11px]">
+            {formatSessionTime(sessionTime)}
+          </span>
+        </div>
+        <div className="w-full bg-slate-200 h-1.5 rounded-full overflow-hidden">
+          <div
+            className="bg-emerald-600 h-full transition-all duration-1000"
+            style={{ width: `${Math.min(100, (sessionTime / 900) * 100)}%` }}
+          />
+        </div>
+        <div className="text-[11px] text-slate-500 flex items-center gap-1.5 pt-1 border-t border-slate-200/80">
+          <SafetyCertificateFilled className="text-emerald-600" />
+          <span>256-Bit SSL Protected</span>
+        </div>
+      </div>
+    </div>
+  );
 
   return (
     <div className="min-h-screen bg-[#F0F4F8] text-slate-900 pb-20 font-sans selection:bg-emerald-500 selection:text-white">
@@ -309,8 +444,19 @@ export default function CustomerPortalPage() {
       {/* 2. INSTITUTIONAL BANKING HEADER */}
       <header className="bg-gradient-to-r from-[#0a1b32] via-[#0f2747] to-[#0a1e36] text-white sticky top-0 z-40 shadow-xl border-b border-white/10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3.5 flex items-center justify-between">
-          {/* Logo & Institutional Branding */}
-          <div className="flex items-center gap-3">
+          {/* Logo, Mobile Menu Toggle & Institutional Branding */}
+          <div className="flex items-center gap-2.5 sm:gap-3">
+            {/* Mobile Hamburger Button */}
+            <button
+              type="button"
+              onClick={() => setMobileDrawerOpen(true)}
+              className="lg:hidden p-2 rounded-xl bg-white/10 hover:bg-white/20 text-white flex items-center justify-center border border-white/20 cursor-pointer transition-all"
+              title="Open NetBanking Navigation"
+              aria-label="Open NetBanking Navigation"
+            >
+              <MenuOutlined className="text-lg text-emerald-400" />
+            </button>
+
             <div className="w-11 h-11 rounded-xl bg-gradient-to-tr from-emerald-500 to-teal-400 flex items-center justify-center text-slate-950 font-black text-2xl shadow-lg shadow-emerald-500/20 ring-2 ring-white/10">
               S
             </div>
@@ -433,36 +579,35 @@ export default function CustomerPortalPage() {
           </div>
         </div>
 
-        {/* 4. DEDICATED HIGH-CONTRAST BANKING NAVIGATION BAR */}
-        <div className="bg-white rounded-2xl p-2 sm:p-2.5 border border-slate-300/80 shadow-md flex items-center gap-2 overflow-x-auto no-scrollbar">
-          {bankingNavTabs.map((tab) => {
-            const isActive = activeTab === tab.key;
-            return (
+        {/* 4. 2-COLUMN RESPONSIVE INSTITUTIONAL BANKING LAYOUT */}
+        <div className="flex flex-col lg:flex-row items-start gap-6">
+          {/* DESKTOP BANKING SIDEBAR (Sticky on large screens) */}
+          <aside className="hidden lg:block w-72 shrink-0 sticky top-24">
+            <div className="bg-white rounded-3xl p-4 border border-slate-200/80 shadow-md shadow-slate-200/50">
+              {renderSidebarMenu(false)}
+            </div>
+          </aside>
+
+          {/* MAIN BANKING CONTENT PANEL */}
+          <div className="flex-1 w-full min-w-0 space-y-5">
+            {/* MOBILE QUICK SECTION SELECTOR (Visible only on < lg screens) */}
+            <div className="lg:hidden bg-white rounded-2xl p-3.5 border border-slate-300/80 shadow-sm flex items-center justify-between">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <span className="text-emerald-700 text-xl shrink-0">{currentTabInfo.icon}</span>
+                <div className="min-w-0">
+                  <div className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">Active Section</div>
+                  <div className="font-black text-slate-900 text-sm truncate">{currentTabInfo.label}</div>
+                </div>
+              </div>
               <button
-                key={tab.key}
                 type="button"
-                onClick={() => setActiveTab(tab.key)}
-                className={`px-4 py-2.5 rounded-xl font-bold text-xs sm:text-sm flex items-center gap-2 whitespace-nowrap transition-all shrink-0 cursor-pointer ${
-                  isActive
-                    ? 'bg-emerald-700 text-white shadow-md shadow-emerald-800/30 ring-2 ring-emerald-600'
-                    : 'bg-slate-100 hover:bg-slate-200 text-slate-800 hover:text-slate-950 border border-slate-300/70'
-                }`}
+                onClick={() => setMobileDrawerOpen(true)}
+                className="bg-emerald-700 hover:bg-emerald-600 text-white font-extrabold text-xs px-3.5 py-2 rounded-xl flex items-center gap-1.5 shadow-sm shrink-0 cursor-pointer"
               >
-                <span className={`text-base ${isActive ? 'text-white' : 'text-emerald-700'}`}>{tab.icon}</span>
-                <span className={isActive ? 'text-white font-extrabold' : 'text-slate-800 font-bold'}>{tab.label}</span>
-                {typeof tab.badge === 'number' && (
-                  <span
-                    className={`px-2 py-0.5 text-xs font-black rounded-full ${
-                      isActive ? 'bg-white/20 text-white' : 'bg-slate-300 text-slate-800'
-                    }`}
-                  >
-                    {tab.badge}
-                  </span>
-                )}
+                <MenuOutlined />
+                <span>All Sections</span>
               </button>
-            );
-          })}
-        </div>
+            </div>
 
         {/* UPCOMING LOAN EMI ALERT BANNER */}
         {summary.nextEmiAmount > 0 && (
@@ -1129,7 +1274,31 @@ export default function CustomerPortalPage() {
             </div>
           )}
         </div>
+          </div>
+        </div>
       </main>
+
+      {/* MOBILE BANKING NAVIGATION DRAWER */}
+      <Drawer
+        open={mobileDrawerOpen}
+        onClose={() => setMobileDrawerOpen(false)}
+        placement="left"
+        width={310}
+        title={
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-emerald-500 to-teal-400 text-slate-950 font-black text-base flex items-center justify-center shadow-md">
+              S
+            </div>
+            <div>
+              <div className="font-black text-slate-900 text-sm">Sanjeevani NetBanking</div>
+              <div className="text-[10px] text-slate-500 font-medium">CID: {customer.customerNumber}</div>
+            </div>
+          </div>
+        }
+        styles={{ body: { padding: '16px' } }}
+      >
+        {renderSidebarMenu(true)}
+      </Drawer>
 
       {/* 5. MODALS */}
 
