@@ -381,7 +381,6 @@ Used for:
 Integration layer for:
 
 - SMS
-- WhatsApp
 - Email
 - Push notifications
 
@@ -2044,7 +2043,6 @@ Channels:
 
 ```text
 SMS
-WHATSAPP
 EMAIL
 PUSH
 ```
@@ -2157,7 +2155,6 @@ Action types:
 ```text
 CALL
 SMS
-WHATSAPP
 FIELD_VISIT
 PROMISE_TO_PAY
 PAYMENT_RECEIVED
@@ -2849,7 +2846,7 @@ Accounting Entry
       ↓
 Generate Receipt
       ↓
-Send WhatsApp
+Send SMS / Digital Receipt
       ↓
 Update Dashboard
 ```
@@ -4178,7 +4175,6 @@ CONTROL LAYER
 
 COMMUNICATION LAYER
  ├ SMS
- ├ WhatsApp
  ├ Email
  └ Push
 
@@ -4240,7 +4236,7 @@ Customer App
 
 Advanced Recovery
 
-WhatsApp Automation
+Digital Notification Automation
 
 Payroll
 

@@ -39,7 +39,7 @@ export class CustomerPortalController {
   ) {}
 
   /**
-   * Helper: Dispatch OTP via MSG91 OTP Widget API (SMS & WhatsApp)
+   * Helper: Dispatch OTP via MSG91 OTP Widget API (SMS)
    */
   private async dispatchMsg91Otp(mobile: string, otp: string): Promise<boolean> {
     const tokenAuth = process.env.MSG91_TOKEN_AUTH || process.env.MSG91_AUTH_KEY;
@@ -165,8 +165,8 @@ export class CustomerPortalController {
   }
 
   /**
-   * 2. SEND OTP (MSG91 Gateway)
-   * Dispatches 6-digit OTP to customer's mobile number (SMS / WhatsApp)
+   * 2. SEND OTP (SMS Gateway)
+   * Dispatches 4-digit OTP to customer's mobile number via SMS
    */
   @Post('send-otp')
   async sendOtp(@Body() body: { mobile?: string }) {
@@ -201,14 +201,14 @@ export class CustomerPortalController {
       attempts: 0,
     });
 
-    // Dispatch via MSG91
+    // Dispatch via MSG91 SMS
     await this.dispatchMsg91Otp(cleanMobile, otp);
 
     const hasAuthKey = Boolean(process.env.MSG91_AUTH_KEY);
 
     return {
       success: true,
-      message: `OTP sent to +91 ${cleanMobile} via SMS & WhatsApp. Valid for 5 minutes.`,
+      message: `OTP sent to +91 ${cleanMobile} via SMS. Valid for 5 minutes.`,
       data: {
         expiresInSeconds: 300,
         // Include devOtp if live gateway credentials not yet added, ensuring frictionless instant testing
@@ -866,7 +866,7 @@ export class CustomerPortalController {
 
     return {
       success: true,
-      message: `Verification OTP sent to +91 ******${cleanMobile.slice(-4)} via SMS & WhatsApp.`,
+      message: `Verification OTP sent to +91 ******${cleanMobile.slice(-4)} via SMS.`,
       data: {
         devOtp: !hasAuthKey || process.env.NODE_ENV !== 'production' ? otp : undefined,
       },

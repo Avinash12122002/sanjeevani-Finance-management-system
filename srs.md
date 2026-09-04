@@ -211,7 +211,7 @@ Ledger
      ↓
 Next Due Date
 
-Customer ko SMS/WhatsApp:
+Customer ko SMS/Digital notification:
 
 Your monthly installment of ₹1,000 has been received.
 
@@ -381,7 +381,7 @@ Nidhi rules mein bhi NPA/asset classification ke specific provisions hain.
 15. Recovery process
 Due Date
    ↓
-SMS/WhatsApp
+SMS/Phone Call
    ↓
 Call
    ↓
@@ -504,7 +504,7 @@ Collector
 Transaction ID
 Authorized signature/verification as applicable
 
-Customer ko PDF/WhatsApp receipt.
+Customer ko PDF/Digital receipt.
 
 21. Software mein role-based access
 
@@ -602,7 +602,7 @@ Maturity
 
 Support
 
-24. Customer ko WhatsApp automation
+24. Customer ko SMS/Digital notification automation
 
 Example:
 
@@ -1162,7 +1162,7 @@ Actual wording legal professional se vet karwana.
 
 48. Technology architecture
 
-Main aapko random Excel + WhatsApp + registers ke combination par nahi rakhunga.
+Main aapko random Excel + registers ke combination par nahi rakhunga.
 
 Core
 
@@ -1174,7 +1174,7 @@ Accounting software
 
 Customer communication
 
-WhatsApp/SMS
+SMS/Digital Communication
 
 Documents
 

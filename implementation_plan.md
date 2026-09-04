@@ -31,7 +31,7 @@ A centralized digital finance management system replacing register-based operati
 ## Open Questions
 
 1. **Deployment Target**: Cloud provider preference? (AWS/GCP/Azure/self-hosted) — affects S3 storage, deployment configs, and CI/CD pipeline.
-2. **SMS/WhatsApp Provider**: Which providers for notifications? (Twilio, MSG91, Gupshup, etc.)
+2. **SMS Notification Provider**: Which provider for SMS alerts? (MSG91, etc.)
 3. **Payment Gateway**: Any UPI/bank integration needed for digital collections?
 4. **Existing Data**: How much legacy register data needs migration? Approximate customer count?
 5. **UI Library Preference**: SRS suggests Material UI / Ant Design / shadcn/ui — which do you prefer for the admin dashboard?
@@ -460,7 +460,7 @@ business_day_closures: id, branch_id, business_date, status (OPEN/CLOSING/PENDIN
 - Auto-generate receipt on successful payment (BR-013)
 - PDF generation
 - Receipt number: `SJF-RCP-2026-00000001`
-- Delivery status tracking (for SMS/WhatsApp sending)
+- Delivery status tracking (for SMS sending)
 
 #### [NEW] `modules/collections/` — Collection Module (§31, §32)
 - **APIs** (§73):
@@ -546,7 +546,7 @@ recovery_cases: id, loan_id, days_past_due, overdue_amount, bucket (CURRENT/1-30
 
 #### [NEW] Migration: `029_create_recovery_actions` (§58)
 ```
-recovery_actions: id, recovery_case_id, action_type (CALL/SMS/WHATSAPP/FIELD_VISIT/PROMISE_TO_PAY/PAYMENT_RECEIVED/ESCALATION/LEGAL_REVIEW), action_date, notes, promise_amount, promise_date, next_follow_up, created_by
+recovery_actions: id, recovery_case_id, action_type (CALL/SMS/FIELD_VISIT/PROMISE_TO_PAY/PAYMENT_RECEIVED/ESCALATION/LEGAL_REVIEW), action_date, notes, promise_amount, promise_date, next_follow_up, created_by
 ```
 
 ---
@@ -765,7 +765,7 @@ _SRS Sections Covered: §53–§55, §61–§62, §65–§68, §79–§81, §113
 - Complaint number: `SJF-CMP-2026-000001`
 
 #### [NEW] `modules/notifications/` — Notification Engine (§54, §55)
-- Multi-channel: SMS, WhatsApp, Email, Push
+- Multi-channel: SMS, Email, Push
 - Template management
 - Scheduled and immediate sending
 - Delivery status tracking
@@ -777,7 +777,7 @@ _SRS Sections Covered: §53–§55, §61–§62, §65–§68, §79–§81, §113
 #### [NEW] Event Architecture (§79)
 - Internal event system using NestJS EventEmitter + BullMQ
 - Events: PaymentReceived, LoanApproved, LoanDisbursed, EMIDue, EMIOverdue, AccountMatured, CustomerCreated, ComplaintCreated
-- Event cascade (§79): PaymentReceived → Update Account → Accounting Entry → Generate Receipt → Send WhatsApp → Update Dashboard
+- Event cascade (§79): PaymentReceived → Update Account → Accounting Entry → Generate Receipt → Send SMS → Update Dashboard
 
 #### [NEW] Background Jobs (§80, §81)
 - BullMQ + Redis job queue
@@ -1615,7 +1615,6 @@ Secrets to manage:
   - S3_ACCESS_KEY
   - S3_SECRET_KEY
   - SMS_API_KEY
-  - WHATSAPP_API_KEY
   - EMAIL_SMTP_PASSWORD
   - ENCRYPTION_KEY (for KYC data)
   - BACKUP_ENCRYPTION_KEY
@@ -1691,7 +1690,7 @@ Expected results (ALL must pass):
   ✓ Journal entry created and balanced (DR Bank = CR Principal + CR Interest)
   ✓ Cash drawer / bank balance updated
   ✓ Receipt generated with PDF
-  ✓ Notification queued (SMS/WhatsApp)
+  ✓ Notification queued (SMS)
   ✓ Audit log recorded (user, timestamp, amount, account)
   ✓ Dashboard metrics updated
   ✓ If ANY step fails → ENTIRE transaction rolled back → customer balance unchanged

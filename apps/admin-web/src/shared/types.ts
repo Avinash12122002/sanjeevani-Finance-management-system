@@ -227,7 +227,6 @@ export enum RecoveryBucket {
 export enum RecoveryActionType {
   CALL = 'CALL',
   SMS = 'SMS',
-  WHATSAPP = 'WHATSAPP',
   FIELD_VISIT = 'FIELD_VISIT',
   PROMISE_TO_PAY = 'PROMISE_TO_PAY',
   PAYMENT_RECEIVED = 'PAYMENT_RECEIVED',
@@ -253,7 +252,6 @@ export enum PriorityLevel {
 
 export enum NotificationChannel {
   SMS = 'SMS',
-  WHATSAPP = 'WHATSAPP',
   EMAIL = 'EMAIL',
   PUSH = 'PUSH',
 }
