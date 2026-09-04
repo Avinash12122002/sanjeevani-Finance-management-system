@@ -41,6 +41,11 @@ import {
   CreditCardOutlined,
   ArrowRightOutlined,
   MenuOutlined,
+  DashboardOutlined,
+  DollarCircleOutlined,
+  AuditOutlined,
+  SettingOutlined,
+  BranchesOutlined,
 } from '@ant-design/icons';
 import { useRouter } from 'next/navigation';
 import { FinancialEngine } from '@/shared/financial-engine';
@@ -261,7 +266,6 @@ export default function CustomerPortalPage() {
     if (filterTxnType === 'ALL') return matchesSearch;
     const isCredit = tx.transactionType?.includes('DEPOSIT') || tx.transactionType?.includes('RECOVERY') || tx.transactionType?.includes('REPAYMENT');
     if (filterTxnType === 'CREDIT') return matchesSearch && isCredit;
-    if (filterTxnType === 'DEBIT') return matchesSearch && !isCredit;
     return matchesSearch;
   });
 
@@ -272,218 +276,187 @@ export default function CustomerPortalPage() {
     icon: React.ReactNode;
     label: string;
     badge?: number;
-    subtitle?: string;
   }
 
-  interface BankingNavSection {
-    title: string;
-    items: BankingTabItem[];
-  }
-
-  const bankingNavSections: BankingNavSection[] = [
-    {
-      title: 'ACCOUNTS & PASSBOOK',
-      items: [
-        { key: 'overview', icon: <FileTextOutlined />, label: 'Passbook & Statement', badge: passbook.length, subtitle: 'Transaction history' },
-      ],
-    },
-    {
-      title: 'DEPOSITS & SAVINGS',
-      items: [
-        { key: 'rd', icon: <CalendarOutlined />, label: 'Recurring Deposits', badge: accounts.rd.length, subtitle: 'Monthly installment schemes' },
-        { key: 'fd', icon: <BankOutlined />, label: 'Fixed Deposits', badge: accounts.fd.length, subtitle: 'Term certificates & interest' },
-      ],
-    },
-    {
-      title: 'LENDING & BORROWING',
-      items: [
-        { key: 'loans', icon: <CreditCardOutlined />, label: 'My Loans & EMIs', badge: loans.length, subtitle: 'Disbursals & schedules' },
-      ],
-    },
-    {
-      title: 'SERVICES & UTILITIES',
-      items: [
-        { key: 'receipts', icon: <PrinterOutlined />, label: 'Official Receipts', badge: receipts.length, subtitle: 'Stamped vouchers' },
-        { key: 'support', icon: <CustomerServiceOutlined />, label: 'Helpdesk & Grievance', badge: complaints.length, subtitle: 'Service tickets & support' },
-        { key: 'profile', icon: <UserOutlined />, label: 'Profile & Security', subtitle: 'KYC, Nominees & PIN' },
-      ],
-    },
+  const portalMenuItems: BankingTabItem[] = [
+    { key: 'overview', icon: <DashboardOutlined style={{ fontSize: 18 }} />, label: 'Passbook & Statement', badge: passbook.length },
+    { key: 'rd', icon: <BankOutlined style={{ fontSize: 18 }} />, label: 'Deposits & RD Accounts', badge: accounts.rd.length },
+    { key: 'fd', icon: <SafetyCertificateOutlined style={{ fontSize: 18 }} />, label: 'Fixed Term Deposits (FD)', badge: accounts.fd.length },
+    { key: 'loans', icon: <DollarCircleOutlined style={{ fontSize: 18 }} />, label: 'Loans & EMI Engine', badge: loans.length },
+    { key: 'receipts', icon: <AuditOutlined style={{ fontSize: 18 }} />, label: 'Collections & Receipts', badge: receipts.length },
+    { key: 'support', icon: <CustomerServiceOutlined style={{ fontSize: 18 }} />, label: 'Customer Helpdesk', badge: complaints.length },
+    { key: 'profile', icon: <SettingOutlined style={{ fontSize: 18 }} />, label: 'Profile & Security', badge: undefined },
   ];
 
-  const flatNavTabs: BankingTabItem[] = bankingNavSections.flatMap((s) => s.items);
-  const currentTabInfo = flatNavTabs.find((t) => t.key === activeTab) || flatNavTabs[0];
+  const currentTabInfo = portalMenuItems.find((t) => t.key === activeTab) || portalMenuItems[0];
 
-  const renderSidebarMenu = (isMobile = false) => (
-    <div className="space-y-4">
-      {/* Mini Profile Box inside Sidebar */}
-      <div className="bg-gradient-to-br from-[#0c2340] to-[#123158] rounded-2xl p-4 text-white shadow-md border border-slate-700/60">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-emerald-500 to-teal-400 text-slate-950 font-black text-base flex items-center justify-center shrink-0 ring-2 ring-white/10 shadow-md">
-            {customer.firstName ? customer.firstName[0].toUpperCase() : 'M'}
-          </div>
-          <div className="min-w-0 flex-1">
-            <div className="text-xs font-black text-white truncate">{customer.fullName}</div>
-            <div className="text-[11px] text-emerald-300 font-mono font-bold truncate">CID: {customer.customerNumber}</div>
-          </div>
+  const renderSidebar = (isMobile = false) => (
+    <div className="flex flex-col h-full bg-[#0f172a] text-slate-300">
+      {/* Brand Header */}
+      <div className="p-4 flex items-center gap-3 border-b border-slate-800 sticky top-0 bg-[#0f172a] z-10">
+        <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-emerald-600 via-teal-500 to-emerald-400 flex items-center justify-center text-white font-black text-xl shadow-lg shadow-emerald-950/50 shrink-0">
+          S
         </div>
-        <div className="mt-3 pt-2.5 border-t border-white/10 flex items-center justify-between text-[11px]">
-          <span className="text-emerald-300 font-bold flex items-center gap-1">
-            <SafetyCertificateFilled className="text-emerald-400 text-xs" /> {customer.kycStatus || 'VERIFIED'}
-          </span>
-          <span className="text-slate-300 font-medium truncate max-w-[110px]">{customer.city || 'Main Branch'}</span>
+        <div className="overflow-hidden">
+          <div className="text-white font-bold text-base tracking-wide leading-tight truncate">
+            SANJEEVANI
+          </div>
+          <div className="text-emerald-400 text-xs font-semibold tracking-wider uppercase">
+            MEMBER PORTAL
+          </div>
         </div>
       </div>
 
-      {/* Categorized Navigation Sections */}
-      <div className="space-y-3">
-        {bankingNavSections.map((section, sIdx) => (
-          <div key={sIdx} className="space-y-1">
-            <div className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 px-3 py-0.5">
-              {section.title}
-            </div>
-            <div className="space-y-1">
-              {section.items.map((tab) => {
-                const isActive = activeTab === tab.key;
-                return (
-                  <button
-                    key={tab.key}
-                    type="button"
-                    onClick={() => {
-                      setActiveTab(tab.key);
-                      if (isMobile) setMobileDrawerOpen(false);
-                    }}
-                    className={`w-full text-left px-3 py-2.5 rounded-xl text-xs font-bold flex items-center justify-between transition-all cursor-pointer group ${
-                      isActive
-                        ? 'bg-gradient-to-r from-emerald-700 to-teal-800 text-white shadow-md shadow-emerald-800/25 ring-1 ring-emerald-500/50'
-                        : 'text-slate-700 hover:bg-slate-100 hover:text-slate-950'
-                    }`}
-                  >
-                    <div className="flex items-center gap-2.5 min-w-0">
-                      <span className={`text-base shrink-0 transition-transform group-hover:scale-110 ${isActive ? 'text-white' : 'text-emerald-700'}`}>
-                        {tab.icon}
-                      </span>
-                      <div className="min-w-0">
-                        <div className={`truncate ${isActive ? 'text-white font-extrabold' : 'text-slate-800 font-bold'}`}>
-                          {tab.label}
-                        </div>
-                        {tab.subtitle && (
-                          <div className={`text-[10px] truncate ${isActive ? 'text-emerald-100 font-normal' : 'text-slate-400 font-normal'}`}>
-                            {tab.subtitle}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                    {typeof tab.badge === 'number' && (
-                      <span
-                        className={`ml-2 px-2 py-0.5 text-[10px] font-black rounded-full shrink-0 ${
-                          isActive
-                            ? 'bg-white/25 text-white'
-                            : tab.badge > 0
-                            ? 'bg-emerald-100 text-emerald-800'
-                            : 'bg-slate-200 text-slate-600'
-                        }`}
-                      >
-                        {tab.badge}
-                      </span>
-                    )}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        ))}
+      {/* Active Branch Indicator */}
+      <div className="mx-3 my-3 p-2.5 rounded-lg bg-slate-800/90 border border-slate-700/60 shadow-sm">
+        <div className="flex items-center gap-1.5 text-[11px] font-semibold text-emerald-400 uppercase tracking-wider">
+          <BranchesOutlined />
+          <span>ACTIVE BRANCH</span>
+        </div>
+        <div className="text-xs font-bold text-slate-100 mt-1 truncate">
+          {customer.branchName || 'Head Office - Main Branch'}
+        </div>
       </div>
 
-      {/* Security & Bank Support Assurance Box */}
-      <div className="bg-slate-50 border border-slate-200 rounded-2xl p-3 space-y-2 text-xs">
-        <div className="flex items-center justify-between">
-          <span className="text-slate-500 font-medium text-[11px]">Session Auto-Lock</span>
-          <span className="font-mono font-bold text-amber-700 bg-amber-100 px-1.5 py-0.5 rounded text-[11px]">
-            {formatSessionTime(sessionTime)}
-          </span>
+      {/* Nav Menu Items */}
+      <div className="flex-1 overflow-y-auto px-2 py-1 space-y-1">
+        {portalMenuItems.map((item) => {
+          const isActive = activeTab === item.key;
+          return (
+            <button
+              key={item.key}
+              type="button"
+              onClick={() => {
+                setActiveTab(item.key);
+                if (isMobile) setMobileDrawerOpen(false);
+              }}
+              className={`w-full text-left px-3.5 py-3 rounded-lg text-xs sm:text-[13px] font-semibold flex items-center justify-between transition-all cursor-pointer ${
+                isActive
+                  ? 'text-white font-bold shadow-lg'
+                  : 'text-slate-300 hover:text-emerald-400 hover:bg-slate-800/90'
+              }`}
+              style={
+                isActive
+                  ? {
+                      background: 'linear-gradient(135deg, #059669 0%, #047857 100%)',
+                      boxShadow: '0 4px 14px -2px rgba(5, 150, 105, 0.5)',
+                      color: '#ffffff',
+                    }
+                  : {}
+              }
+            >
+              <div className="flex items-center gap-3 min-w-0">
+                <span className={`text-base shrink-0 ${isActive ? 'text-white' : 'text-slate-400'}`}>
+                  {item.icon}
+                </span>
+                <span className="truncate">{item.label}</span>
+              </div>
+              {typeof item.badge === 'number' && item.badge > 0 && (
+                <span
+                  className={`px-2 py-0.5 text-[10px] font-black rounded-full shrink-0 ${
+                    isActive
+                      ? 'bg-white/20 text-white'
+                      : 'bg-slate-800 text-emerald-400 border border-emerald-500/30'
+                  }`}
+                >
+                  {item.badge}
+                </span>
+              )}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Sidebar Footer */}
+      <div className="p-3 border-t border-slate-800 bg-[#0b1424] space-y-2 shrink-0">
+        <div className="p-2.5 rounded-lg bg-slate-800/70 border border-slate-700/50 text-xs">
+          <div className="flex items-center justify-between">
+            <span className="text-slate-400 text-[11px]">Auto-Lock Session</span>
+            <span className="font-mono font-bold text-amber-400 text-[11px]">{formatSessionTime(sessionTime)}</span>
+          </div>
+          <div className="w-full bg-slate-700 h-1 rounded-full overflow-hidden mt-1.5">
+            <div
+              className="bg-emerald-400 h-full transition-all duration-1000"
+              style={{ width: `${Math.min(100, (sessionTime / 900) * 100)}%` }}
+            />
+          </div>
+          <div className="mt-2 text-[10px] text-slate-400 flex items-center gap-1">
+            <SafetyCertificateFilled className="text-emerald-400" />
+            <span>256-Bit SSL Encrypted</span>
+          </div>
         </div>
-        <div className="w-full bg-slate-200 h-1.5 rounded-full overflow-hidden">
-          <div
-            className="bg-emerald-600 h-full transition-all duration-1000"
-            style={{ width: `${Math.min(100, (sessionTime / 900) * 100)}%` }}
-          />
-        </div>
-        <div className="text-[11px] text-slate-500 flex items-center gap-1.5 pt-1 border-t border-slate-200/80">
-          <SafetyCertificateFilled className="text-emerald-600" />
-          <span>256-Bit SSL Protected</span>
-        </div>
+
+        <button
+          type="button"
+          onClick={() => setLogoutModal(true)}
+          className="w-full py-2 px-3 rounded-lg bg-rose-600/20 hover:bg-rose-600/30 text-rose-400 hover:text-rose-300 border border-rose-500/30 text-xs font-bold flex items-center justify-center gap-2 transition-all cursor-pointer"
+        >
+          <LogoutOutlined />
+          <span>Logout Session</span>
+        </button>
       </div>
     </div>
   );
 
   return (
-    <div className="min-h-screen bg-[#F0F4F8] text-slate-900 pb-20 font-sans selection:bg-emerald-500 selection:text-white">
-      {/* 1. TOP BANKING SECURITY BANNER */}
-      <div className="bg-[#0b192e] text-slate-300 text-xs py-2 px-4 border-b border-slate-800">
-        <div className="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-2">
-          <div className="flex items-center gap-2">
-            <span className="inline-flex items-center gap-1.5 text-emerald-400 font-bold">
-              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping inline-block"></span>
-              Secure NetBanking
-            </span>
-            <span className="text-slate-600">|</span>
-            <span className="text-slate-300 hidden sm:inline flex items-center gap-1">
-              <SafetyCertificateFilled className="text-emerald-400" /> 256-Bit Bank-Grade SSL Encryption
-            </span>
-          </div>
-          <div className="flex items-center gap-3 text-xs">
-            <span className="hidden md:inline text-slate-300">
-              Session Auto-Lock: <strong className="text-amber-400 font-mono font-bold">{formatSessionTime(sessionTime)}</strong>
-            </span>
-            <span className="text-slate-600 hidden md:inline">|</span>
-            <span className="text-slate-300">CID: <strong className="text-white font-mono font-bold">{customer.customerNumber}</strong></span>
-          </div>
-        </div>
-      </div>
+    <div className="min-h-screen bg-[#F0F4F8] text-slate-900 font-sans selection:bg-emerald-500 selection:text-white">
+      {/* 1. FIXED FULL-HEIGHT DESKTOP SIDEBAR */}
+      <aside className="hidden lg:block fixed left-0 top-0 bottom-0 w-[260px] h-screen z-50 bg-[#0f172a] border-r border-slate-800 shadow-2xl overflow-y-auto">
+        {renderSidebar(false)}
+      </aside>
 
-      {/* 2. INSTITUTIONAL BANKING HEADER */}
-      <header className="bg-gradient-to-r from-[#0a1b32] via-[#0f2747] to-[#0a1e36] text-white sticky top-0 z-40 shadow-xl border-b border-white/10">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3.5 flex items-center justify-between">
-          {/* Logo, Mobile Menu Toggle & Institutional Branding */}
-          <div className="flex items-center gap-2.5 sm:gap-3">
-            {/* Mobile Hamburger Button */}
+      {/* 2. MOBILE SLIDE-OVER DRAWER */}
+      <Drawer
+        open={mobileDrawerOpen}
+        onClose={() => setMobileDrawerOpen(false)}
+        placement="left"
+        width={260}
+        styles={{
+          header: { display: 'none' },
+          body: { padding: 0, background: '#0f172a' },
+        }}
+      >
+        {renderSidebar(true)}
+      </Drawer>
+
+      {/* 3. MAIN APP LAYOUT (OFFSET BY 260px ON DESKTOP) */}
+      <div className="lg:ml-[260px] min-h-screen flex flex-col transition-all">
+        {/* TOP INSTITUTIONAL BANKING HEADER */}
+        <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-200 px-4 sm:px-6 py-3 shadow-sm flex items-center justify-between">
+          {/* Left: Mobile hamburger & Active Section Title */}
+          <div className="flex items-center gap-3">
             <button
               type="button"
               onClick={() => setMobileDrawerOpen(true)}
-              className="lg:hidden p-2 rounded-xl bg-white/10 hover:bg-white/20 text-white flex items-center justify-center border border-white/20 cursor-pointer transition-all"
-              title="Open NetBanking Navigation"
-              aria-label="Open NetBanking Navigation"
+              className="lg:hidden p-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 flex items-center justify-center border border-slate-300 cursor-pointer transition-all"
+              title="Open Navigation Menu"
+              aria-label="Open Navigation Menu"
             >
-              <MenuOutlined className="text-lg text-emerald-400" />
+              <MenuOutlined className="text-base text-emerald-700" />
             </button>
-
-            <div className="w-11 h-11 rounded-xl bg-gradient-to-tr from-emerald-500 to-teal-400 flex items-center justify-center text-slate-950 font-black text-2xl shadow-lg shadow-emerald-500/20 ring-2 ring-white/10">
-              S
-            </div>
             <div>
-              <div className="flex items-center gap-2">
-                <span className="font-black text-base sm:text-lg tracking-wider text-white">SANJEEVANI</span>
-                <span className="bg-emerald-500/20 text-emerald-300 text-[10px] font-extrabold px-2 py-0.5 rounded-full border border-emerald-500/40 uppercase tracking-wider">
-                  NetBanking
-                </span>
+              <div className="flex items-center gap-1.5 text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+                <span>Sanjeevani NetBanking</span>
+                <span>•</span>
+                <span className="text-emerald-700 font-extrabold">{currentTabInfo.label}</span>
               </div>
-              <div className="text-[11px] text-slate-300 font-medium hidden sm:block">
-                Finance Management System • Member Portal
-              </div>
+              <h1 className="text-base sm:text-lg font-black text-slate-900 m-0 tracking-tight leading-none mt-0.5">
+                {currentTabInfo.label}
+              </h1>
             </div>
           </div>
 
-          {/* Member Controls & Dedicated Logout Button */}
+          {/* Right: Balance Privacy, Security PIN, Helpdesk & Logout */}
           <div className="flex items-center gap-2 sm:gap-3">
             {/* Balance Mask/Reveal Toggle Button */}
             <button
               type="button"
               onClick={() => setHideBalances(!hideBalances)}
-              className="bg-white/10 hover:bg-white/20 text-white font-bold text-xs rounded-xl px-3 py-2 border border-white/20 flex items-center gap-1.5 transition-all cursor-pointer"
+              className="bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs rounded-xl px-3 py-2 border border-slate-300 flex items-center gap-1.5 transition-all cursor-pointer"
               title={hideBalances ? 'Show Balances' : 'Hide Balances (Privacy Mode)'}
             >
-              {hideBalances ? <EyeInvisibleOutlined className="text-amber-400 text-sm" /> : <EyeOutlined className="text-emerald-400 text-sm" />}
-              <span className="hidden md:inline text-white font-semibold">
+              {hideBalances ? <EyeInvisibleOutlined className="text-amber-600 text-sm" /> : <EyeOutlined className="text-emerald-600 text-sm" />}
+              <span className="hidden sm:inline font-semibold">
                 {hideBalances ? 'Show Balances' : 'Hide Balances'}
               </span>
             </button>
@@ -492,122 +465,91 @@ export default function CustomerPortalPage() {
             <button
               type="button"
               onClick={() => setPasswordModal(true)}
-              className="bg-white/10 hover:bg-white/20 text-white font-bold text-xs rounded-xl px-3 py-2 border border-white/20 hidden sm:flex items-center gap-1.5 transition-all cursor-pointer"
+              className="bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs rounded-xl px-3 py-2 border border-slate-300 hidden sm:flex items-center gap-1.5 transition-all cursor-pointer"
               title="Update Security PIN"
             >
-              <LockOutlined className="text-emerald-300 text-sm" />
-              <span className="text-white font-semibold">Security PIN</span>
+              <LockOutlined className="text-emerald-700 text-sm" />
+              <span className="font-semibold">Security PIN</span>
             </button>
 
-            {/* Helpdesk / Support Button */}
+            {/* Helpdesk Button */}
             <button
               type="button"
               onClick={() => setComplaintModal(true)}
-              className="bg-white/10 hover:bg-white/20 text-white font-bold text-xs rounded-xl px-3 py-2 border border-white/20 hidden md:flex items-center gap-1.5 transition-all cursor-pointer"
+              className="bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs rounded-xl px-3 py-2 border border-slate-300 hidden md:flex items-center gap-1.5 transition-all cursor-pointer"
               title="Customer Grievance & Helpdesk"
             >
-              <CustomerServiceOutlined className="text-teal-300 text-sm" />
-              <span className="text-white font-semibold">Helpdesk</span>
+              <CustomerServiceOutlined className="text-teal-700 text-sm" />
+              <span className="font-semibold">Helpdesk</span>
             </button>
 
-            {/* DEDICATED PROMINENT LOGOUT BUTTON */}
+            {/* Red Logout Button */}
             <button
               type="button"
               onClick={() => setLogoutModal(true)}
-              className="bg-gradient-to-r from-rose-600 to-red-600 hover:from-rose-500 hover:to-red-500 text-white font-extrabold text-xs sm:text-sm rounded-xl px-4 py-2 shadow-lg shadow-rose-950/40 flex items-center gap-2 transition-all border border-rose-400/40 cursor-pointer"
+              className="bg-rose-600 hover:bg-rose-500 text-white font-extrabold text-xs sm:text-sm rounded-xl px-3.5 py-2 shadow-sm flex items-center gap-1.5 transition-all cursor-pointer"
             >
               <LogoutOutlined className="text-white text-base" />
               <span className="text-white tracking-wide">Logout</span>
             </button>
           </div>
-        </div>
-      </header>
+        </header>
 
-      {/* 3. MAIN DASHBOARD CONTENT */}
-      <main className="max-w-7xl mx-auto px-3 sm:px-6 pt-5 space-y-5">
-        {/* CUSTOMER GREETING & NET-WORTH HERO CARD */}
-        <div className="bg-gradient-to-br from-[#0c2340] via-[#103058] to-[#0c2442] rounded-3xl p-5 sm:p-7 text-white shadow-xl shadow-slate-950/10 relative overflow-hidden border border-slate-700/60">
-          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 relative z-10">
-            {/* Left: Member Identity & Details */}
-            <div className="flex items-start sm:items-center gap-4">
-              <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-gradient-to-tr from-emerald-500 to-teal-400 text-slate-950 font-black text-2xl sm:text-3xl flex items-center justify-center shrink-0 shadow-lg shadow-emerald-500/20 ring-4 ring-white/10">
-                {customer.firstName ? customer.firstName[0].toUpperCase() : 'M'}
-              </div>
-              <div>
-                <div className="flex items-center gap-2.5 flex-wrap">
-                  <h1 className="text-xl sm:text-2xl font-black text-white m-0 tracking-tight">
-                    Namaste, {customer.fullName}
-                  </h1>
-                  <span className="bg-emerald-500 text-slate-950 text-xs font-black px-2.5 py-0.5 rounded-full flex items-center gap-1 shadow-sm">
-                    <CheckCircleFilled /> Verified Member
-                  </span>
+        {/* 4. MAIN DASHBOARD CONTENT */}
+        <main className="flex-1 max-w-7xl w-full mx-auto px-3 sm:px-6 py-5 space-y-5">
+          {/* CUSTOMER GREETING & NET-WORTH HERO CARD */}
+          <div className="bg-gradient-to-br from-[#0c2340] via-[#103058] to-[#0c2442] rounded-3xl p-5 sm:p-7 text-white shadow-xl shadow-slate-950/10 relative overflow-hidden border border-slate-700/60">
+            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 relative z-10">
+              {/* Left: Member Identity & Details */}
+              <div className="flex items-start sm:items-center gap-4">
+                <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-gradient-to-tr from-emerald-500 to-teal-400 text-slate-950 font-black text-2xl sm:text-3xl flex items-center justify-center shrink-0 shadow-lg shadow-emerald-500/20 ring-4 ring-white/10">
+                  {customer.firstName ? customer.firstName[0].toUpperCase() : 'M'}
                 </div>
-                <div className="text-xs sm:text-sm text-slate-200 flex flex-wrap items-center gap-x-3 gap-y-1.5 mt-2 font-medium">
-                  <span className="text-emerald-300 font-bold">📱 +91 {customer.mobile}</span>
-                  <span className="text-slate-400">•</span>
-                  <span className="text-white font-semibold">📍 {customer.city || customer.branchName || 'Main Branch'}</span>
-                  <span className="text-slate-400">•</span>
-                  <span className="bg-emerald-950/70 border border-emerald-400/40 text-emerald-300 font-mono font-bold px-2 py-0.5 rounded">
-                    CID: {customer.customerNumber}
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            {/* Right: Net Worth Portfolio Box */}
-            <div className="bg-white/10 backdrop-blur-md rounded-2xl p-5 border border-white/15 flex items-center justify-between sm:justify-end gap-6 shrink-0 min-w-[300px]">
-              <div>
-                <div className="text-xs font-extrabold uppercase tracking-wider text-emerald-300 flex items-center gap-1.5">
-                  <WalletOutlined className="text-emerald-400" /> Total Portfolio Value
-                </div>
-                <div className="text-3xl sm:text-4xl font-black text-white tracking-tight mt-1">
-                  {maskAmount(totalAssets)}
-                </div>
-                <div className="text-xs text-emerald-300 font-semibold mt-1 flex items-center gap-1">
-                  <span>Savings + RD + Fixed Deposits</span>
+                <div>
+                  <div className="flex items-center gap-2.5 flex-wrap">
+                    <h2 className="text-xl sm:text-2xl font-black text-white m-0 tracking-tight">
+                      Namaste, {customer.fullName}
+                    </h2>
+                    <span className="bg-emerald-500 text-slate-950 text-xs font-black px-2.5 py-0.5 rounded-full flex items-center gap-1 shadow-sm">
+                      <CheckCircleFilled /> Verified Member
+                    </span>
+                  </div>
+                  <div className="text-xs sm:text-sm text-slate-200 flex flex-wrap items-center gap-x-3 gap-y-1.5 mt-2 font-medium">
+                    <span className="text-emerald-300 font-bold">📱 +91 {customer.mobile}</span>
+                    <span className="text-slate-400">•</span>
+                    <span className="text-white font-semibold">📍 {customer.city || customer.branchName || 'Main Branch'}</span>
+                    <span className="text-slate-400">•</span>
+                    <span className="bg-emerald-950/70 border border-emerald-400/40 text-emerald-300 font-mono font-bold px-2 py-0.5 rounded">
+                      CID: {customer.customerNumber}
+                    </span>
+                  </div>
                 </div>
               </div>
 
-              <div className="text-right border-l border-white/15 pl-5">
-                <div className="text-[11px] uppercase font-bold text-slate-300">KYC Status</div>
-                <div className="text-sm font-black text-emerald-400 mt-1 flex items-center justify-end gap-1">
-                  <SafetyCertificateFilled /> {customer.kycStatus || 'VERIFIED'}
+              {/* Right: Net Worth Portfolio Box */}
+              <div className="bg-white/10 backdrop-blur-md rounded-2xl p-5 border border-white/15 flex items-center justify-between sm:justify-end gap-6 shrink-0 min-w-[300px]">
+                <div>
+                  <div className="text-xs font-extrabold uppercase tracking-wider text-emerald-300 flex items-center gap-1.5">
+                    <WalletOutlined className="text-emerald-400" /> Total Portfolio Value
+                  </div>
+                  <div className="text-3xl sm:text-4xl font-black text-white tracking-tight mt-1">
+                    {maskAmount(totalAssets)}
+                  </div>
+                  <div className="text-xs text-emerald-300 font-semibold mt-1 flex items-center gap-1">
+                    <span>Savings + RD + Fixed Deposits</span>
+                  </div>
                 </div>
-                <div className="text-xs text-slate-300 mt-1">Member since {customer.joiningDate || '2026'}</div>
+
+                <div className="text-right border-l border-white/15 pl-5">
+                  <div className="text-[11px] uppercase font-bold text-slate-300">KYC Status</div>
+                  <div className="text-sm font-black text-emerald-400 mt-1 flex items-center justify-end gap-1">
+                    <SafetyCertificateFilled /> {customer.kycStatus || 'VERIFIED'}
+                  </div>
+                  <div className="text-xs text-slate-300 mt-1">Member since {customer.joiningDate || '2026'}</div>
+                </div>
               </div>
             </div>
           </div>
-        </div>
-
-        {/* 4. 2-COLUMN RESPONSIVE INSTITUTIONAL BANKING LAYOUT */}
-        <div className="flex flex-col lg:flex-row items-start gap-6">
-          {/* DESKTOP BANKING SIDEBAR (Sticky on large screens) */}
-          <aside className="hidden lg:block w-72 shrink-0 sticky top-24">
-            <div className="bg-white rounded-3xl p-4 border border-slate-200/80 shadow-md shadow-slate-200/50">
-              {renderSidebarMenu(false)}
-            </div>
-          </aside>
-
-          {/* MAIN BANKING CONTENT PANEL */}
-          <div className="flex-1 w-full min-w-0 space-y-5">
-            {/* MOBILE QUICK SECTION SELECTOR (Visible only on < lg screens) */}
-            <div className="lg:hidden bg-white rounded-2xl p-3.5 border border-slate-300/80 shadow-sm flex items-center justify-between">
-              <div className="flex items-center gap-2.5 min-w-0">
-                <span className="text-emerald-700 text-xl shrink-0">{currentTabInfo.icon}</span>
-                <div className="min-w-0">
-                  <div className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">Active Section</div>
-                  <div className="font-black text-slate-900 text-sm truncate">{currentTabInfo.label}</div>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => setMobileDrawerOpen(true)}
-                className="bg-emerald-700 hover:bg-emerald-600 text-white font-extrabold text-xs px-3.5 py-2 rounded-xl flex items-center gap-1.5 shadow-sm shrink-0 cursor-pointer"
-              >
-                <MenuOutlined />
-                <span>All Sections</span>
-              </button>
-            </div>
 
         {/* UPCOMING LOAN EMI ALERT BANNER */}
         {summary.nextEmiAmount > 0 && (
@@ -1274,31 +1216,8 @@ export default function CustomerPortalPage() {
             </div>
           )}
         </div>
-          </div>
-        </div>
       </main>
-
-      {/* MOBILE BANKING NAVIGATION DRAWER */}
-      <Drawer
-        open={mobileDrawerOpen}
-        onClose={() => setMobileDrawerOpen(false)}
-        placement="left"
-        width={310}
-        title={
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-emerald-500 to-teal-400 text-slate-950 font-black text-base flex items-center justify-center shadow-md">
-              S
-            </div>
-            <div>
-              <div className="font-black text-slate-900 text-sm">Sanjeevani NetBanking</div>
-              <div className="text-[10px] text-slate-500 font-medium">CID: {customer.customerNumber}</div>
-            </div>
-          </div>
-        }
-        styles={{ body: { padding: '16px' } }}
-      >
-        {renderSidebarMenu(true)}
-      </Drawer>
+    </div>
 
       {/* 5. MODALS */}
 
