@@ -125,7 +125,7 @@ export default function CustomerPortalLoginPage() {
         return false;
       }
 
-      setInfoMsg(data.message || `OTP sent to +91 ${targetMobile} via SMS & WhatsApp`);
+      setInfoMsg(data.message || `OTP sent to +91 ${targetMobile} via SMS`);
       setResendCooldown(30);
 
       if (data.data?.devOtp) {
@@ -477,7 +477,7 @@ export default function CustomerPortalLoginPage() {
               </Tag>
               <h2 className="text-xl font-bold text-slate-900 m-0">Verify Your Mobile</h2>
               <p className="text-xs text-slate-500 mt-1">
-                An OTP verification code has been dispatched to <span className="font-semibold text-slate-800">+91 {mobile}</span> via SMS & WhatsApp
+                An OTP verification code has been dispatched to <span className="font-semibold text-slate-800">+91 {mobile}</span> via secure SMS
               </p>
             </div>
 
@@ -500,7 +500,7 @@ export default function CustomerPortalLoginPage() {
               </Form.Item>
 
               <div className="flex items-center justify-between mb-4 text-xs">
-                <span className="text-slate-400">Didn't receive code?</span>
+                <span className="text-slate-400">Didn&apos;t receive code?</span>
                 <Button
                   type="link"
                   size="small"
@@ -714,7 +714,7 @@ export default function CustomerPortalLoginPage() {
                             icon={<SafetyCertificateOutlined />}
                             className="rounded-xl font-bold h-12 bg-emerald-700 hover:bg-emerald-600 border-none shadow-md text-sm"
                           >
-                            Send OTP via SMS & WhatsApp
+                            Send OTP via SMS
                           </Button>
                         </div>
                       ) : (
@@ -737,7 +737,7 @@ export default function CustomerPortalLoginPage() {
                           </Form.Item>
 
                           <div className="flex items-center justify-between mb-4 text-xs">
-                            <span className="text-slate-400">Didn't receive code?</span>
+                            <span className="text-slate-400">Didn&apos;t receive code?</span>
                             <Button
                               type="link"
                               size="small"

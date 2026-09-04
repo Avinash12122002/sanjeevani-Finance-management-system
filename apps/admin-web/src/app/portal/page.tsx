@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Row,
   Col,
@@ -76,35 +76,14 @@ export default function CustomerPortalPage() {
   const [passwordForm] = Form.useForm();
   const router = useRouter();
 
-  useEffect(() => {
-    loadCustomerData();
-  }, []);
+  const handleLogout = useCallback(() => {
+    localStorage.removeItem('sfms_customer_token');
+    localStorage.removeItem('sfms_customer');
+    message.success('Secure session ended. Signed out successfully.');
+    router.replace('/portal/login');
+  }, [router]);
 
-  // 15-Minute Bank Session Auto-Countdown
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setSessionTime((prev) => {
-        if (prev <= 1) {
-          clearInterval(timer);
-          handleLogout();
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-    return () => clearInterval(timer);
-  }, []);
-
-  // OTP Resend Cooldown
-  useEffect(() => {
-    if (changePassCooldown <= 0) return;
-    const timer = setInterval(() => {
-      setChangePassCooldown((p) => p - 1);
-    }, 1000);
-    return () => clearInterval(timer);
-  }, [changePassCooldown]);
-
-  const loadCustomerData = async () => {
+  const loadCustomerData = useCallback(async () => {
     const token = typeof window !== 'undefined' ? localStorage.getItem('sfms_customer_token') : null;
     if (!token) {
       router.replace('/portal/login');
@@ -125,14 +104,35 @@ export default function CustomerPortalPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [router]);
 
-  const handleLogout = () => {
-    localStorage.removeItem('sfms_customer_token');
-    localStorage.removeItem('sfms_customer');
-    message.success('Secure session ended. Signed out successfully.');
-    router.replace('/portal/login');
-  };
+  useEffect(() => {
+    loadCustomerData();
+  }, [loadCustomerData]);
+
+  // 15-Minute Bank Session Auto-Countdown
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setSessionTime((prev) => {
+        if (prev <= 1) {
+          clearInterval(timer);
+          handleLogout();
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [handleLogout]);
+
+  // OTP Resend Cooldown for Change PIN
+  useEffect(() => {
+    if (changePassCooldown <= 0) return;
+    const timer = setInterval(() => {
+      setChangePassCooldown((p) => p - 1);
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [changePassCooldown]);
 
   const formatSessionTime = (seconds: number) => {
     const m = Math.floor(seconds / 60);
@@ -1383,7 +1383,7 @@ export default function CustomerPortalPage() {
             </Form.Item>
 
             <div className="flex items-center justify-between mb-4 text-xs">
-              <span className="text-slate-500">Didn't receive code?</span>
+              <span className="text-slate-500">Didn&apos;t receive code?</span>
               <Button
                 type="link"
                 size="small"
