@@ -347,7 +347,7 @@ export default function CollectionsPage() {
       <Modal
         title="Record Member Payment & Generate Receipt"
         open={recordModalVisible}
-        onCancel={() => setRecordModalVisible(false)}
+        onCancel={() => { setRecordModalVisible(false); form.resetFields(); setSelectedCustomerId(null); }}
         footer={null}
         width={580}
       >
@@ -418,7 +418,7 @@ export default function CollectionsPage() {
           </Form.Item>
 
           <div className="flex justify-end gap-2 mt-4 pt-4 border-t border-slate-100">
-            <Button onClick={() => setRecordModalVisible(false)}>Cancel</Button>
+            <Button onClick={() => { setRecordModalVisible(false); form.resetFields(); setSelectedCustomerId(null); }}>Cancel</Button>
             <Button type="primary" htmlType="submit" loading={submitting} style={{ background: '#059669', borderColor: '#059669' }}>
               Confirm Payment & Print Receipt
             </Button>
@@ -430,9 +430,9 @@ export default function CollectionsPage() {
       <Modal
         title="Official Digital Payment Receipt"
         open={receiptModalVisible}
-        onCancel={() => setReceiptModalVisible(false)}
+        onCancel={() => { setReceiptModalVisible(false); setCurrentReceipt(null); }}
         footer={[
-          <Button key="close" onClick={() => setReceiptModalVisible(false)}>
+          <Button key="close" onClick={() => { setReceiptModalVisible(false); setCurrentReceipt(null); }}>
             Close
           </Button>,
           <Button

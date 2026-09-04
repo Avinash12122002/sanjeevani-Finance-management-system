@@ -248,7 +248,7 @@ export default function DailyClosingPage() {
       <Modal
         title="Privileged Business Date Reopen (BR-010)"
         open={reopenModalVisible}
-        onCancel={() => setReopenModalVisible(false)}
+        onCancel={() => { setReopenModalVisible(false); form.resetFields(); }}
         footer={null}
         width={540}
       >
@@ -269,7 +269,7 @@ export default function DailyClosingPage() {
           </Form.Item>
 
           <div className="flex justify-end gap-2 mt-4 pt-4 border-t border-slate-100">
-            <Button onClick={() => setReopenModalVisible(false)}>Cancel</Button>
+            <Button onClick={() => { setReopenModalVisible(false); form.resetFields(); }}>Cancel</Button>
             <Button type="primary" danger htmlType="submit" loading={submitting}>
               Authorize Reopening
             </Button>

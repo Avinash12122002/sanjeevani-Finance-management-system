@@ -265,11 +265,15 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         label: 'Open Customer Portal',
         onClick: () => window.open('/portal/login', '_blank'),
       },
-      {
-        key: 'settings',
-        label: 'Security & 2FA Settings',
-        onClick: () => router.push('/settings'),
-      },
+      ...(allowedPages.includes('/settings')
+        ? [
+            {
+              key: 'settings',
+              label: 'Security & 2FA Settings',
+              onClick: () => router.push('/settings'),
+            },
+          ]
+        : []),
       {
         key: 'logout',
         danger: true,
@@ -449,26 +453,28 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                 Customer Portal ↗
               </Button>
 
-              {/* Record Payment Button */}
-              <Button
-                type="primary"
-                icon={<PlusCircleOutlined />}
-                onClick={() => router.push('/collections')}
-                style={{
-                  background: '#059669',
-                  borderColor: '#059669',
-                  fontWeight: 600,
-                  fontSize: '13px',
-                  height: 38,
-                  borderRadius: 8,
-                  boxShadow: '0 2px 4px 0 rgba(5, 150, 105, 0.25)',
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: 6,
-                }}
-              >
-                Record Payment
-              </Button>
+              {/* Record Payment Button (Restricted to Collection Permitted Roles) */}
+              {allowedPages.includes('/collections') && (
+                <Button
+                  type="primary"
+                  icon={<PlusCircleOutlined />}
+                  onClick={() => router.push('/collections')}
+                  style={{
+                    background: '#059669',
+                    borderColor: '#059669',
+                    fontWeight: 600,
+                    fontSize: '13px',
+                    height: 38,
+                    borderRadius: 8,
+                    boxShadow: '0 2px 4px 0 rgba(5, 150, 105, 0.25)',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 6,
+                  }}
+                >
+                  Record Payment
+                </Button>
+              )}
 
               {/* Notification Bell */}
               <Dropdown menu={alertMenu} placement="bottomRight" trigger={['click']}>

@@ -309,7 +309,7 @@ export default function CashDrawerPage() {
           </div>
         }
         open={reconcileModalVisible}
-        onCancel={() => setReconcileModalVisible(false)}
+        onCancel={() => { setReconcileModalVisible(false); form.resetFields(); }}
         footer={null}
         width={620}
       >
@@ -370,7 +370,7 @@ export default function CashDrawerPage() {
           </Form.Item>
 
           <div className="flex justify-end gap-2 mt-4 pt-4 border-t border-slate-100">
-            <Button onClick={() => setReconcileModalVisible(false)}>Cancel</Button>
+            <Button onClick={() => { setReconcileModalVisible(false); form.resetFields(); }}>Cancel</Button>
             <Button type="primary" htmlType="submit" loading={submitting} style={{ background: '#059669', borderColor: '#059669' }}>
               Confirm Reconciliation & Lock Drawer
             </Button>
@@ -454,7 +454,7 @@ export default function CashDrawerPage() {
           </div>
         }
         open={openDrawerModalVisible}
-        onCancel={() => setOpenDrawerModalVisible(false)}
+        onCancel={() => { setOpenDrawerModalVisible(false); openDrawerForm.resetFields(); }}
         footer={null}
         width={480}
       >
@@ -478,7 +478,7 @@ export default function CashDrawerPage() {
             />
           </Form.Item>
           <div className="flex justify-end gap-2 mt-6">
-            <Button onClick={() => setOpenDrawerModalVisible(false)}>Cancel</Button>
+            <Button onClick={() => { setOpenDrawerModalVisible(false); openDrawerForm.resetFields(); }}>Cancel</Button>
             <Button
               type="primary"
               htmlType="submit"

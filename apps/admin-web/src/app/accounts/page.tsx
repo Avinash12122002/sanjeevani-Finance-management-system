@@ -140,7 +140,11 @@ export default function AccountsPage() {
       title: 'Product Type',
       dataIndex: 'productType',
       key: 'productType',
-      render: (t: string) => <Tag color={t === 'RD' ? 'green' : t === 'TERM_DEPOSIT' ? 'blue' : 'default'}>{t}</Tag>,
+      render: (t: string) => (
+        <Tag color={t === 'RD' ? 'green' : t === 'TERM_DEPOSIT' ? 'blue' : t === 'SAVINGS' ? 'purple' : 'default'}>
+          {t}
+        </Tag>
+      ),
     },
     {
       title: 'Monthly / Deposit Amount',
@@ -234,6 +238,7 @@ export default function AccountsPage() {
             { key: 'ALL', label: `All Accounts (${accounts.length})` },
             { key: ProductType.RD, label: `Recurring Deposits (${accounts.filter((a) => a.productType === ProductType.RD).length})` },
             { key: ProductType.TERM_DEPOSIT, label: `Term Deposits (${accounts.filter((a) => a.productType === ProductType.TERM_DEPOSIT).length})` },
+            { key: ProductType.SAVINGS, label: `Savings Accounts (${accounts.filter((a) => a.productType === ProductType.SAVINGS).length})` },
           ]}
         />
         <Table
@@ -258,11 +263,14 @@ export default function AccountsPage() {
         title={
           <div className="flex items-center gap-2">
             <BankOutlined className="text-emerald-600" />
-            <span>Open New Deposit Account (RD / Term Deposit)</span>
+            <span>Open New Deposit Account (RD / Term Deposit / Savings)</span>
           </div>
         }
         open={openModalVisible}
-        onCancel={() => setOpenModalVisible(false)}
+        onCancel={() => {
+          setOpenModalVisible(false);
+          form.resetFields();
+        }}
         footer={null}
         width={600}
       >
@@ -283,7 +291,12 @@ export default function AccountsPage() {
             <Select
               placeholder="Select deposit product"
               options={products
-                .filter((p) => p.productType === ProductType.RD || p.productType === ProductType.TERM_DEPOSIT)
+                .filter(
+                  (p) =>
+                    p.productType === ProductType.RD ||
+                    p.productType === ProductType.TERM_DEPOSIT ||
+                    p.productType === ProductType.SAVINGS,
+                )
                 .map((p) => ({
                   label: `${p.productName} (${p.productType}) - ${p.interestRate}% p.a.`,
                   value: p.id,
@@ -317,7 +330,14 @@ export default function AccountsPage() {
           </Row>
 
           <div className="flex justify-end gap-2 mt-4 pt-4 border-t border-slate-100">
-            <Button onClick={() => setOpenModalVisible(false)}>Cancel</Button>
+            <Button
+              onClick={() => {
+                setOpenModalVisible(false);
+                form.resetFields();
+              }}
+            >
+              Cancel
+            </Button>
             <Button type="primary" htmlType="submit" loading={submitting} style={{ background: '#059669', borderColor: '#059669' }}>
               Open Account
             </Button>
@@ -329,7 +349,11 @@ export default function AccountsPage() {
       <Modal
         title={`Edit Deposit Account: ${selectedAccount?.accountNumber}`}
         open={editModalVisible}
-        onCancel={() => setEditModalVisible(false)}
+        onCancel={() => {
+          setEditModalVisible(false);
+          editForm.resetFields();
+          setSelectedAccount(null);
+        }}
         footer={null}
         width={500}
       >
@@ -349,7 +373,15 @@ export default function AccountsPage() {
           </Form.Item>
 
           <div className="flex justify-end gap-2 mt-4 pt-4 border-t border-slate-100">
-            <Button onClick={() => setEditModalVisible(false)}>Cancel</Button>
+            <Button
+              onClick={() => {
+                setEditModalVisible(false);
+                editForm.resetFields();
+                setSelectedAccount(null);
+              }}
+            >
+              Cancel
+            </Button>
             <Button type="primary" htmlType="submit" loading={submitting} style={{ background: '#059669', borderColor: '#059669' }}>
               Save Changes
             </Button>

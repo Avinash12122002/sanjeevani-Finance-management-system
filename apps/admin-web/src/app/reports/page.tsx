@@ -65,11 +65,21 @@ export default function ReportsPage() {
 
   const getActiveData = () => {
     switch (activeReport) {
-      case 'daily_collection': return transactions;
-      case 'loans': return loans;
-      case 'customers': return customers;
-      case 'audit': return auditLogs;
-      default: return transactions;
+      case 'daily_collection':
+        return transactions;
+      case 'loan_portfolio':
+      case 'loans':
+        return loans;
+      case 'audit_logs':
+      case 'audit':
+        return auditLogs;
+      case 'login_audit':
+        return auditLogs.filter((a) => a.eventType === 'USER_LOGIN' || a.eventType === 'FAILED_LOGIN_ATTEMPT');
+      case 'customer_master':
+      case 'customers':
+        return customers;
+      default:
+        return transactions;
     }
   };
 

@@ -177,6 +177,16 @@ export default function AccountingPage() {
     }
   };
 
+  const handleDeleteJournal = async (id: string, num: string) => {
+    const res = await deleteApi(`/accounting/journals/${id}`);
+    if (res.success) {
+      message.success(`Journal entry [${num}] deleted successfully.`);
+      loadAccountingData();
+    } else {
+      message.error(res.message || 'Failed to delete journal entry.');
+    }
+  };
+
   const coaColumns = [
     {
       title: 'Account Code',
@@ -275,9 +285,23 @@ export default function AccountingPage() {
       title: 'Actions',
       key: 'actions',
       render: (_: any, r: IJournalEntry) => (
-        <Button size="small" icon={<EyeOutlined />} onClick={() => handleOpenViewJournal(r)}>
-          View
-        </Button>
+        <Space size="small">
+          <Button size="small" icon={<EyeOutlined />} onClick={() => handleOpenViewJournal(r)}>
+            View
+          </Button>
+          <Popconfirm
+            title="Void / Delete Journal Entry"
+            description={`Are you sure you want to remove Journal ${r.journalNumber}?`}
+            onConfirm={() => handleDeleteJournal(r.id, r.journalNumber)}
+            okText="Yes, Delete"
+            cancelText="Cancel"
+            okButtonProps={{ danger: true }}
+          >
+            <Button size="small" danger icon={<DeleteOutlined />}>
+              Void
+            </Button>
+          </Popconfirm>
+        </Space>
       ),
     },
   ];
@@ -647,7 +671,7 @@ export default function AccountingPage() {
       <Modal
         title="Add New Chart of Accounts Ledger"
         open={addAccountModal}
-        onCancel={() => setAddAccountModal(false)}
+        onCancel={() => { setAddAccountModal(false); accountForm.resetFields(); }}
         footer={null}
         width={550}
       >
@@ -693,7 +717,7 @@ export default function AccountingPage() {
           </Row>
 
           <div className="flex justify-end gap-2 pt-4 border-t border-slate-100">
-            <Button onClick={() => setAddAccountModal(false)}>Cancel</Button>
+            <Button onClick={() => { setAddAccountModal(false); accountForm.resetFields(); }}>Cancel</Button>
             <Button type="primary" htmlType="submit" loading={submitting} style={{ background: '#059669', borderColor: '#059669' }}>
               Create Account
             </Button>
@@ -705,7 +729,7 @@ export default function AccountingPage() {
       <Modal
         title={`Edit Ledger Account: ${selectedAccount?.accountName}`}
         open={editAccountModal}
-        onCancel={() => setEditAccountModal(false)}
+        onCancel={() => { setEditAccountModal(false); editAccountForm.resetFields(); setSelectedAccount(null); }}
         footer={null}
         width={550}
       >
@@ -745,7 +769,7 @@ export default function AccountingPage() {
           </Row>
 
           <div className="flex justify-end gap-2 pt-4 border-t border-slate-100">
-            <Button onClick={() => setEditAccountModal(false)}>Cancel</Button>
+            <Button onClick={() => { setEditAccountModal(false); editAccountForm.resetFields(); setSelectedAccount(null); }}>Cancel</Button>
             <Button type="primary" htmlType="submit" loading={submitting} style={{ background: '#059669', borderColor: '#059669' }}>
               Save Changes
             </Button>
@@ -848,7 +872,7 @@ export default function AccountingPage() {
                 size="small"
                 pagination={false}
                 dataSource={viewJournal.lines}
-                rowKey="id"
+                rowKey={(record, index) => (record as any).id || (record as any).ledgerAccountId || `line-${index}`}
                 columns={[
                   { title: 'Ledger Account', dataIndex: 'ledgerAccountId', key: 'acc', render: (id) => <span className="font-mono font-semibold">{id}</span> },
                   { title: 'Debit (DR)', dataIndex: 'debitAmount', key: 'dr', render: (dr) => dr > 0 ? <span className="font-bold text-emerald-700">{FinancialEngine.formatINR(dr)}</span> : '-' },

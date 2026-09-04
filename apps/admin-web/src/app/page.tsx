@@ -229,7 +229,7 @@ export default function OwnerDashboardPage() {
             </Button>
           )}
 
-          {['SUPER_ADMIN', 'GENERAL_MANAGER', 'BRANCH_MANAGER', 'AUDITOR'].includes(userRole) && (
+          {['SUPER_ADMIN', 'GENERAL_MANAGER', 'BRANCH_MANAGER', 'ACCOUNTANT', 'AUDITOR'].includes(userRole) && (
             <Button
               type="primary"
               icon={<CheckCircleOutlined />}

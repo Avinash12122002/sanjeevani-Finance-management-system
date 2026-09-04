@@ -473,11 +473,13 @@ export default function SettingsPage() {
 
   const handleOpenEditUser = (record: any) => {
     setSelectedUser(record);
+    const userRole = record.role || (Array.isArray(record.roles) ? record.roles[0] : record.roles) || UserRole.LOAN_OFFICER;
     editUserForm.setFieldsValue({
       username: record.username,
       email: record.email,
       mobile: record.mobile,
-      roles: record.roles || [UserRole.LOAN_OFFICER],
+      role: userRole,
+      roles: record.roles || [userRole],
       branchId: record.branchId,
       isActive: record.isActive !== false,
       password: '',
@@ -1745,7 +1747,7 @@ export default function SettingsPage() {
           </Row>
 
           <div className="flex justify-end gap-3 pt-4 border-t border-slate-100">
-            <Button onClick={() => setAddBranchModal(false)}>Cancel</Button>
+            <Button onClick={() => { setAddBranchModal(false); branchForm.resetFields(); }}>Cancel</Button>
             <Button
               type="primary"
               htmlType="submit"
@@ -1767,7 +1769,7 @@ export default function SettingsPage() {
           </div>
         }
         open={editBranchModal}
-        onCancel={() => setEditBranchModal(false)}
+        onCancel={() => { setEditBranchModal(false); editBranchForm.resetFields(); setSelectedBranch(null); }}
         footer={null}
         width={550}
       >
@@ -1827,7 +1829,7 @@ export default function SettingsPage() {
           </Row>
 
           <div className="flex justify-end gap-3 pt-4 border-t border-slate-100">
-            <Button onClick={() => setEditBranchModal(false)}>Cancel</Button>
+            <Button onClick={() => { setEditBranchModal(false); editBranchForm.resetFields(); setSelectedBranch(null); }}>Cancel</Button>
             <Button
               type="primary"
               htmlType="submit"
@@ -1849,7 +1851,7 @@ export default function SettingsPage() {
           </div>
         }
         open={addProductModal}
-        onCancel={() => setAddProductModal(false)}
+        onCancel={() => { setAddProductModal(false); productForm.resetFields(); }}
         footer={null}
         width={600}
       >
@@ -1917,7 +1919,7 @@ export default function SettingsPage() {
           </Row>
 
           <div className="flex justify-end gap-3 pt-4 border-t border-slate-100">
-            <Button onClick={() => setAddProductModal(false)}>Cancel</Button>
+            <Button onClick={() => { setAddProductModal(false); productForm.resetFields(); }}>Cancel</Button>
             <Button
               type="primary"
               htmlType="submit"
@@ -1939,7 +1941,7 @@ export default function SettingsPage() {
           </div>
         }
         open={editProductModal}
-        onCancel={() => setEditProductModal(false)}
+        onCancel={() => { setEditProductModal(false); editProductForm.resetFields(); setSelectedProduct(null); }}
         footer={null}
         width={600}
       >
@@ -2015,7 +2017,7 @@ export default function SettingsPage() {
           </Row>
 
           <div className="flex justify-end gap-3 pt-4 border-t border-slate-100">
-            <Button onClick={() => setEditProductModal(false)}>Cancel</Button>
+            <Button onClick={() => { setEditProductModal(false); editProductForm.resetFields(); setSelectedProduct(null); }}>Cancel</Button>
             <Button
               type="primary"
               htmlType="submit"
@@ -2037,7 +2039,7 @@ export default function SettingsPage() {
           </div>
         }
         open={addUserModal}
-        onCancel={() => setAddUserModal(false)}
+        onCancel={() => { setAddUserModal(false); userForm.resetFields(); }}
         footer={null}
         width={580}
       >
@@ -2108,7 +2110,7 @@ export default function SettingsPage() {
             </Col>
           </Row>
           <div className="flex justify-end gap-3 pt-4 border-t border-slate-100">
-            <Button onClick={() => setAddUserModal(false)}>Cancel</Button>
+            <Button onClick={() => { setAddUserModal(false); userForm.resetFields(); }}>Cancel</Button>
             <Button
               type="primary"
               htmlType="submit"
@@ -2130,7 +2132,7 @@ export default function SettingsPage() {
           </div>
         }
         open={editUserModal}
-        onCancel={() => setEditUserModal(false)}
+        onCancel={() => { setEditUserModal(false); editUserForm.resetFields(); setSelectedUser(null); }}
         footer={null}
         width={580}
       >
@@ -2196,7 +2198,7 @@ export default function SettingsPage() {
             </Col>
           </Row>
           <div className="flex justify-end gap-3 pt-4 border-t border-slate-100">
-            <Button onClick={() => setEditUserModal(false)}>Cancel</Button>
+            <Button onClick={() => { setEditUserModal(false); editUserForm.resetFields(); setSelectedUser(null); }}>Cancel</Button>
             <Button
               type="primary"
               htmlType="submit"

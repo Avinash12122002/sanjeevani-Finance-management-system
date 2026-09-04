@@ -622,7 +622,7 @@ export default function LoansPage() {
       <Modal
         title="Submit Loan Application"
         open={appModalVisible}
-        onCancel={() => setAppModalVisible(false)}
+        onCancel={() => { setAppModalVisible(false); form.resetFields(); }}
         footer={null}
         width={600}
       >
@@ -668,7 +668,7 @@ export default function LoansPage() {
           </Row>
 
           <div className="flex justify-end gap-2 mt-4 pt-4 border-t border-slate-100">
-            <Button onClick={() => setAppModalVisible(false)}>Cancel</Button>
+            <Button onClick={() => { setAppModalVisible(false); form.resetFields(); }}>Cancel</Button>
             <Button type="primary" htmlType="submit" loading={submitting} style={{ background: '#059669', borderColor: '#059669' }}>
               Submit for Credit Review
             </Button>
@@ -680,7 +680,7 @@ export default function LoansPage() {
       <Modal
         title={`Credit Assessment Scoring: ${selectedApp?.applicationNumber}`}
         open={assessmentModalVisible}
-        onCancel={() => setAssessmentModalVisible(false)}
+        onCancel={() => { setAssessmentModalVisible(false); assessmentForm.resetFields(); setSelectedApp(null); }}
         footer={null}
         width={650}
       >
@@ -736,7 +736,7 @@ export default function LoansPage() {
           </Form.Item>
 
           <div className="flex justify-end gap-2 mt-4 pt-4 border-t border-slate-100">
-            <Button onClick={() => setAssessmentModalVisible(false)}>Cancel</Button>
+            <Button onClick={() => { setAssessmentModalVisible(false); assessmentForm.resetFields(); setSelectedApp(null); }}>Cancel</Button>
             <Button type="primary" htmlType="submit" loading={submitting} style={{ background: '#059669', borderColor: '#059669' }}>
               Save Assessment & Forward to BM
             </Button>

@@ -307,7 +307,7 @@ export default function CustomersPage() {
           </div>
         }
         open={createModalVisible}
-        onCancel={() => setCreateModalVisible(false)}
+        onCancel={() => { setCreateModalVisible(false); form.resetFields(); }}
         footer={null}
         width={680}
       >
@@ -404,7 +404,7 @@ export default function CustomersPage() {
           </Row>
 
           <div className="flex justify-end gap-2 mt-4 pt-4 border-t border-slate-100">
-            <Button onClick={() => setCreateModalVisible(false)}>Cancel</Button>
+            <Button onClick={() => { setCreateModalVisible(false); form.resetFields(); }}>Cancel</Button>
             <Button type="primary" htmlType="submit" loading={submitting} style={{ background: '#059669', borderColor: '#059669' }}>
               Create Member Account
             </Button>
@@ -420,7 +420,7 @@ export default function CustomersPage() {
           </div>
         }
         open={editModalVisible}
-        onCancel={() => setEditModalVisible(false)}
+        onCancel={() => { setEditModalVisible(false); editForm.resetFields(); setSelectedCustomer(null); }}
         footer={null}
         width={680}
       >
@@ -504,7 +504,7 @@ export default function CustomersPage() {
           </Row>
 
           <div className="flex justify-end gap-2 mt-4 pt-4 border-t border-slate-100">
-            <Button onClick={() => setEditModalVisible(false)}>Cancel</Button>
+            <Button onClick={() => { setEditModalVisible(false); editForm.resetFields(); setSelectedCustomer(null); }}>Cancel</Button>
             <Button type="primary" htmlType="submit" loading={submitting} style={{ background: '#059669', borderColor: '#059669' }}>
               Save Changes
             </Button>
