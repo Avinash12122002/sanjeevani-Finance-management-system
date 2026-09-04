@@ -39,5 +39,4 @@ Thumbs.db
 *.njsproj
 *.sln
 
-# Database initialization scripts
-init-supabase.sql
+
