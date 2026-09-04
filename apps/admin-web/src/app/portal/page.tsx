@@ -18,6 +18,7 @@ import {
   Tooltip,
   Progress,
   Drawer,
+  Menu,
 } from 'antd';
 import {
   UserOutlined,
@@ -68,7 +69,8 @@ export default function CustomerPortalPage() {
   const [changePassLoading, setChangePassLoading] = useState(false);
   const [hideBalances, setHideBalances] = useState(false);
   const [copiedAccount, setCopiedAccount] = useState<string | null>(null);
-  const [sessionTime, setSessionTime] = useState(900); // 15 min security session
+  const INACTIVITY_TIMEOUT = 300; // 5 minutes inactivity timeout
+  const [sessionTime, setSessionTime] = useState(INACTIVITY_TIMEOUT);
   const [searchTxn, setSearchTxn] = useState('');
   const [filterTxnType, setFilterTxnType] = useState('ALL');
 
@@ -76,10 +78,14 @@ export default function CustomerPortalPage() {
   const [passwordForm] = Form.useForm();
   const router = useRouter();
 
-  const handleLogout = useCallback(() => {
+  const handleLogout = useCallback((reason?: string | React.MouseEvent) => {
     localStorage.removeItem('sfms_customer_token');
     localStorage.removeItem('sfms_customer');
-    message.success('Secure session ended. Signed out successfully.');
+    if (typeof reason === 'string' && reason) {
+      message.warning(reason);
+    } else {
+      message.success('Secure session ended. Signed out successfully.');
+    }
     router.replace('/portal/login');
   }, [router]);
 
@@ -110,19 +116,49 @@ export default function CustomerPortalPage() {
     loadCustomerData();
   }, [loadCustomerData]);
 
-  // 15-Minute Bank Session Auto-Countdown
+  // 5-Minute Inactivity Auto-Timeout with Mouse & Keyboard Activity Detection
   useEffect(() => {
+    let lastActivityTime = Date.now();
+
+    const handleUserActivity = () => {
+      const now = Date.now();
+      // Throttle resetting state to at most once per second
+      if (now - lastActivityTime >= 1000) {
+        lastActivityTime = now;
+        setSessionTime(INACTIVITY_TIMEOUT);
+      }
+    };
+
+    const activityEvents = [
+      'mousemove',
+      'mousedown',
+      'keydown',
+      'scroll',
+      'touchstart',
+      'wheel',
+    ];
+
+    activityEvents.forEach((evt) => {
+      window.addEventListener(evt, handleUserActivity, { passive: true });
+    });
+
     const timer = setInterval(() => {
       setSessionTime((prev) => {
         if (prev <= 1) {
           clearInterval(timer);
-          handleLogout();
+          handleLogout('NetBanking session timed out due to 5 minutes of inactivity for your protection.');
           return 0;
         }
         return prev - 1;
       });
     }, 1000);
-    return () => clearInterval(timer);
+
+    return () => {
+      clearInterval(timer);
+      activityEvents.forEach((evt) => {
+        window.removeEventListener(evt, handleUserActivity);
+      });
+    };
   }, [handleLogout]);
 
   // OTP Resend Cooldown for Change PIN
@@ -319,70 +355,56 @@ export default function CustomerPortalPage() {
       </div>
 
       {/* Nav Menu Items */}
-      <div className="flex-1 overflow-y-auto px-2 py-1 space-y-1">
-        {portalMenuItems.map((item) => {
-          const isActive = activeTab === item.key;
-          return (
-            <button
-              key={item.key}
-              type="button"
-              onClick={() => {
-                setActiveTab(item.key);
-                if (isMobile) setMobileDrawerOpen(false);
-              }}
-              className={`w-full text-left px-3.5 py-3 rounded-lg text-xs sm:text-[13px] font-semibold flex items-center justify-between transition-all cursor-pointer ${
-                isActive
-                  ? 'text-white font-bold shadow-lg'
-                  : 'text-slate-300 hover:text-emerald-400 hover:bg-slate-800/90'
-              }`}
-              style={
-                isActive
-                  ? {
-                      background: 'linear-gradient(135deg, #059669 0%, #047857 100%)',
-                      boxShadow: '0 4px 14px -2px rgba(5, 150, 105, 0.5)',
-                      color: '#ffffff',
-                    }
-                  : {}
-              }
-            >
-              <div className="flex items-center gap-3 min-w-0">
-                <span className={`text-base shrink-0 ${isActive ? 'text-white' : 'text-slate-400'}`}>
-                  {item.icon}
-                </span>
+      <div className="flex-1 overflow-y-auto px-1 py-1.5">
+        <Menu
+          theme="dark"
+          selectedKeys={[activeTab]}
+          mode="inline"
+          items={portalMenuItems.map((item) => ({
+            key: item.key,
+            icon: item.icon,
+            label: (
+              <div className="flex items-center justify-between w-full pr-1">
                 <span className="truncate">{item.label}</span>
+                {typeof item.badge === 'number' && item.badge > 0 ? (
+                  <span className="ml-2 px-1.5 py-0.5 text-[10px] font-bold rounded-full bg-slate-800 text-emerald-400 border border-emerald-500/30">
+                    {item.badge}
+                  </span>
+                ) : null}
               </div>
-              {typeof item.badge === 'number' && item.badge > 0 && (
-                <span
-                  className={`px-2 py-0.5 text-[10px] font-black rounded-full shrink-0 ${
-                    isActive
-                      ? 'bg-white/20 text-white'
-                      : 'bg-slate-800 text-emerald-400 border border-emerald-500/30'
-                  }`}
-                >
-                  {item.badge}
-                </span>
-              )}
-            </button>
-          );
-        })}
+            ),
+          }))}
+          onClick={({ key }) => {
+            setActiveTab(key as BankingTabKey);
+            if (isMobile) setMobileDrawerOpen(false);
+          }}
+          style={{
+            background: 'transparent',
+            borderRight: 0,
+            fontSize: '13px',
+            fontWeight: 500,
+          }}
+        />
       </div>
 
       {/* Sidebar Footer */}
       <div className="p-3 border-t border-slate-800 bg-[#0b1424] space-y-2 shrink-0">
         <div className="p-2.5 rounded-lg bg-slate-800/70 border border-slate-700/50 text-xs">
           <div className="flex items-center justify-between">
-            <span className="text-slate-400 text-[11px]">Auto-Lock Session</span>
-            <span className="font-mono font-bold text-amber-400 text-[11px]">{formatSessionTime(sessionTime)}</span>
+            <span className="text-slate-400 text-[11px]">Auto-Lock (5 min idle)</span>
+            <span className={`font-mono font-bold text-[11px] ${sessionTime < 60 ? 'text-rose-400 animate-pulse' : 'text-amber-400'}`}>
+              {formatSessionTime(sessionTime)}
+            </span>
           </div>
-          <div className="w-full bg-slate-700 h-1 rounded-full overflow-hidden mt-1.5">
+          <div className="w-full bg-slate-700 h-1.5 rounded-full overflow-hidden mt-1.5">
             <div
-              className="bg-emerald-400 h-full transition-all duration-1000"
-              style={{ width: `${Math.min(100, (sessionTime / 900) * 100)}%` }}
+              className={`h-full transition-all duration-1000 ${sessionTime < 60 ? 'bg-rose-500' : 'bg-emerald-400'}`}
+              style={{ width: `${Math.min(100, (sessionTime / INACTIVITY_TIMEOUT) * 100)}%` }}
             />
           </div>
           <div className="mt-2 text-[10px] text-slate-400 flex items-center gap-1">
             <SafetyCertificateFilled className="text-emerald-400" />
-            <span>256-Bit SSL Encrypted</span>
+            <span>Resets on mouse & key activity</span>
           </div>
         </div>
 
@@ -446,8 +468,22 @@ export default function CustomerPortalPage() {
             </div>
           </div>
 
-          {/* Right: Balance Privacy, Security PIN, Helpdesk & Logout */}
+          {/* Right: Inactivity Timer, Balance Privacy, Security PIN, Helpdesk & Logout */}
           <div className="flex items-center gap-2 sm:gap-3">
+            {/* Live 5-Minute Inactivity Auto-Lock Badge */}
+            <div
+              className={`px-3 py-1.5 rounded-xl border text-xs font-semibold flex items-center gap-1.5 transition-all shadow-sm ${
+                sessionTime < 60
+                  ? 'bg-rose-50 text-rose-700 border-rose-300 animate-pulse'
+                  : 'bg-emerald-50 text-emerald-800 border-emerald-300'
+              }`}
+              title="NetBanking session automatically locks after 5 minutes of inactivity for your protection. Resets on mouse movement or typing."
+            >
+              <ClockCircleOutlined className={sessionTime < 60 ? 'text-rose-600 font-bold' : 'text-emerald-600'} />
+              <span className="hidden sm:inline font-medium text-slate-600">Idle Lock:</span>
+              <span className="font-mono font-extrabold">{formatSessionTime(sessionTime)}</span>
+            </div>
+
             {/* Balance Mask/Reveal Toggle Button */}
             <button
               type="button"
