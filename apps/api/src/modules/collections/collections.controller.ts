@@ -85,7 +85,7 @@ export class CollectionsController {
    * 5. Cash Drawer balance update (BR-006)
    */
   @Post('record')
-  recordPayment(
+  async recordPayment(
     @Body()
     body: {
       customerId: string;
@@ -186,7 +186,7 @@ export class CollectionsController {
     };
 
     this.dataStore.transactions.unshift(transaction);
-    this.dataStore.persistTransaction(transaction);
+    await this.dataStore.persistTransaction(transaction);
 
     // 4. Create Digital Receipt (BR-013, SRS §18)
     const receipt: IReceipt = {
@@ -208,14 +208,14 @@ export class CollectionsController {
     };
 
     this.dataStore.receipts.unshift(receipt);
-    this.dataStore.persistReceipt(receipt);
+    await this.dataStore.persistReceipt(receipt);
 
     if (body.loanId) {
       const l = this.dataStore.loans.find((loan) => loan.id === body.loanId);
-      if (l) this.dataStore.persistLoan(l);
+      if (l) await this.dataStore.persistLoan(l);
     } else if (body.accountId) {
       const a = this.dataStore.accounts.find((acc) => acc.id === body.accountId);
-      if (a) this.dataStore.persistAccount(a);
+      if (a) await this.dataStore.persistAccount(a);
     }
 
     // 5. Update Cash Drawer if Payment Mode is CASH (BR-006, SRS §34)
@@ -224,7 +224,7 @@ export class CollectionsController {
       if (drawer) {
         drawer.cashReceived = FinancialEngine.add(drawer.cashReceived, amount);
         drawer.expectedClosingBalance = FinancialEngine.add(drawer.expectedClosingBalance, amount);
-        this.dataStore.persistCashDrawer(drawer);
+        await this.dataStore.persistCashDrawer(drawer);
       }
     }
 
@@ -266,9 +266,12 @@ export class CollectionsController {
       ],
     });
 
-    // Update Chart of Account balances in real time
+    // Update Chart of Account balances in real time and persist to PostgreSQL
     const debitCoa = this.dataStore.chartOfAccounts.find((c) => c.id === debitAccount || c.accountCode === (isCash ? '1010' : '1020'));
-    if (debitCoa) debitCoa.currentBalance = FinancialEngine.add(debitCoa.currentBalance, amount);
+    if (debitCoa) {
+      debitCoa.currentBalance = FinancialEngine.add(debitCoa.currentBalance, amount);
+      await this.dataStore.persistChartOfAccount(debitCoa);
+    }
 
     const creditAccountId = body.loanId ? 'COA-1030' : 'COA-2010';
     const creditCoa = this.dataStore.chartOfAccounts.find((c) => c.id === creditAccountId || c.accountCode === (body.loanId ? '1030' : '2010'));
@@ -278,6 +281,7 @@ export class CollectionsController {
       } else {
         creditCoa.currentBalance = FinancialEngine.add(creditCoa.currentBalance, amount);
       }
+      await this.dataStore.persistChartOfAccount(creditCoa);
     }
 
     this.dataStore.logAudit(

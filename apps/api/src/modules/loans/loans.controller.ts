@@ -259,7 +259,7 @@ export class LoansController {
   // ==========================================
 
   @Post('loan-applications/:id/disburse')
-  disburseLoan(
+  async disburseLoan(
     @Param('id') id: string,
     @Body() body: { paymentMode?: string; referenceNumber?: string },
     @CurrentUser() user: IUser,
@@ -330,7 +330,7 @@ export class LoansController {
     };
 
     this.dataStore.loans.unshift(newLoan);
-    this.dataStore.persistLoan(newLoan);
+    await this.dataStore.persistLoan(newLoan);
 
     // Save installments (BR-008)
     const installments: ILoanInstallment[] = emiCalculation.schedule.map((item) => ({
@@ -388,13 +388,29 @@ export class LoansController {
       ],
     });
 
-    // Update Chart of Accounts balances in real time
+    // Update Chart of Accounts balances in real time and persist
     const loanReceivableCoa = this.dataStore.chartOfAccounts.find((c) => c.id === 'COA-1030' || c.accountCode === '1030');
-    if (loanReceivableCoa) loanReceivableCoa.currentBalance = FinancialEngine.add(loanReceivableCoa.currentBalance, principal);
+    if (loanReceivableCoa) {
+      loanReceivableCoa.currentBalance = FinancialEngine.add(loanReceivableCoa.currentBalance, principal);
+      await this.dataStore.persistChartOfAccount(loanReceivableCoa);
+    }
 
     const disburseSourceId = body.paymentMode === 'CASH' ? 'COA-1010' : 'COA-1020';
     const disburseSourceCoa = this.dataStore.chartOfAccounts.find((c) => c.id === disburseSourceId || c.accountCode === (body.paymentMode === 'CASH' ? '1010' : '1020'));
-    if (disburseSourceCoa) disburseSourceCoa.currentBalance = FinancialEngine.subtract(disburseSourceCoa.currentBalance, principal);
+    if (disburseSourceCoa) {
+      disburseSourceCoa.currentBalance = FinancialEngine.subtract(disburseSourceCoa.currentBalance, principal);
+      await this.dataStore.persistChartOfAccount(disburseSourceCoa);
+    }
+
+    // Update Cash Drawer if disbursed in cash (BR-006)
+    if (body.paymentMode === 'CASH') {
+      const drawer = this.dataStore.cashDrawers.find((d) => d.businessDate === disburseDate && d.status === 'OPEN');
+      if (drawer) {
+        drawer.cashPaid = FinancialEngine.add(drawer.cashPaid, principal);
+        drawer.expectedClosingBalance = FinancialEngine.subtract(drawer.expectedClosingBalance, principal);
+        await this.dataStore.persistCashDrawer(drawer);
+      }
+    }
 
     this.dataStore.logAudit(
       user.id,
@@ -501,7 +517,7 @@ export class LoansController {
   }
 
   @Patch('loans/:id')
-  updateLoan(
+  async updateLoan(
     @Param('id') id: string,
     @Body() body: Partial<ILoan>,
     @CurrentUser() user: IUser,
@@ -520,7 +536,7 @@ export class LoansController {
     if (body.overdueAmount !== undefined) currentLoan.overdueAmount = Number(body.overdueAmount);
     if (body.daysPastDue !== undefined) currentLoan.daysPastDue = Number(body.daysPastDue);
 
-    this.dataStore.persistLoan(currentLoan);
+    await this.dataStore.persistLoan(currentLoan);
 
     this.dataStore.logAudit(
       user.id,
@@ -560,14 +576,14 @@ export class LoansController {
   }
 
   @Delete('loans/:id')
-  deleteLoan(@Param('id') id: string, @CurrentUser() user: IUser) {
+  async deleteLoan(@Param('id') id: string, @CurrentUser() user: IUser) {
     const index = this.dataStore.loans.findIndex((l) => l.id === id || l.loanNumber === id);
     if (index === -1) {
       throw new NotFoundException(`Loan not found: ${id}`);
     }
 
     const removed = this.dataStore.loans.splice(index, 1)[0];
-    this.dataStore.deleteLoan(removed.id);
+    await this.dataStore.deleteLoan(removed.id);
 
     // Remove associated installments
     this.dataStore.loanInstallments = this.dataStore.loanInstallments.filter((i) => i.loanId !== removed.id);

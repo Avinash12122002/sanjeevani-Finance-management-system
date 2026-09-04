@@ -17,6 +17,7 @@ import {
   IUser,
   TransactionType,
   TransactionStatus,
+  PaymentMode,
   ITransaction,
   PaginationParams,
 } from '@sanjeevani/shared-types';
@@ -95,7 +96,7 @@ export class TransactionsController {
    * A counter-acting Reversal Transaction is posted.
    */
   @Post(':id/reverse')
-  reverseTransaction(
+  async reverseTransaction(
     @Param('id') id: string,
     @Body() body: { reason: string },
     @CurrentUser() user: IUser,
@@ -150,8 +151,8 @@ export class TransactionsController {
 
     originalTxn.status = TransactionStatus.REVERSED;
     this.dataStore.transactions.unshift(reversalTxn);
-    this.dataStore.persistTransaction(reversalTxn);
-    this.dataStore.persistTransaction(originalTxn);
+    await this.dataStore.persistTransaction(reversalTxn);
+    await this.dataStore.persistTransaction(originalTxn);
 
     // Rollback loan or account changes with arbitrary decimal precision
     if (originalTxn.loanId) {
@@ -159,13 +160,13 @@ export class TransactionsController {
       if (loan) {
         loan.outstandingPrincipal = FinancialEngine.add(loan.outstandingPrincipal, originalTxn.amount * 0.8);
         loan.totalPaid = Math.max(0, FinancialEngine.subtract(loan.totalPaid, originalTxn.amount));
-        this.dataStore.persistLoan(loan);
+        await this.dataStore.persistLoan(loan);
       }
     } else if (originalTxn.accountId) {
       const acc = this.dataStore.accounts.find((a) => a.id === originalTxn.accountId);
       if (acc) {
         acc.currentBalance = Math.max(0, FinancialEngine.subtract(acc.currentBalance, originalTxn.amount));
-        this.dataStore.persistAccount(acc);
+        await this.dataStore.persistAccount(acc);
       }
     }
 
@@ -197,6 +198,35 @@ export class TransactionsController {
         },
       ],
     });
+
+    // Update Chart of Accounts balances in real time for reversal
+    const debitAccId = originalTxn.loanId ? 'COA-1030' : 'COA-2010';
+    const debitCoa = this.dataStore.chartOfAccounts.find((c) => c.id === debitAccId || c.accountCode === (originalTxn.loanId ? '1030' : '2010'));
+    if (debitCoa) {
+      if (originalTxn.loanId) {
+        debitCoa.currentBalance = FinancialEngine.add(debitCoa.currentBalance, originalTxn.amount);
+      } else {
+        debitCoa.currentBalance = FinancialEngine.subtract(debitCoa.currentBalance, originalTxn.amount);
+      }
+      await this.dataStore.persistChartOfAccount(debitCoa);
+    }
+
+    const isCash = originalTxn.paymentMode === PaymentMode.CASH || !originalTxn.paymentMode;
+    const creditAccId = isCash ? 'COA-1010' : 'COA-1020';
+    const creditCoa = this.dataStore.chartOfAccounts.find((c) => c.id === creditAccId || c.accountCode === (isCash ? '1010' : '1020'));
+    if (creditCoa) {
+      creditCoa.currentBalance = FinancialEngine.subtract(creditCoa.currentBalance, originalTxn.amount);
+      await this.dataStore.persistChartOfAccount(creditCoa);
+    }
+
+    if (isCash) {
+      const drawer = this.dataStore.cashDrawers.find((d) => d.businessDate === today && d.status === 'OPEN');
+      if (drawer) {
+        drawer.cashReceived = Math.max(0, FinancialEngine.subtract(drawer.cashReceived, originalTxn.amount));
+        drawer.expectedClosingBalance = Math.max(0, FinancialEngine.subtract(drawer.expectedClosingBalance, originalTxn.amount));
+        await this.dataStore.persistCashDrawer(drawer);
+      }
+    }
 
     this.dataStore.logAudit(
       user.id,

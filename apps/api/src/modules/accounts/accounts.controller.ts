@@ -78,7 +78,7 @@ export class AccountsController {
   }
 
   @Post()
-  createAccount(
+  async createAccount(
     @Body()
     body: {
       customerId: string;
@@ -165,7 +165,7 @@ export class AccountsController {
     };
 
     this.dataStore.accounts.unshift(newAccount);
-    this.dataStore.persistAccount(newAccount);
+    await this.dataStore.persistAccount(newAccount);
 
     this.dataStore.logAudit(
       user.id || 'USR-001',
@@ -182,7 +182,7 @@ export class AccountsController {
   }
 
   @Patch(':id')
-  updateAccount(
+  async updateAccount(
     @Param('id') id: string,
     @Body() body: Partial<IAccount>,
     @CurrentUser() user: IUser,
@@ -199,7 +199,7 @@ export class AccountsController {
     if (body.currentBalance !== undefined) currentAcc.currentBalance = Number(body.currentBalance);
     currentAcc.updatedAt = new Date().toISOString();
 
-    this.dataStore.persistAccount(currentAcc);
+    await this.dataStore.persistAccount(currentAcc);
 
     this.dataStore.logAudit(
       user.id || 'USR-001',
@@ -216,14 +216,14 @@ export class AccountsController {
   }
 
   @Delete(':id')
-  deleteAccount(@Param('id') id: string, @CurrentUser() user: IUser) {
+  async deleteAccount(@Param('id') id: string, @CurrentUser() user: IUser) {
     const accIndex = this.dataStore.accounts.findIndex((a) => a.id === id || a.accountNumber === id);
     if (accIndex === -1) {
       throw new NotFoundException(`Account not found: ${id}`);
     }
 
     const removed = this.dataStore.accounts.splice(accIndex, 1)[0];
-    this.dataStore.deleteAccount(removed.id);
+    await this.dataStore.deleteAccount(removed.id);
 
     this.dataStore.logAudit(
       user.id || 'USR-001',

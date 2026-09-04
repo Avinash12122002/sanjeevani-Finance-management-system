@@ -33,7 +33,7 @@ export class AccountingController {
   }
 
   @Post('chart-of-accounts')
-  createAccount(@Body() body: Partial<IChartOfAccount>, @CurrentUser() user: IUser) {
+  async createAccount(@Body() body: Partial<IChartOfAccount>, @CurrentUser() user: IUser) {
     if (!body.accountName || !body.accountType) {
       throw new BadRequestException('Account Name and Account Classification are required.');
     }
@@ -52,7 +52,7 @@ export class AccountingController {
     };
 
     this.dataStore.chartOfAccounts.push(newAccount);
-    this.dataStore.persistChartOfAccount(newAccount);
+    await this.dataStore.persistChartOfAccount(newAccount);
 
     this.dataStore.logAudit(
       user.id,
@@ -69,7 +69,7 @@ export class AccountingController {
   }
 
   @Patch('chart-of-accounts/:id')
-  updateAccount(
+  async updateAccount(
     @Param('id') id: string,
     @Body() body: Partial<IChartOfAccount>,
     @CurrentUser() user: IUser,
@@ -87,7 +87,7 @@ export class AccountingController {
     if (body.description) currentAcc.description = body.description;
     if (body.isActive !== undefined) currentAcc.isActive = body.isActive;
 
-    this.dataStore.persistChartOfAccount(currentAcc);
+    await this.dataStore.persistChartOfAccount(currentAcc);
 
     this.dataStore.logAudit(
       user.id,
@@ -104,14 +104,14 @@ export class AccountingController {
   }
 
   @Delete('chart-of-accounts/:id')
-  deleteAccount(@Param('id') id: string, @CurrentUser() user: IUser) {
+  async deleteAccount(@Param('id') id: string, @CurrentUser() user: IUser) {
     const accIndex = this.dataStore.chartOfAccounts.findIndex((a) => a.id === id || a.accountCode === id);
     if (accIndex === -1) {
       throw new NotFoundException(`Chart of Account not found: ${id}`);
     }
 
     const removed = this.dataStore.chartOfAccounts.splice(accIndex, 1)[0];
-    this.dataStore.deleteChartOfAccount(removed.id);
+    await this.dataStore.deleteChartOfAccount(removed.id);
 
     this.dataStore.logAudit(
       user.id,
@@ -138,7 +138,7 @@ export class AccountingController {
    * Strictly enforces SUM(DEBIT) === SUM(CREDIT)
    */
   @Post('journals')
-  createJournalEntry(
+  async createJournalEntry(
     @Body()
     body: {
       description: string;
@@ -200,8 +200,8 @@ export class AccountingController {
 
     this.dataStore.journalEntries.unshift(newJournal);
 
-    // Update Chart of Account balances (BR-016)
-    formattedLines.forEach((line) => {
+    // Update Chart of Account balances (BR-016) and persist to database
+    for (const line of formattedLines) {
       const coa = this.dataStore.chartOfAccounts.find(
         (c) => c.id === line.ledgerAccountId || c.accountCode === line.ledgerAccountCode,
       );
@@ -220,8 +220,9 @@ export class AccountingController {
             line.debitAmount,
           );
         }
+        await this.dataStore.persistChartOfAccount(coa);
       }
-    });
+    }
 
     this.dataStore.logAudit(
       user.id,

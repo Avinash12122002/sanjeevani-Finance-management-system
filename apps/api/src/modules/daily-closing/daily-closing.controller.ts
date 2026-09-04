@@ -87,7 +87,7 @@ export class DailyClosingController {
    * Execute Daily Closing & Business Date Lock (SRS §63, §64, BR-009)
    */
   @Post('execute')
-  executeDailyClosing(
+  async executeDailyClosing(
     @Body() body: { notes?: string },
     @CurrentUser() user: IUser,
   ) {
@@ -137,7 +137,7 @@ export class DailyClosingController {
       closure.closedAt = new Date().toISOString();
     }
 
-    this.dataStore.persistClosure(closure);
+    await this.dataStore.persistClosure(closure);
 
     this.dataStore.logAudit(
       user.id,
@@ -160,7 +160,7 @@ export class DailyClosingController {
    * Privileged Date Reopening with Audit Recording (SRS §64, BR-010)
    */
   @Post('reopen')
-  reopenBusinessDate(
+  async reopenBusinessDate(
     @Body() body: { reason: string; date: string },
     @CurrentUser() user: IUser,
   ) {
@@ -182,7 +182,7 @@ export class DailyClosingController {
     closure.status = BusinessDateStatus.REOPENED;
     closure.reopenedReason = body.reason;
 
-    this.dataStore.persistClosure(closure);
+    await this.dataStore.persistClosure(closure);
 
     this.dataStore.logAudit(
       user.id,

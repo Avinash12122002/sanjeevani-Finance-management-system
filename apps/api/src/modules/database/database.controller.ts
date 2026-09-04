@@ -12,11 +12,14 @@ import {
 } from '@nestjs/common';
 import { DataStoreService } from '../../database/data-store.service';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
+import { RolesGuard } from '../../common/guards/roles.guard';
+import { Roles } from '../../common/decorators/roles.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
-import { IUser } from '@sanjeevani/shared-types';
+import { IUser, UserRole } from '@sanjeevani/shared-types';
 
 @Controller('api/v1/database')
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, RolesGuard)
+@Roles(UserRole.SUPER_ADMIN, UserRole.GENERAL_MANAGER, UserRole.BRANCH_MANAGER)
 export class DatabaseController {
   constructor(private dataStore: DataStoreService) {}
 

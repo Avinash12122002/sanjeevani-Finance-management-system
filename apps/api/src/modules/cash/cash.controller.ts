@@ -52,7 +52,7 @@ export class CashController {
         openedAt: new Date().toISOString(),
       };
       this.dataStore.cashDrawers.unshift(drawer);
-      this.dataStore.persistCashDrawer(drawer);
+      await this.dataStore.persistCashDrawer(drawer);
     }
 
     return drawer;
@@ -100,7 +100,7 @@ export class CashController {
    * Cashier Day Closing & Physical Reconciliation (SRS §33, §34, BR-006)
    */
   @Post('reconcile-close')
-  reconcileAndClose(
+  async reconcileAndClose(
     @Body()
     body: {
       drawerId: string;
@@ -145,7 +145,7 @@ export class CashController {
       });
     }
 
-    this.dataStore.persistCashDrawer(drawer);
+    await this.dataStore.persistCashDrawer(drawer);
 
     this.dataStore.logAudit(
       user.id,

@@ -352,7 +352,7 @@ export class CustomerPortalController {
       };
 
       this.dataStore.customers.unshift(newCustomer);
-      this.dataStore.persistCustomer(newCustomer);
+      await this.dataStore.persistCustomer(newCustomer);
       customer = newCustomer;
 
       // Automatically provision primary Zero-Balance Savings Account
@@ -379,7 +379,7 @@ export class CustomerPortalController {
         updatedAt: new Date().toISOString(),
       };
       this.dataStore.accounts.unshift(newSavingsAccount);
-      this.dataStore.persistAccount(newSavingsAccount);
+      await this.dataStore.persistAccount(newSavingsAccount);
     }
 
     // Store customer's new password in memory & PostgreSQL
@@ -387,6 +387,17 @@ export class CustomerPortalController {
 
     // Issue JWT Token
     const fullName = `${customer.firstName} ${customer.lastName || ''}`.trim();
+
+    this.dataStore.logAudit(
+      customer.id,
+      fullName,
+      'CUSTOMER_REGISTERED',
+      'Customer',
+      customer.id,
+      undefined,
+      { mobile: customer.mobile, customerNumber: customer.customerNumber },
+      `Customer ${fullName} registered/set portal password`,
+    );
     const payload = {
       sub: customer.id,
       customerId: customer.id,
@@ -804,7 +815,18 @@ export class CustomerPortalController {
     };
 
     this.dataStore.complaints.unshift(newComplaint);
-    this.dataStore.persistComplaint(newComplaint);
+    await this.dataStore.persistComplaint(newComplaint);
+
+    this.dataStore.logAudit(
+      customer.id,
+      `${customer.firstName} ${customer.lastName || ''}`.trim(),
+      'COMPLAINT_SUBMITTED',
+      'Complaint',
+      newComplaint.id,
+      undefined,
+      newComplaint,
+      `Customer filed grievance ${complaintNumber}: ${body.category}`,
+    );
 
     return {
       success: true,

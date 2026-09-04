@@ -72,7 +72,7 @@ export class CustomersController {
   }
 
   @Post()
-  createCustomer(@Body() body: Partial<ICustomer>, @CurrentUser() user: IUser) {
+  async createCustomer(@Body() body: Partial<ICustomer>, @CurrentUser() user: IUser) {
     if (!body.firstName || !body.lastName || !body.mobile) {
       throw new BadRequestException('First Name, Last Name and Mobile are required');
     }
@@ -125,7 +125,7 @@ export class CustomersController {
     };
 
     this.dataStore.customers.unshift(newCustomer);
-    this.dataStore.persistCustomer(newCustomer);
+    await this.dataStore.persistCustomer(newCustomer);
 
     if (hasKyc) {
       this.dataStore.kycDocuments.push({
@@ -226,7 +226,7 @@ export class CustomersController {
   }
 
   @Patch(':id')
-  updateCustomer(
+  async updateCustomer(
     @Param('id') id: string,
     @Body() body: Partial<ICustomer> & { updateReason?: string },
     @CurrentUser() user: IUser,
@@ -244,7 +244,7 @@ export class CustomersController {
     };
 
     this.dataStore.customers[index] = updated;
-    this.dataStore.persistCustomer(updated);
+    await this.dataStore.persistCustomer(updated);
 
     this.dataStore.logAudit(
       user.id || 'USR-001',
@@ -261,7 +261,7 @@ export class CustomersController {
   }
 
   @Post(':id/kyc')
-  addKYCDocument(
+  async addKYCDocument(
     @Param('id') id: string,
     @Body() body: { documentType: KYCDocumentType; documentNumber: string; documentUrl: string },
     @CurrentUser() user: IUser,
@@ -285,7 +285,7 @@ export class CustomersController {
 
     this.dataStore.kycDocuments.push(newKyc);
     customer.kycStatus = KYCStatus.VERIFIED;
-    this.dataStore.persistCustomer(customer);
+    await this.dataStore.persistCustomer(customer);
 
     this.dataStore.logAudit(
       user.id || 'USR-001',
@@ -302,14 +302,14 @@ export class CustomersController {
   }
 
   @Delete(':id')
-  deleteCustomer(@Param('id') id: string, @CurrentUser() user: IUser) {
+  async deleteCustomer(@Param('id') id: string, @CurrentUser() user: IUser) {
     const index = this.dataStore.customers.findIndex((c) => c.id === id || c.customerNumber === id);
     if (index === -1) {
       throw new NotFoundException(`Customer not found: ${id}`);
     }
 
     const removed = this.dataStore.customers.splice(index, 1)[0];
-    this.dataStore.deleteCustomer(removed.id);
+    await this.dataStore.deleteCustomer(removed.id);
 
     this.dataStore.logAudit(
       user.id || 'USR-001',

@@ -43,7 +43,7 @@ export class ProductsController {
   }
 
   @Post()
-  createProduct(@Body() body: Partial<IProduct>, @CurrentUser() user: IUser) {
+  async createProduct(@Body() body: Partial<IProduct>, @CurrentUser() user: IUser) {
     if (!body.productName || !body.productType || body.interestRate === undefined) {
       throw new BadRequestException('Product Name, Product Type and Interest Rate are required');
     }
@@ -71,7 +71,7 @@ export class ProductsController {
     };
 
     this.dataStore.products.push(newProduct);
-    this.dataStore.persistProduct(newProduct);
+    await this.dataStore.persistProduct(newProduct);
 
     this.dataStore.logAudit(
       user.id || 'USR-001',
@@ -88,7 +88,7 @@ export class ProductsController {
   }
 
   @Patch(':id')
-  updateProduct(
+  async updateProduct(
     @Param('id') id: string,
     @Body() body: Partial<IProduct>,
     @CurrentUser() user: IUser,
@@ -105,7 +105,7 @@ export class ProductsController {
     };
 
     this.dataStore.products[index] = updated;
-    this.dataStore.persistProduct(updated);
+    await this.dataStore.persistProduct(updated);
 
     this.dataStore.logAudit(
       user.id || 'USR-001',
@@ -122,14 +122,14 @@ export class ProductsController {
   }
 
   @Delete(':id')
-  deleteProduct(@Param('id') id: string, @CurrentUser() user: IUser) {
+  async deleteProduct(@Param('id') id: string, @CurrentUser() user: IUser) {
     const index = this.dataStore.products.findIndex((p) => p.id === id || p.productCode === id);
     if (index === -1) {
       throw new NotFoundException(`Product not found for: ${id}`);
     }
 
     const removed = this.dataStore.products.splice(index, 1)[0];
-    this.dataStore.deleteProduct(removed.id);
+    await this.dataStore.deleteProduct(removed.id);
 
     this.dataStore.logAudit(
       user.id || 'USR-001',

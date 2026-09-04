@@ -35,7 +35,7 @@ export class EmployeesController {
   }
 
   @Post()
-  createEmployee(@Body() body: any, @CurrentUser() user: IUser) {
+  async createEmployee(@Body() body: any, @CurrentUser() user: IUser) {
     const employeeNumber = this.dataStore.nextEmployeeNumber();
     const branch = this.dataStore.branches.find((b) => b.id === body.branchId) || this.dataStore.branches[0];
 
@@ -56,7 +56,7 @@ export class EmployeesController {
     };
 
     this.dataStore.employees.push(newEmp);
-    this.dataStore.persistEmployee(newEmp);
+    await this.dataStore.persistEmployee(newEmp);
 
     // Map designation to UserRole
     let assignedRole: UserRole = UserRole.LOAN_OFFICER;
@@ -85,7 +85,7 @@ export class EmployeesController {
     };
 
     this.dataStore.users.push(newUser);
-    this.dataStore.persistUser(newUser);
+    await this.dataStore.persistUser(newUser);
 
     this.dataStore.logAudit(
       user.id,
@@ -101,7 +101,7 @@ export class EmployeesController {
   }
 
   @Patch(':id')
-  updateEmployee(
+  async updateEmployee(
     @Param('id') id: string,
     @Body() body: any,
     @CurrentUser() user: IUser,
@@ -160,10 +160,10 @@ export class EmployeesController {
         else if (des.includes('ADMIN') || des.includes('DIRECTOR')) assignedRole = UserRole.SUPER_ADMIN;
         associatedUser.roles = [assignedRole];
       }
-      this.dataStore.persistUser(associatedUser);
+      await this.dataStore.persistUser(associatedUser);
     }
 
-    this.dataStore.persistEmployee(currentEmp);
+    await this.dataStore.persistEmployee(currentEmp);
 
     this.dataStore.logAudit(
       user.id,
@@ -180,21 +180,22 @@ export class EmployeesController {
   }
 
   @Delete(':id')
-  deleteEmployee(@Param('id') id: string, @CurrentUser() user: IUser) {
+  async deleteEmployee(@Param('id') id: string, @CurrentUser() user: IUser) {
     const empIndex = this.dataStore.employees.findIndex((e) => e.id === id || e.employeeNumber === id);
     if (empIndex === -1) {
       throw new NotFoundException(`Employee not found: ${id}`);
     }
 
     const removed = this.dataStore.employees.splice(empIndex, 1)[0];
-    this.dataStore.deleteEmployee(removed.id);
+    await this.dataStore.deleteEmployee(removed.id);
 
     // Remove or deactivate associated user
     const userIndex = this.dataStore.users.findIndex(
       (u) => u.employeeId === removed.id || u.mobile === removed.mobile || u.email === removed.email,
     );
     if (userIndex !== -1) {
-      this.dataStore.users.splice(userIndex, 1);
+      const removedUser = this.dataStore.users.splice(userIndex, 1)[0];
+      await this.dataStore.deleteUser(removedUser.id);
     }
 
     this.dataStore.logAudit(

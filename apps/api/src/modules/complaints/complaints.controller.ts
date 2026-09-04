@@ -24,7 +24,7 @@ export class ComplaintsController {
   }
 
   @Post()
-  createComplaint(
+  async createComplaint(
     @Body()
     body: {
       customerId: string;
@@ -51,12 +51,24 @@ export class ComplaintsController {
     };
 
     this.dataStore.complaints.unshift(newComplaint);
-    this.dataStore.persistComplaint(newComplaint);
+    await this.dataStore.persistComplaint(newComplaint);
+
+    this.dataStore.logAudit(
+      user.id,
+      user.employeeName || 'Staff',
+      'COMPLAINT_CREATED',
+      'Complaint',
+      newComplaint.id,
+      undefined,
+      newComplaint,
+      `Registered complaint #${newComplaint.complaintNumber} for customer ${newComplaint.customerNumber}`,
+    );
+
     return newComplaint;
   }
 
   @Patch(':id/resolve')
-  resolveComplaint(
+  async resolveComplaint(
     @Param('id') id: string,
     @Body() body: { resolution: string },
     @CurrentUser() user: IUser,
@@ -64,21 +76,46 @@ export class ComplaintsController {
     const complaint = this.dataStore.complaints.find((c) => c.id === id);
     if (!complaint) throw new NotFoundException('Complaint not found');
 
+    const oldVal = { ...complaint };
     complaint.status = ComplaintStatus.RESOLVED;
     complaint.resolution = body.resolution;
     complaint.resolvedAt = new Date().toISOString();
 
-    this.dataStore.persistComplaint(complaint);
+    await this.dataStore.persistComplaint(complaint);
+
+    this.dataStore.logAudit(
+      user.id,
+      user.employeeName || 'Staff',
+      'COMPLAINT_RESOLVED',
+      'Complaint',
+      complaint.id,
+      oldVal,
+      complaint,
+      `Resolved complaint #${complaint.complaintNumber}: ${body.resolution}`,
+    );
+
     return complaint;
   }
 
   @Delete(':id')
-  deleteComplaint(@Param('id') id: string, @CurrentUser() user: IUser) {
+  async deleteComplaint(@Param('id') id: string, @CurrentUser() user: IUser) {
     const index = this.dataStore.complaints.findIndex((c) => c.id === id || c.complaintNumber === id);
     if (index === -1) throw new NotFoundException('Complaint not found');
 
     const removed = this.dataStore.complaints.splice(index, 1)[0];
-    this.dataStore.deleteComplaint(removed.id);
+    await this.dataStore.deleteComplaint(removed.id);
+
+    this.dataStore.logAudit(
+      user.id,
+      user.employeeName || 'Admin',
+      'COMPLAINT_DELETED',
+      'Complaint',
+      removed.id,
+      removed,
+      undefined,
+      `Deleted complaint ticket #${removed.complaintNumber}`,
+    );
+
     return { message: `Complaint ${removed.complaintNumber} deleted.`, id: removed.id };
   }
 }

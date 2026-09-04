@@ -136,7 +136,9 @@ export class DataStoreService implements OnModuleInit {
         await this.pool.query(CREATE_TABLES_SQL);
         try {
           await this.pool.query('ALTER TABLE customers ADD COLUMN IF NOT EXISTS portal_password TEXT');
-        } catch (_) {}
+        } catch (colErr: any) {
+          this.logger.debug(`Column verification notice: ${colErr?.message}`);
+        }
         this.logger.log('✅ All PostgreSQL database tables & columns verified successfully.');
       } catch (ddlErr: any) {
         this.logger.warn(`Table verification notice (tables may already exist): ${ddlErr.message}`);
@@ -576,16 +578,16 @@ export class DataStoreService implements OnModuleInit {
     // Asynchronously persist to PostgreSQL
     if (this.pool) {
       this.pool.query(
-        `INSERT INTO audit_logs (id, user_id, user_name, action, entity, entity_id, details)
+        `INSERT INTO audit_logs (id, user_id, user_name, action, entity_type, entity_id, details)
          VALUES ($1, $2, $3, $4, $5, $6, $7)`,
         [
           log.id,
           userId || 'SYSTEM',
           userName || 'System',
           eventType,
-          entityType,
+          entityType || 'General',
           entityId || null,
-          reason || JSON.stringify(newValue || {}),
+          JSON.stringify({ reason: reason || '', details: newValue || {} }),
         ],
       ).catch((e) => this.logger.warn(`Failed to persist audit log: ${e.message}`));
     }
@@ -1817,12 +1819,21 @@ export class DataStoreService implements OnModuleInit {
       data.id = `${tableName.slice(0, 3).toUpperCase()}-${Date.now().toString().slice(-6)}`;
     }
 
+    // Sanitize and quote all column identifiers to prevent SQL injection and keyword collisions
+    const validIdentifier = /^[a-zA-Z0-9_]+$/;
+    const keys = Object.keys(data);
+    for (const key of keys) {
+      if (!validIdentifier.test(key)) {
+        throw new Error(`Invalid column identifier: "${key}"`);
+      }
+    }
+
     if (this.pool) {
       try {
-        const keys = Object.keys(data);
+        const quotedKeys = keys.map((k) => `"${k}"`);
         const values = Object.values(data);
         const placeholders = keys.map((_, i) => `$${i + 1}`).join(', ');
-        const query = `INSERT INTO ${tableName} (${keys.join(', ')}) VALUES (${placeholders}) RETURNING *`;
+        const query = `INSERT INTO ${tableName} (${quotedKeys.join(', ')}) VALUES (${placeholders}) RETURNING *`;
         const res = await this.pool.query(query, values);
         await this.loadFromPostgres();
         return res.rows[0];
@@ -1830,6 +1841,22 @@ export class DataStoreService implements OnModuleInit {
         this.logger.error(`Database raw insert failed: ${err.message}`);
         throw err;
       }
+    }
+
+    // In-memory fallback insert
+    switch (tableName) {
+      case 'branches': this.branches.push(data as any); break;
+      case 'users': this.users.push(data as any); break;
+      case 'employees': this.employees.push(data as any); break;
+      case 'customers': this.customers.push(data as any); break;
+      case 'products': this.products.push(data as any); break;
+      case 'accounts': this.accounts.push(data as any); break;
+      case 'loans': this.loans.push(data as any); break;
+      case 'receipts': this.receipts.push(data as any); break;
+      case 'cash_drawers': this.cashDrawers.push(data as any); break;
+      case 'chart_of_accounts': this.chartOfAccounts.push(data as any); break;
+      case 'transactions': this.transactions.push(data as any); break;
+      case 'complaints': this.complaints.push(data as any); break;
     }
 
     return data;
@@ -1840,11 +1867,19 @@ export class DataStoreService implements OnModuleInit {
       throw new Error(`Invalid table name: ${tableName}`);
     }
 
+    // Sanitize and quote all column identifiers
+    const validIdentifier = /^[a-zA-Z0-9_]+$/;
+    const keys = Object.keys(data).filter((k) => k !== 'id');
+    for (const key of keys) {
+      if (!validIdentifier.test(key)) {
+        throw new Error(`Invalid column identifier: "${key}"`);
+      }
+    }
+
     if (this.pool) {
       try {
-        const keys = Object.keys(data).filter((k) => k !== 'id');
         if (keys.length === 0) return { id, ...data };
-        const setClause = keys.map((k, i) => `${k} = $${i + 1}`).join(', ');
+        const setClause = keys.map((k, i) => `"${k}" = $${i + 1}`).join(', ');
         const values = keys.map((k) => data[k]);
         values.push(id);
         const query = `UPDATE ${tableName} SET ${setClause} WHERE id = $${values.length} RETURNING *`;
@@ -1855,6 +1890,26 @@ export class DataStoreService implements OnModuleInit {
         this.logger.error(`Database raw update failed: ${err.message}`);
         throw err;
       }
+    }
+
+    // In-memory fallback update
+    const updateInArr = (arr: any[]) => {
+      const idx = arr.findIndex((item) => item.id === id);
+      if (idx !== -1) arr[idx] = { ...arr[idx], ...data };
+    };
+    switch (tableName) {
+      case 'branches': updateInArr(this.branches); break;
+      case 'users': updateInArr(this.users); break;
+      case 'employees': updateInArr(this.employees); break;
+      case 'customers': updateInArr(this.customers); break;
+      case 'products': updateInArr(this.products); break;
+      case 'accounts': updateInArr(this.accounts); break;
+      case 'loans': updateInArr(this.loans); break;
+      case 'receipts': updateInArr(this.receipts); break;
+      case 'cash_drawers': updateInArr(this.cashDrawers); break;
+      case 'chart_of_accounts': updateInArr(this.chartOfAccounts); break;
+      case 'transactions': updateInArr(this.transactions); break;
+      case 'complaints': updateInArr(this.complaints); break;
     }
 
     return { id, ...data };

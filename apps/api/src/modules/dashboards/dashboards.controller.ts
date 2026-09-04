@@ -59,7 +59,7 @@ export class DashboardsController {
 
     // 4. Dynamic Branch Performance
     const branchPerformance = this.dataStore.branches.map((b) => ({
-      branch: b.name.split('-')[0].trim(),
+      branch: (b.name || 'Branch').split('-')[0].trim(),
       collection: this.dataStore.transactions.filter((t) => t.branchId === b.id).reduce((sum, t) => sum + (t.amount || 0), 0),
       loans: this.dataStore.loans.filter((l) => l.branchId === b.id).reduce((sum, l) => sum + (l.outstandingPrincipal || 0), 0),
       staff: this.dataStore.employees.filter((e) => e.branchId === b.id).length,
@@ -125,7 +125,8 @@ export class DashboardsController {
    * RECOVERY & DELINQUENCY CASES (SRS §56-§58)
    */
   @Get('recovery/cases')
-  getRecoveryCases() {
+  async getRecoveryCases() {
+    await this.dataStore.refreshIfStale();
     return this.dataStore.recoveryCases;
   }
 }

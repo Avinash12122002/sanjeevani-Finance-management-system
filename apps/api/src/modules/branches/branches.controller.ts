@@ -34,7 +34,7 @@ export class BranchesController {
   }
 
   @Post()
-  createBranch(@Body() body: Partial<IBranch>, @CurrentUser() user: IUser) {
+  async createBranch(@Body() body: Partial<IBranch>, @CurrentUser() user: IUser) {
     const newBranch: IBranch = {
       id: `BR-${Date.now()}`,
       branchCode: `SJF-BR00${this.dataStore.branches.length + 1}`,
@@ -49,7 +49,7 @@ export class BranchesController {
     };
 
     this.dataStore.branches.push(newBranch);
-    this.dataStore.persistBranch(newBranch);
+    await this.dataStore.persistBranch(newBranch);
 
     this.dataStore.logAudit(
       user.id,
@@ -66,7 +66,7 @@ export class BranchesController {
   }
 
   @Patch(':id')
-  updateBranch(
+  async updateBranch(
     @Param('id') id: string,
     @Body() body: Partial<IBranch>,
     @CurrentUser() user: IUser,
@@ -86,7 +86,7 @@ export class BranchesController {
     if (body.phone) currentBranch.phone = body.phone;
     if (body.status) currentBranch.status = body.status;
 
-    this.dataStore.persistBranch(currentBranch);
+    await this.dataStore.persistBranch(currentBranch);
 
     this.dataStore.logAudit(
       user.id,
@@ -103,14 +103,14 @@ export class BranchesController {
   }
 
   @Delete(':id')
-  deleteBranch(@Param('id') id: string, @CurrentUser() user: IUser) {
+  async deleteBranch(@Param('id') id: string, @CurrentUser() user: IUser) {
     const branchIndex = this.dataStore.branches.findIndex((b) => b.id === id || b.branchCode === id);
     if (branchIndex === -1) {
       throw new NotFoundException(`Branch not found: ${id}`);
     }
 
     const removed = this.dataStore.branches.splice(branchIndex, 1)[0];
-    this.dataStore.deleteBranch(removed.id);
+    await this.dataStore.deleteBranch(removed.id);
 
     this.dataStore.logAudit(
       user.id,
