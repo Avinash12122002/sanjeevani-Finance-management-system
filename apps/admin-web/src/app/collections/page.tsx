@@ -17,13 +17,16 @@ import {
   Tabs,
   message,
   Divider,
+  Popconfirm,
 } from 'antd';
 import {
   DollarCircleOutlined,
   PrinterOutlined,
   CheckCircleOutlined,
+  DeleteOutlined,
+  EyeOutlined,
 } from '@ant-design/icons';
-import { fetchApi, postApi } from '@/lib/api-client';
+import { fetchApi, postApi, deleteApi } from '@/lib/api-client';
 import { FinancialEngine } from '@sanjeevani/financial-engine';
 import { IReceipt, PaymentMode } from '@sanjeevani/shared-types';
 
@@ -79,6 +82,20 @@ export default function CollectionsPage() {
       loadData();
     } else {
       message.error(res.message || res.error || 'Failed to record payment');
+    }
+  };
+
+  const handleDeleteReceipt = async (id: string, receiptNo: string) => {
+    try {
+      const res = await deleteApi(`/collections/receipts/${id}`);
+      if (res.success) {
+        message.success(`Digital Receipt [${receiptNo}] voided and removed.`);
+        loadData();
+      } else {
+        message.error(res.message || 'Failed to delete receipt.');
+      }
+    } catch {
+      message.error('An error occurred while deleting receipt.');
     }
   };
 
@@ -169,17 +186,30 @@ export default function CollectionsPage() {
     {
       title: 'Action',
       key: 'action',
+      width: 170,
       render: (_: any, r: IReceipt) => (
-        <Button
-          size="small"
-          icon={<PrinterOutlined />}
-          onClick={() => {
-            setCurrentReceipt(r);
-            setReceiptModalVisible(true);
-          }}
-        >
-          View / Print
-        </Button>
+        <Space size={4}>
+          <Button
+            size="small"
+            icon={<PrinterOutlined />}
+            onClick={() => {
+              setCurrentReceipt(r);
+              setReceiptModalVisible(true);
+            }}
+          >
+            View / Print
+          </Button>
+          <Popconfirm
+            title="Void / Delete Receipt"
+            description={`Delete receipt ${r.receiptNumber}?`}
+            onConfirm={() => handleDeleteReceipt(r.id, r.receiptNumber)}
+            okText="Delete"
+            cancelText="Cancel"
+            okButtonProps={{ danger: true }}
+          >
+            <Button size="small" danger icon={<DeleteOutlined />} />
+          </Popconfirm>
+        </Space>
       ),
     },
   ];

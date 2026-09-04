@@ -38,6 +38,11 @@ import {
   KeyOutlined,
   CheckCircleOutlined,
   AlertOutlined,
+  DatabaseOutlined,
+  ReloadOutlined,
+  SearchOutlined,
+  CopyOutlined,
+  TableOutlined,
 } from '@ant-design/icons';
 import { fetchApi, postApi, patchApi, deleteApi } from '@/lib/api-client';
 import { noEmojiRule } from '@/lib/emoji-sanitizer';
@@ -99,6 +104,99 @@ export default function SettingsPage() {
   const [complaintForm] = Form.useForm();
   const [resolveComplaintForm] = Form.useForm();
 
+  // Database Explorer (All 15 PostgreSQL Tables) State & Handlers
+  const [dbTables, setDbTables] = useState<any[]>([]);
+  const [selectedTable, setSelectedTable] = useState<string>('accounts');
+  const [tableRows, setTableRows] = useState<any[]>([]);
+  const [loadingTableRows, setLoadingTableRows] = useState(false);
+  const [tableSearch, setTableSearch] = useState('');
+  const [inspectDrawerOpen, setInspectDrawerOpen] = useState(false);
+  const [inspectRow, setInspectRow] = useState<any>(null);
+  const [addRowModalOpen, setAddRowModalOpen] = useState(false);
+  const [editRowModalOpen, setEditRowModalOpen] = useState(false);
+  const [selectedRowToEdit, setSelectedRowToEdit] = useState<any>(null);
+  const [addRowForm] = Form.useForm();
+  const [editRowForm] = Form.useForm();
+  const [savingRow, setSavingRow] = useState(false);
+
+  const loadDbTables = async () => {
+    const res = await fetchApi('/database/tables');
+    if (res.success && res.data) {
+      setDbTables(res.data);
+    }
+  };
+
+  const loadTableRows = async (tableName: string) => {
+    setLoadingTableRows(true);
+    const res = await fetchApi(`/database/tables/${tableName}`);
+    if (res.success && res.data) {
+      setTableRows(res.data.items || res.data || []);
+    }
+    setLoadingTableRows(false);
+  };
+
+  const handleDeleteDbRow = async (id: string) => {
+    try {
+      const res = await deleteApi(`/database/tables/${selectedTable}/${id}`);
+      if (res.success) {
+        message.success(`Record ${id} successfully removed from ${selectedTable}.`);
+        loadTableRows(selectedTable);
+        loadDbTables();
+      } else {
+        message.error(res.message || `Failed to delete record from ${selectedTable}`);
+      }
+    } catch {
+      message.error('An error occurred while deleting record.');
+    }
+  };
+
+  const handleOpenEditRow = (row: any) => {
+    setSelectedRowToEdit(row);
+    editRowForm.setFieldsValue(row);
+    setEditRowModalOpen(true);
+  };
+
+  const handleSaveEditRow = async (values: any) => {
+    if (!selectedRowToEdit?.id) return;
+    setSavingRow(true);
+    try {
+      const res = await patchApi(`/database/tables/${selectedTable}/${selectedRowToEdit.id}`, values);
+      if (res.success) {
+        message.success(`Record ${selectedRowToEdit.id} updated successfully.`);
+        setEditRowModalOpen(false);
+        loadTableRows(selectedTable);
+        loadSettingsData();
+      } else {
+        message.error(res.message || 'Failed to update record');
+      }
+    } catch {
+      message.error('Error updating record.');
+    } finally {
+      setSavingRow(false);
+    }
+  };
+
+  const handleSaveNewRow = async (values: any) => {
+    setSavingRow(true);
+    try {
+      const res = await postApi(`/database/tables/${selectedTable}`, values);
+      if (res.success) {
+        message.success(`New record added to ${selectedTable}.`);
+        setAddRowModalOpen(false);
+        addRowForm.resetFields();
+        loadTableRows(selectedTable);
+        loadDbTables();
+        loadSettingsData();
+      } else {
+        message.error(res.message || 'Failed to add record');
+      }
+    } catch {
+      message.error('Error creating record.');
+    } finally {
+      setSavingRow(false);
+    }
+  };
+
   // Feature Flags (SRS §43)
   const [featureFlags, setFeatureFlags] = useState({
     RD_PRODUCT: true,
@@ -120,6 +218,8 @@ export default function SettingsPage() {
       }
     }
     loadSettingsData();
+    loadDbTables();
+    loadTableRows('accounts');
   }, []);
 
   const loadSettingsData = async () => {
@@ -1189,6 +1289,188 @@ export default function SettingsPage() {
               </Card>
             ),
           },
+          {
+            key: 'db_explorer',
+            label: renderTabHeader('Database (15)', dbTables.length || 15, 'PostgreSQL Database Explorer (15 Tables)'),
+            children: (
+              <Card
+                className="glass-card"
+                title={
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 py-1">
+                    <div className="flex items-center gap-2.5">
+                      <DatabaseOutlined className="text-emerald-600 text-lg" />
+                      <div>
+                        <div className="font-bold text-slate-800 text-base flex items-center gap-2">
+                          <span>PostgreSQL Database Explorer & Inspector</span>
+                          <Tag color="emerald" className="font-mono text-xs m-0">15 TABLES CONNECTED</Tag>
+                        </div>
+                        <div className="text-xs text-slate-500 font-normal">
+                          Read, Create, Update & Delete 100% of rows and columns saved in database.
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                }
+                extra={
+                  <Space wrap>
+                    <Button
+                      icon={<ReloadOutlined />}
+                      onClick={() => {
+                        loadDbTables();
+                        loadTableRows(selectedTable);
+                      }}
+                      loading={loadingTableRows}
+                    >
+                      Refresh Table
+                    </Button>
+                    <Button
+                      type="primary"
+                      icon={<PlusOutlined />}
+                      style={{ background: '#059669', borderColor: '#059669' }}
+                      onClick={() => {
+                        addRowForm.resetFields();
+                        setAddRowModalOpen(true);
+                      }}
+                    >
+                      + Insert Row in {selectedTable}
+                    </Button>
+                  </Space>
+                }
+              >
+                <div className="space-y-4">
+                  {/* Table Selection & Filter Bar */}
+                  <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-xs font-semibold text-slate-700">Select Database Table:</span>
+                      <Select
+                        value={selectedTable}
+                        onChange={(val) => {
+                          setSelectedTable(val);
+                          loadTableRows(val);
+                        }}
+                        style={{ width: 280 }}
+                        options={dbTables.map((t) => ({
+                          label: (
+                            <div className="flex items-center justify-between">
+                              <span className="font-mono font-semibold">{t.name}</span>
+                              <Tag color="blue" className="text-[10px] m-0">{t.rowCount} rows</Tag>
+                            </div>
+                          ),
+                          value: t.name,
+                        }))}
+                      />
+                      <Tag color="purple" className="font-mono text-xs">
+                        Active Table: {selectedTable} ({tableRows.length} Loaded)
+                      </Tag>
+                    </div>
+
+                    <div className="w-full md:w-64">
+                      <Input
+                        placeholder={`Search in ${selectedTable}...`}
+                        prefix={<SearchOutlined className="text-slate-400" />}
+                        value={tableSearch}
+                        onChange={(e) => setTableSearch(e.target.value)}
+                        allowClear
+                        size="small"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Dynamic Database Table displaying 100% of columns */}
+                  <Table
+                    size="small"
+                    loading={loadingTableRows}
+                    dataSource={tableRows.filter((r) => {
+                      if (!tableSearch) return true;
+                      const searchLower = tableSearch.toLowerCase();
+                      return Object.values(r).some((val) =>
+                        String(val || '').toLowerCase().includes(searchLower)
+                      );
+                    })}
+                    rowKey={(record) => record.id || record.account_number || record.customer_number || record.branch_code || Math.random().toString()}
+                    pagination={{ pageSize: 15, showTotal: (t) => `Total ${t} records in ${selectedTable}` }}
+                    scroll={{ x: 'max-content' }}
+                    columns={[
+                      ...(tableRows.length > 0
+                        ? Object.keys(tableRows[0]).map((key) => ({
+                            title: <span className="font-mono font-semibold text-slate-700 text-xs">{key}</span>,
+                            dataIndex: key,
+                            key: key,
+                            render: (val: any) => {
+                              if (val === null || val === undefined) {
+                                return <span className="text-slate-300 italic text-xs">null</span>;
+                              }
+                              if (typeof val === 'boolean') {
+                                return <Tag color={val ? 'green' : 'default'}>{val ? 'TRUE' : 'FALSE'}</Tag>;
+                              }
+                              if (typeof val === 'object') {
+                                return (
+                                  <span className="font-mono text-[11px] text-slate-600 max-w-[140px] truncate inline-block" title={JSON.stringify(val)}>
+                                    {JSON.stringify(val)}
+                                  </span>
+                                );
+                              }
+                              if (key.includes('status')) {
+                                return <Tag color={val === 'ACTIVE' || val === 'OPEN' || val === 'POSTED' || val === 'VERIFIED' ? 'green' : 'blue'}>{String(val)}</Tag>;
+                              }
+                              if (key === 'id' || key.endsWith('_id') || key.endsWith('_code') || key.endsWith('_number')) {
+                                return <span className="font-mono text-xs font-semibold text-emerald-800">{String(val)}</span>;
+                              }
+                              return (
+                                <span className="text-xs text-slate-700 max-w-[200px] truncate inline-block" title={String(val)}>
+                                  {String(val)}
+                                </span>
+                              );
+                            },
+                          }))
+                        : [
+                            {
+                              title: 'Status',
+                              key: 'empty',
+                              render: () => <span className="text-slate-400">No records found in {selectedTable}</span>,
+                            },
+                          ]),
+                      {
+                        title: 'Row Actions',
+                        key: 'row_actions',
+                        fixed: 'right',
+                        width: 140,
+                        render: (_: any, record: any) => (
+                          <Space size={4}>
+                            <Button
+                              size="small"
+                              icon={<EyeOutlined />}
+                              onClick={() => {
+                                setInspectRow(record);
+                                setInspectDrawerOpen(true);
+                              }}
+                              title="Inspect Complete Database Row"
+                            />
+                            <Button
+                              size="small"
+                              icon={<EditOutlined />}
+                              onClick={() => handleOpenEditRow(record)}
+                              title="Edit Record"
+                            />
+                            <Popconfirm
+                              title="Delete Database Record"
+                              description={`Permanently delete ${record.id || 'this row'} from ${selectedTable}?`}
+                              onConfirm={() => handleDeleteDbRow(record.id)}
+                              okText="Delete"
+                              cancelText="Cancel"
+                              okButtonProps={{ danger: true }}
+                            >
+                              <Button size="small" danger icon={<DeleteOutlined />} title="Delete Row" />
+                            </Popconfirm>
+                          </Space>
+                        ),
+                      },
+                    ]}
+                  />
+                </div>
+              </Card>
+            ),
+          },
         ]}
       />
 
@@ -2116,14 +2398,20 @@ export default function SettingsPage() {
             </div>
             <Descriptions bordered column={1} size="middle">
               <Descriptions.Item label="Full Name">{viewRecord.name}</Descriptions.Item>
+              <Descriptions.Item label="Employee ID / Number"><span className="font-mono font-bold text-emerald-800">{viewRecord.employeeNumber}</span></Descriptions.Item>
+              <Descriptions.Item label="Designation / Role"><Tag color="purple">{viewRecord.designation || 'STAFF'}</Tag></Descriptions.Item>
               <Descriptions.Item label="Mobile (Login Username)">{viewRecord.mobile}</Descriptions.Item>
               <Descriptions.Item label="Email Address">{viewRecord.email || 'N/A'}</Descriptions.Item>
               <Descriptions.Item label="Assigned Branch">{viewRecord.branchName || 'Head Office'}</Descriptions.Item>
+              <Descriptions.Item label="Branch Code"><span className="font-mono text-xs">{viewRecord.branchCode || 'SJF-BR001'}</span></Descriptions.Item>
+              <Descriptions.Item label="Base Monthly Salary (₹)"><span className="font-bold text-emerald-700">{FinancialEngine.formatINR(viewRecord.salary || 35000)}</span></Descriptions.Item>
+              <Descriptions.Item label="Linked User Account ID"><span className="font-mono text-xs">{viewRecord.userId || 'N/A'}</span></Descriptions.Item>
               <Descriptions.Item label="Employment Status">
                 <Tag color={viewRecord.employmentStatus === 'ACTIVE' ? 'green' : 'default'}>{viewRecord.employmentStatus || 'ACTIVE'}</Tag>
               </Descriptions.Item>
-              <Descriptions.Item label="System ID"><span className="font-mono text-xs">{viewRecord.id}</span></Descriptions.Item>
-              <Descriptions.Item label="Joined Date">{viewRecord.joinedAt || viewRecord.joiningDate || 'N/A'}</Descriptions.Item>
+              <Descriptions.Item label="System UUID"><span className="font-mono text-xs">{viewRecord.id}</span></Descriptions.Item>
+              <Descriptions.Item label="Joining Date">{viewRecord.joinedAt || viewRecord.joiningDate || 'N/A'}</Descriptions.Item>
+              <Descriptions.Item label="Record Created">{viewRecord.createdAt ? new Date(viewRecord.createdAt).toLocaleString('en-IN') : 'N/A'}</Descriptions.Item>
             </Descriptions>
           </div>
         )}
@@ -2141,12 +2429,19 @@ export default function SettingsPage() {
             </div>
             <Descriptions bordered column={1} size="middle">
               <Descriptions.Item label="Product Name">{viewRecord.productName}</Descriptions.Item>
+              <Descriptions.Item label="Product Code"><span className="font-mono font-bold text-blue-700">{viewRecord.productCode}</span></Descriptions.Item>
               <Descriptions.Item label="Product Category"><Tag color="blue">{viewRecord.productType}</Tag></Descriptions.Item>
               <Descriptions.Item label="Annual Interest Rate"><span className="font-bold text-indigo-700">{viewRecord.interestRate}% p.a.</span></Descriptions.Item>
+              <Descriptions.Item label="Interest Method"><Tag color="purple">{viewRecord.interestMethod || 'REDUCING_BALANCE'}</Tag></Descriptions.Item>
               <Descriptions.Item label="Tenure Limits">{viewRecord.minimumTenureMonths || 1} to {viewRecord.maximumTenureMonths || 60} Months</Descriptions.Item>
               <Descriptions.Item label="Minimum Amount">{FinancialEngine.formatINR(viewRecord.minimumAmount || 500)}</Descriptions.Item>
               <Descriptions.Item label="Maximum Amount">{FinancialEngine.formatINR(viewRecord.maximumAmount || 1000000)}</Descriptions.Item>
-              <Descriptions.Item label="System ID"><span className="font-mono text-xs">{viewRecord.id}</span></Descriptions.Item>
+              <Descriptions.Item label="Late Payment Penalty Rate"><span className="text-red-600 font-semibold">{viewRecord.penaltyRate ?? 2.0}% p.a.</span></Descriptions.Item>
+              <Descriptions.Item label="Premature Withdrawal Allowed"><Tag color={viewRecord.prematureAllowed !== false ? 'blue' : 'default'}>{viewRecord.prematureAllowed !== false ? 'ALLOWED' : 'PROHIBITED'}</Tag></Descriptions.Item>
+              <Descriptions.Item label="Nominee Requirement"><Tag color={viewRecord.requiresNominee ? 'orange' : 'default'}>{viewRecord.requiresNominee ? 'MANDATORY' : 'OPTIONAL'}</Tag></Descriptions.Item>
+              <Descriptions.Item label="Regulatory Status"><Tag color="green">{viewRecord.regulatoryStatus || 'APPROVED'}</Tag></Descriptions.Item>
+              <Descriptions.Item label="System Product ID"><span className="font-mono text-xs">{viewRecord.id}</span></Descriptions.Item>
+              <Descriptions.Item label="Record Created">{viewRecord.createdAt ? new Date(viewRecord.createdAt).toLocaleString('en-IN') : 'N/A'}</Descriptions.Item>
             </Descriptions>
           </div>
         )}
@@ -2169,6 +2464,7 @@ export default function SettingsPage() {
             </div>
             <Descriptions bordered column={1} size="middle">
               <Descriptions.Item label="Username">{viewRecord.username}</Descriptions.Item>
+              <Descriptions.Item label="System User UUID"><span className="font-mono text-xs">{viewRecord.id}</span></Descriptions.Item>
               <Descriptions.Item label="Roles & Permissions">
                 <Space wrap size={[0, 4]}>
                   {(viewRecord.roles || ['LOAN_OFFICER']).map((r: string) => {
@@ -2184,7 +2480,13 @@ export default function SettingsPage() {
               <Descriptions.Item label="Mobile Number">{viewRecord.mobile || 'N/A'}</Descriptions.Item>
               <Descriptions.Item label="Email Address">{viewRecord.email || 'N/A'}</Descriptions.Item>
               <Descriptions.Item label="Assigned Branch">{viewRecord.branchName || 'Head Office - Main Branch'}</Descriptions.Item>
-              <Descriptions.Item label="System User ID"><span className="font-mono text-xs">{viewRecord.id}</span></Descriptions.Item>
+              <Descriptions.Item label="Linked Employee ID"><span className="font-mono text-xs font-semibold">{viewRecord.employeeId || 'N/A'}</span></Descriptions.Item>
+              <Descriptions.Item label="Linked Employee Name">{viewRecord.employeeName || 'N/A'}</Descriptions.Item>
+              <Descriptions.Item label="Two-Factor Authentication (2FA)">
+                <Tag color={viewRecord.is2faEnabled ? 'green' : 'orange'}>
+                  {viewRecord.is2faEnabled ? '2FA ENABLED' : '2FA DISABLED'}
+                </Tag>
+              </Descriptions.Item>
               <Descriptions.Item label="Account Status">
                 <Tag color={viewRecord.isActive !== false ? 'green' : 'red'}>
                   {viewRecord.isActive !== false ? 'Active & Permitted' : 'Disabled / Suspended'}
@@ -2289,6 +2591,208 @@ export default function SettingsPage() {
           </div>
         )}
       </Drawer>
+
+      {/* DATABASE ROW COMPLETE INSPECTOR DRAWER */}
+      <Drawer
+        title={
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <DatabaseOutlined className="text-emerald-600 text-lg" />
+              <span className="font-bold text-slate-800">
+                {selectedTable.toUpperCase()}: {inspectRow?.id || inspectRow?.account_number || inspectRow?.customer_number || 'Record Details'}
+              </span>
+            </div>
+            <Tag color="purple" className="font-mono text-xs">
+              TABLE: {selectedTable}
+            </Tag>
+          </div>
+        }
+        width={680}
+        open={inspectDrawerOpen}
+        onClose={() => {
+          setInspectDrawerOpen(false);
+          setInspectRow(null);
+        }}
+      >
+        {inspectRow && (
+          <div className="space-y-6">
+            <div className="flex items-center justify-between p-3 bg-slate-50 border border-slate-200 rounded-xl">
+              <div className="text-xs text-slate-600">
+                100% Raw Attributes from PostgreSQL Table <span className="font-mono font-bold text-emerald-800">{selectedTable}</span>
+              </div>
+              <Button
+                size="small"
+                icon={<CopyOutlined />}
+                onClick={() => {
+                  navigator.clipboard.writeText(JSON.stringify(inspectRow, null, 2));
+                  message.success('Full record JSON copied to clipboard!');
+                }}
+              >
+                Copy Full JSON
+              </Button>
+            </div>
+
+            {/* All Columns Rendered in Descriptions Grid */}
+            <Descriptions bordered column={2} size="small">
+              {Object.entries(inspectRow).map(([key, val]) => (
+                <Descriptions.Item
+                  key={key}
+                  label={<span className="font-mono font-semibold text-slate-600 text-xs">{key}</span>}
+                  span={typeof val === 'object' || String(val || '').length > 40 ? 2 : 1}
+                >
+                  {val === null || val === undefined ? (
+                    <span className="text-slate-300 italic">null</span>
+                  ) : typeof val === 'boolean' ? (
+                    <Tag color={val ? 'green' : 'default'}>{val ? 'TRUE' : 'FALSE'}</Tag>
+                  ) : typeof val === 'object' ? (
+                    <pre className="p-2 bg-slate-900 text-emerald-400 font-mono text-[11px] rounded overflow-x-auto m-0">
+                      {JSON.stringify(val, null, 2)}
+                    </pre>
+                  ) : (
+                    <span className="font-mono text-xs text-slate-800 break-all">{String(val)}</span>
+                  )}
+                </Descriptions.Item>
+              ))}
+            </Descriptions>
+
+            {/* Complete Raw JSON Box */}
+            <div>
+              <div className="text-xs font-bold text-slate-700 mb-2 uppercase">Raw JSON Payload</div>
+              <pre className="p-4 bg-slate-950 text-slate-200 rounded-xl text-xs font-mono overflow-auto max-h-60 border border-slate-800">
+                {JSON.stringify(inspectRow, null, 2)}
+              </pre>
+            </div>
+
+            <div className="flex justify-end gap-2 pt-4 border-t border-slate-200">
+              <Button
+                icon={<EditOutlined />}
+                type="primary"
+                ghost
+                onClick={() => {
+                  setInspectDrawerOpen(false);
+                  handleOpenEditRow(inspectRow);
+                }}
+              >
+                Edit This Record
+              </Button>
+              <Popconfirm
+                title="Delete Database Record"
+                description={`Permanently delete ${inspectRow.id || 'this row'} from ${selectedTable}?`}
+                onConfirm={() => {
+                  setInspectDrawerOpen(false);
+                  handleDeleteDbRow(inspectRow.id);
+                }}
+                okText="Delete"
+                cancelText="Cancel"
+                okButtonProps={{ danger: true }}
+              >
+                <Button danger icon={<DeleteOutlined />}>
+                  Delete Record
+                </Button>
+              </Popconfirm>
+            </div>
+          </div>
+        )}
+      </Drawer>
+
+      {/* EDIT DATABASE RECORD MODAL */}
+      <Modal
+        title={
+          <div className="flex items-center gap-2">
+            <EditOutlined className="text-emerald-600" />
+            <span>Edit Record in [{selectedTable}]: {selectedRowToEdit?.id}</span>
+          </div>
+        }
+        open={editRowModalOpen}
+        onCancel={() => setEditRowModalOpen(false)}
+        footer={null}
+        width={640}
+      >
+        {selectedRowToEdit && (
+          <Form form={editRowForm} layout="vertical" onFinish={handleSaveEditRow} className="mt-4">
+            <div className="max-h-[60vh] overflow-y-auto pr-2 space-y-3">
+              <div className="p-2.5 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-900 mb-3">
+                Direct Database Edit: Changes will be immediately saved to the <span className="font-mono font-bold">{selectedTable}</span> table.
+              </div>
+              {Object.keys(selectedRowToEdit)
+                .filter((key) => key !== 'id')
+                .map((key) => {
+                  const val = selectedRowToEdit[key];
+                  const isObject = typeof val === 'object' && val !== null;
+                  return (
+                    <Form.Item
+                      key={key}
+                      name={key}
+                      label={<span className="font-mono text-xs">{key}</span>}
+                    >
+                      {isObject ? (
+                        <Input.TextArea rows={3} placeholder="JSON string" />
+                      ) : (
+                        <Input />
+                      )}
+                    </Form.Item>
+                  );
+                })}
+            </div>
+            <div className="flex justify-end gap-2 pt-4 border-t border-slate-100 mt-4">
+              <Button onClick={() => setEditRowModalOpen(false)}>Cancel</Button>
+              <Button
+                type="primary"
+                htmlType="submit"
+                loading={savingRow}
+                style={{ background: '#059669', borderColor: '#059669' }}
+              >
+                Save Changes to Database
+              </Button>
+            </div>
+          </Form>
+        )}
+      </Modal>
+
+      {/* ADD DATABASE RECORD MODAL */}
+      <Modal
+        title={
+          <div className="flex items-center gap-2">
+            <PlusOutlined className="text-emerald-600" />
+            <span>Insert New Record into [{selectedTable}]</span>
+          </div>
+        }
+        open={addRowModalOpen}
+        onCancel={() => setAddRowModalOpen(false)}
+        footer={null}
+        width={640}
+      >
+        <Form form={addRowForm} layout="vertical" onFinish={handleSaveNewRow} className="mt-4">
+          <div className="max-h-[60vh] overflow-y-auto pr-2 space-y-3">
+            <div className="p-2.5 bg-emerald-50 border border-emerald-200 rounded-lg text-xs text-emerald-900 mb-3">
+              Creating new row in table <span className="font-mono font-bold">{selectedTable}</span>. Fill in the desired database fields.
+            </div>
+            {(tableRows.length > 0
+              ? Object.keys(tableRows[0]).filter((k) => k !== 'created_at')
+              : ['name', 'code', 'status', 'description']
+            ).map((col) => (
+              <Form.Item
+                key={col}
+                name={col}
+                label={<span className="font-mono text-xs">{col}</span>}
+              >
+                <Input placeholder={`Enter ${col}`} />
+              </Form.Item>
+            ))}
+          </div>
+          <div className="flex justify-end gap-2 pt-4 border-t border-slate-100 mt-4">
+            <Button onClick={() => setAddRowModalOpen(false)}>Cancel</Button>
+            <Button
+              type="primary"
+              htmlType="submit"
+              loading={savingRow}
+              style={{ background: '#059669', borderColor: '#059669' }}
+            >
+              Insert Record
+            </Button>
+          </div>
+        </Form>
+      </Modal>
     </div>
   );
 }

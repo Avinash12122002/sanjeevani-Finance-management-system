@@ -20,6 +20,7 @@ import { BranchesController } from './modules/branches/branches.controller';
 import { EmployeesController } from './modules/employees/employees.controller';
 import { ComplaintsController } from './modules/complaints/complaints.controller';
 import { CustomerPortalController } from './modules/customer-portal/customer-portal.controller';
+import { DatabaseController } from './modules/database/database.controller';
 import { EmojiSanitizerMiddleware } from './common/middleware/emoji-sanitizer.middleware';
 
 @Module({
@@ -58,6 +59,7 @@ import { EmojiSanitizerMiddleware } from './common/middleware/emoji-sanitizer.mi
     EmployeesController,
     ComplaintsController,
     CustomerPortalController,
+    DatabaseController,
   ],
   providers: [DataStoreService],
   exports: [DataStoreService],

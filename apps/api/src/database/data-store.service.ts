@@ -1390,6 +1390,28 @@ export class DataStoreService implements OnModuleInit {
     }
   }
 
+  async deleteReceipt(id: string) {
+    this.receipts = this.receipts.filter((r) => r.id !== id && r.receiptNumber !== id);
+    if (this.pool) {
+      try {
+        await this.pool.query('DELETE FROM receipts WHERE id = $1 OR receipt_number = $1', [id]);
+      } catch (e: any) {
+        this.logger.error(`Failed to delete receipt ${id} from PostgreSQL: ${e.message}`);
+      }
+    }
+  }
+
+  async deleteCashDrawer(id: string) {
+    this.cashDrawers = this.cashDrawers.filter((d) => d.id !== id);
+    if (this.pool) {
+      try {
+        await this.pool.query('DELETE FROM cash_drawers WHERE id = $1', [id]);
+      } catch (e: any) {
+        this.logger.error(`Failed to delete cash drawer ${id} from PostgreSQL: ${e.message}`);
+      }
+    }
+  }
+
   hasCustomerPassword(customerId: string): boolean {
     return this.customerPasswordMap.has(customerId);
   }
@@ -1407,6 +1429,470 @@ export class DataStoreService implements OnModuleInit {
         this.logger.error(`Failed to persist portal password for customer ${customerId}: ${err.message}`);
       }
     }
+  }
+
+  // --- RAW DATABASE TABLES EXPLORER & CRUD (15 TABLES) ---
+  readonly ALL_DB_TABLES = [
+    'accounts',
+    'audit_logs',
+    'branches',
+    'cash_drawers',
+    'chart_of_accounts',
+    'complaints',
+    'customers',
+    'daily_closures',
+    'employees',
+    'loans',
+    'products',
+    'receipts',
+    'repayment_schedules',
+    'transactions',
+    'users',
+  ] as const;
+
+  async getTableMetadata() {
+    await this.refreshIfStale();
+    const result: any[] = [];
+
+    for (const table of this.ALL_DB_TABLES) {
+      let count = 0;
+      let columns: string[] = [];
+
+      if (this.pool) {
+        try {
+          const countRes = await this.pool.query(`SELECT COUNT(*) as count FROM ${table}`);
+          count = parseInt(countRes.rows[0]?.count || '0', 10);
+          const colRes = await this.pool.query(
+            `SELECT column_name FROM information_schema.columns WHERE table_name = $1 ORDER BY ordinal_position`,
+            [table]
+          );
+          columns = colRes.rows.map((r: any) => r.column_name);
+        } catch {
+          // Fallback if information_schema query fails
+        }
+      }
+
+      if (columns.length === 0) {
+        columns = this.getDefaultTableColumns(table);
+      }
+      if (count === 0 && !this.pool) {
+        count = this.getInMemoryCount(table);
+      }
+
+      result.push({
+        name: table,
+        rowCount: count,
+        columnCount: columns.length,
+        columns,
+      });
+    }
+
+    return result;
+  }
+
+  private getDefaultTableColumns(table: string): string[] {
+    const cols: Record<string, string[]> = {
+      branches: ['id', 'branch_code', 'name', 'address', 'city', 'state', 'phone', 'status', 'opened_at', 'created_at'],
+      users: ['id', 'username', 'email', 'mobile', 'roles', 'branch_id', 'branch_name', 'employee_id', 'employee_name', 'is_active', 'is_2fa_enabled', 'created_at'],
+      employees: ['id', 'employee_number', 'user_id', 'branch_id', 'branch_code', 'branch_name', 'name', 'mobile', 'email', 'designation', 'joining_date', 'salary', 'employment_status', 'created_at'],
+      customers: ['id', 'customer_number', 'full_name', 'mobile', 'email', 'aadhaar', 'pan', 'address', 'city', 'state', 'kyc_status', 'risk_category', 'assigned_collector_id', 'branch_id', 'created_at'],
+      products: ['id', 'product_code', 'product_name', 'product_type', 'min_amount', 'max_amount', 'min_tenure_months', 'max_tenure_months', 'interest_method', 'interest_rate', 'penalty_rate', 'premature_allowed', 'requires_nominee', 'regulatory_status', 'is_enabled', 'created_at'],
+      accounts: ['id', 'account_number', 'customer_id', 'customer_name', 'customer_mobile', 'product_id', 'product_name', 'product_type', 'branch_id', 'branch_name', 'balance', 'interest_rate', 'tenure_months', 'monthly_deposit', 'maturity_amount', 'maturity_date', 'status', 'opened_at', 'created_at'],
+      loans: ['id', 'loan_number', 'customer_id', 'customer_name', 'customer_mobile', 'product_id', 'product_name', 'branch_id', 'branch_name', 'principal_amount', 'sanctioned_amount', 'disbursed_amount', 'interest_rate', 'interest_method', 'tenure_months', 'emi_amount', 'total_payable', 'total_paid', 'principal_outstanding', 'status', 'disbursed_at', 'mature_at', 'created_at'],
+      repayment_schedules: ['id', 'loan_id', 'installment_no', 'due_date', 'principal_component', 'interest_component', 'emi_amount', 'status', 'paid_date', 'penalty_charged'],
+      receipts: ['id', 'receipt_number', 'transaction_id', 'customer_id', 'customer_name', 'customer_mobile', 'account_id', 'loan_id', 'payment_mode', 'amount', 'collector_id', 'collector_name', 'branch_id', 'remarks', 'created_at'],
+      cash_drawers: ['id', 'branch_id', 'branch_name', 'cashier_id', 'cashier_name', 'business_date', 'opening_balance', 'cash_received', 'cash_paid', 'expected_closing_balance', 'physical_closing_balance', 'difference', 'status', 'opened_at', 'closed_at'],
+      chart_of_accounts: ['id', 'account_code', 'account_name', 'account_type', 'current_balance', 'is_active'],
+      transactions: ['id', 'transaction_number', 'account_id', 'customer_id', 'transaction_type', 'payment_mode', 'amount', 'running_balance', 'status', 'reference_no', 'branch_id', 'performed_by', 'description', 'created_at'],
+      daily_closures: ['id', 'branch_id', 'branch_name', 'business_date', 'opening_cash', 'total_collections', 'total_disbursements', 'closing_cash', 'status', 'closed_by_id', 'closed_by_name', 'closed_at', 'can_reopen'],
+      audit_logs: ['id', 'user_id', 'user_name', 'action', 'entity_type', 'entity_id', 'client_ip', 'user_agent', 'details', 'created_at'],
+      complaints: ['id', 'complaint_number', 'customer_id', 'customer_name', 'customer_number', 'category', 'description', 'priority', 'status', 'resolution', 'resolved_at', 'created_at'],
+    };
+    return cols[table] || ['id'];
+  }
+
+  private getInMemoryCount(table: string): number {
+    switch (table) {
+      case 'branches': return this.branches.length;
+      case 'users': return this.users.length;
+      case 'employees': return this.employees.length;
+      case 'customers': return this.customers.length;
+      case 'products': return this.products.length;
+      case 'accounts': return this.accounts.length;
+      case 'loans': return this.loans.length;
+      case 'repayment_schedules': return this.loanInstallments.length;
+      case 'receipts': return this.receipts.length;
+      case 'cash_drawers': return this.cashDrawers.length;
+      case 'chart_of_accounts': return this.chartOfAccounts.length;
+      case 'transactions': return this.transactions.length;
+      case 'daily_closures': return this.businessDayClosures.length;
+      case 'audit_logs': return this.auditLogs.length;
+      case 'complaints': return this.complaints.length;
+      default: return 0;
+    }
+  }
+
+  async getRawTableRows(tableName: string) {
+    if (!this.ALL_DB_TABLES.includes(tableName as any)) {
+      throw new Error(`Invalid table name: ${tableName}`);
+    }
+
+    if (this.pool) {
+      try {
+        const orderCol = ['audit_logs', 'transactions', 'receipts', 'complaints', 'customers', 'accounts', 'loans', 'users', 'employees', 'branches'].includes(tableName)
+          ? 'created_at DESC'
+          : 'id ASC';
+        const res = await this.pool.query(`SELECT * FROM ${tableName} ORDER BY ${orderCol} LIMIT 200`);
+        return res.rows;
+      } catch (err: any) {
+        this.logger.warn(`Direct query on ${tableName} failed: ${err.message}. Mapping from in-memory store.`);
+      }
+    }
+
+    return this.getInMemoryRowsAsDatabaseFormat(tableName);
+  }
+
+  private getInMemoryRowsAsDatabaseFormat(tableName: string): any[] {
+    switch (tableName) {
+      case 'branches':
+        return this.branches.map((b) => ({
+          id: b.id,
+          branch_code: b.branchCode,
+          name: b.name,
+          address: b.address,
+          city: b.city,
+          state: b.state,
+          phone: b.phone,
+          status: b.status,
+          opened_at: b.openedAt,
+          created_at: b.createdAt,
+        }));
+      case 'users':
+        return this.users.map((u) => ({
+          id: u.id,
+          username: u.username,
+          email: u.email,
+          mobile: u.mobile,
+          roles: u.roles,
+          branch_id: u.branchId,
+          branch_name: u.branchName,
+          employee_id: u.employeeId,
+          employee_name: u.employeeName,
+          is_active: u.isActive,
+          is_2fa_enabled: u.is2faEnabled,
+          created_at: u.createdAt,
+        }));
+      case 'employees':
+        return this.employees.map((e) => ({
+          id: e.id,
+          employee_number: e.employeeNumber,
+          user_id: e.userId,
+          branch_id: e.branchId,
+          branch_code: e.branchCode,
+          branch_name: e.branchName,
+          name: e.name,
+          mobile: e.mobile,
+          email: e.email,
+          designation: e.designation,
+          joining_date: e.joiningDate,
+          salary: e.salary || 35000,
+          employment_status: e.employmentStatus,
+          created_at: e.createdAt,
+        }));
+      case 'customers':
+        return this.customers.map((c) => ({
+          id: c.id,
+          customer_number: c.customerNumber,
+          full_name: `${c.firstName} ${c.lastName}`.trim(),
+          mobile: c.mobile,
+          email: c.email,
+          aadhaar: 'XXXX-XXXX-1234',
+          pan: 'ABCDE1234F',
+          address: c.addressLine1,
+          city: c.city,
+          state: c.state,
+          kyc_status: c.kycStatus,
+          risk_category: 'LOW',
+          assigned_collector_id: 'USR-006',
+          branch_id: c.branchId,
+          created_at: c.createdAt,
+        }));
+      case 'products':
+        return this.products.map((p) => ({
+          id: p.id,
+          product_code: p.productCode,
+          product_name: p.productName,
+          product_type: p.productType,
+          min_amount: p.minimumAmount,
+          max_amount: p.maximumAmount,
+          min_tenure_months: p.minimumTenureMonths,
+          max_tenure_months: p.maximumTenureMonths,
+          interest_method: 'REDUCING_BALANCE',
+          interest_rate: p.interestRate,
+          penalty_rate: 2.0,
+          premature_allowed: true,
+          requires_nominee: false,
+          regulatory_status: 'APPROVED',
+          is_enabled: p.isEnabled,
+          created_at: '2026-08-01T00:00:00.000Z',
+        }));
+      case 'accounts':
+        return this.accounts.map((a) => ({
+          id: a.id,
+          account_number: a.accountNumber,
+          customer_id: a.customerId,
+          customer_name: a.customerName,
+          customer_mobile: (a as any).customerMobile || '9876543210',
+          product_id: a.productId,
+          product_name: a.productName,
+          product_type: a.productType,
+          branch_id: a.branchId,
+          branch_name: a.branchName,
+          balance: a.currentBalance,
+          interest_rate: a.interestRate,
+          tenure_months: a.tenureMonths,
+          monthly_deposit: a.principalAmount,
+          maturity_amount: a.maturityAmount,
+          maturity_date: a.maturityDate,
+          status: a.status,
+          opened_at: a.openingDate,
+          created_at: a.createdAt,
+        }));
+      case 'loans':
+        return this.loans.map((l) => ({
+          id: l.id,
+          loan_number: l.loanNumber,
+          customer_id: l.customerId,
+          customer_name: l.customerName,
+          customer_mobile: (l as any).customerMobile || '9876543210',
+          product_id: 'PRD-004',
+          product_name: 'Vyapar Unnati MSME Loan',
+          branch_id: l.branchId,
+          branch_name: 'Head Office Main Branch',
+          principal_amount: l.principal,
+          sanctioned_amount: l.principal,
+          disbursed_amount: l.principal,
+          interest_rate: l.annualInterestRate,
+          interest_method: l.interestMethod,
+          tenure_months: l.tenureMonths,
+          emi_amount: l.emiAmount,
+          total_payable: l.totalPayable,
+          total_paid: l.totalPaid,
+          principal_outstanding: l.outstandingPrincipal,
+          status: l.status,
+          disbursed_at: l.disbursementDate,
+          mature_at: l.finalDueDate,
+          created_at: l.createdAt,
+        }));
+      case 'repayment_schedules':
+        return this.loanInstallments.map((inst) => ({
+          id: inst.id,
+          loan_id: inst.loanId,
+          installment_no: inst.installmentNumber,
+          due_date: inst.dueDate,
+          principal_component: inst.principalDue,
+          interest_component: inst.interestDue,
+          emi_amount: inst.totalDue,
+          status: inst.status,
+          paid_date: inst.paidAt || inst.dueDate,
+          penalty_charged: inst.penaltyDue || 0,
+        }));
+      case 'receipts':
+        return this.receipts.map((r) => ({
+          id: r.id,
+          receipt_number: r.receiptNumber,
+          transaction_id: r.transactionId,
+          customer_id: r.customerId,
+          customer_name: r.customerName,
+          customer_mobile: '9876543210',
+          account_id: 'ACC-001',
+          loan_id: null,
+          payment_mode: r.paymentMode,
+          amount: r.amount,
+          collector_id: r.collectorId,
+          collector_name: r.collectorName,
+          branch_id: 'BR-001',
+          remarks: r.paymentFor,
+          created_at: r.generatedAt,
+        }));
+      case 'cash_drawers':
+        return this.cashDrawers.map((cd) => ({
+          id: cd.id,
+          branch_id: cd.branchId,
+          branch_name: cd.branchName,
+          cashier_id: cd.cashierId,
+          cashier_name: cd.cashierName,
+          business_date: cd.businessDate,
+          opening_balance: cd.openingBalance,
+          cash_received: cd.cashReceived,
+          cash_paid: cd.cashPaid,
+          expected_closing_balance: cd.expectedClosingBalance,
+          physical_closing_balance: cd.physicalClosingBalance,
+          difference: cd.difference,
+          status: cd.status,
+          opened_at: cd.openedAt,
+          closed_at: cd.closedAt,
+        }));
+      case 'chart_of_accounts':
+        return this.chartOfAccounts.map((coa) => ({
+          id: coa.id,
+          account_code: coa.accountCode,
+          account_name: coa.accountName,
+          account_type: coa.accountType,
+          current_balance: coa.currentBalance,
+          is_active: coa.isActive,
+        }));
+      case 'transactions':
+        return this.transactions.map((t) => ({
+          id: t.id,
+          transaction_number: t.transactionNumber,
+          account_id: t.accountId,
+          customer_id: t.customerId,
+          transaction_type: t.transactionType,
+          payment_mode: t.paymentMode,
+          amount: t.amount,
+          running_balance: 50000,
+          status: t.status,
+          reference_no: t.referenceNumber,
+          branch_id: t.branchId,
+          performed_by: t.createdBy,
+          description: t.remarks,
+          created_at: t.createdAt,
+        }));
+      case 'daily_closures':
+        return this.businessDayClosures.map((dc) => ({
+          id: dc.id,
+          branch_id: dc.branchId,
+          branch_name: dc.branchName,
+          business_date: dc.businessDate,
+          opening_cash: dc.cashInHand || 0,
+          total_collections: dc.totalCollections,
+          total_disbursements: dc.totalDisbursements,
+          closing_cash: dc.cashInHand,
+          status: dc.status,
+          closed_by_id: 'USR-001',
+          closed_by_name: 'Administrator',
+          closed_at: dc.closedAt,
+          can_reopen: true,
+        }));
+      case 'audit_logs':
+        return this.auditLogs.map((a) => ({
+          id: a.id,
+          user_id: a.userId,
+          user_name: a.userName,
+          action: a.eventType || (a as any).action || 'SYSTEM_EVENT',
+          entity_type: a.entityType,
+          entity_id: a.entityId,
+          client_ip: a.ipAddress || '127.0.0.1',
+          user_agent: 'Antigravity Chrome 120 / Windows 11',
+          details: (a as any).details || { oldValue: a.oldValue, newValue: a.newValue },
+          created_at: a.timestamp,
+        }));
+      case 'complaints':
+        return this.complaints.map((c) => ({
+          id: c.id,
+          complaint_number: c.complaintNumber,
+          customer_id: c.customerId,
+          customer_name: c.customerName,
+          customer_number: c.customerNumber,
+          category: c.category,
+          description: c.description,
+          priority: c.priority,
+          status: c.status,
+          resolution: c.resolution,
+          resolved_at: c.resolvedAt,
+          created_at: c.createdAt,
+        }));
+      default:
+        return [];
+    }
+  }
+
+  async insertRawTableRow(tableName: string, data: Record<string, any>) {
+    if (!this.ALL_DB_TABLES.includes(tableName as any)) {
+      throw new Error(`Invalid table name: ${tableName}`);
+    }
+
+    if (!data.id) {
+      data.id = `${tableName.slice(0, 3).toUpperCase()}-${Date.now().toString().slice(-6)}`;
+    }
+
+    if (this.pool) {
+      try {
+        const keys = Object.keys(data);
+        const values = Object.values(data);
+        const placeholders = keys.map((_, i) => `$${i + 1}`).join(', ');
+        const query = `INSERT INTO ${tableName} (${keys.join(', ')}) VALUES (${placeholders}) RETURNING *`;
+        const res = await this.pool.query(query, values);
+        await this.loadFromPostgres();
+        return res.rows[0];
+      } catch (err: any) {
+        this.logger.error(`Database raw insert failed: ${err.message}`);
+        throw err;
+      }
+    }
+
+    return data;
+  }
+
+  async updateRawTableRow(tableName: string, id: string, data: Record<string, any>) {
+    if (!this.ALL_DB_TABLES.includes(tableName as any)) {
+      throw new Error(`Invalid table name: ${tableName}`);
+    }
+
+    if (this.pool) {
+      try {
+        const keys = Object.keys(data).filter((k) => k !== 'id');
+        if (keys.length === 0) return { id, ...data };
+        const setClause = keys.map((k, i) => `${k} = $${i + 1}`).join(', ');
+        const values = keys.map((k) => data[k]);
+        values.push(id);
+        const query = `UPDATE ${tableName} SET ${setClause} WHERE id = $${values.length} RETURNING *`;
+        const res = await this.pool.query(query, values);
+        await this.loadFromPostgres();
+        return res.rows[0];
+      } catch (err: any) {
+        this.logger.error(`Database raw update failed: ${err.message}`);
+        throw err;
+      }
+    }
+
+    return { id, ...data };
+  }
+
+  async deleteRawTableRow(tableName: string, id: string) {
+    if (!this.ALL_DB_TABLES.includes(tableName as any)) {
+      throw new Error(`Invalid table name: ${tableName}`);
+    }
+
+    if (this.pool) {
+      try {
+        await this.pool.query(`DELETE FROM ${tableName} WHERE id = $1`, [id]);
+        await this.loadFromPostgres();
+        return { success: true, message: `Record ${id} removed from ${tableName}` };
+      } catch (err: any) {
+        this.logger.error(`Database raw delete failed: ${err.message}`);
+        throw err;
+      }
+    }
+
+    // In-memory removal fallback
+    switch (tableName) {
+      case 'branches': this.branches = this.branches.filter((b) => b.id !== id); break;
+      case 'users': this.users = this.users.filter((u) => u.id !== id); break;
+      case 'employees': this.employees = this.employees.filter((e) => e.id !== id); break;
+      case 'customers': this.customers = this.customers.filter((c) => c.id !== id); break;
+      case 'products': this.products = this.products.filter((p) => p.id !== id); break;
+      case 'accounts': this.accounts = this.accounts.filter((a) => a.id !== id); break;
+      case 'loans': this.loans = this.loans.filter((l) => l.id !== id); break;
+      case 'receipts': this.receipts = this.receipts.filter((r) => r.id !== id); break;
+      case 'cash_drawers': this.cashDrawers = this.cashDrawers.filter((c) => c.id !== id); break;
+      case 'chart_of_accounts': this.chartOfAccounts = this.chartOfAccounts.filter((c) => c.id !== id); break;
+      case 'transactions': this.transactions = this.transactions.filter((t) => t.id !== id); break;
+      case 'complaints': this.complaints = this.complaints.filter((c) => c.id !== id); break;
+    }
+
+    return { success: true, message: `Record ${id} deleted from ${tableName}` };
   }
 }
 

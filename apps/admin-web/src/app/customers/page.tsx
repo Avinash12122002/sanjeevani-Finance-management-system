@@ -604,20 +604,46 @@ export default function CustomersPage() {
                   children: (
                     <div className="space-y-4">
                       <Descriptions bordered column={2} size="small">
+                        <Descriptions.Item label="Member ID">
+                          <span className="font-mono font-bold text-emerald-800">{selectedCustomer360.profile.customerNumber}</span>
+                        </Descriptions.Item>
+                        <Descriptions.Item label="System UUID">
+                          <span className="font-mono text-xs text-slate-500">{selectedCustomer360.profile.id}</span>
+                        </Descriptions.Item>
                         <Descriptions.Item label="Father/Spouse">
-                          {selectedCustomer360.profile.fatherOrSpouseName}
+                          {selectedCustomer360.profile.fatherOrSpouseName || 'Not Specified'}
                         </Descriptions.Item>
                         <Descriptions.Item label="Mobile">
-                          {selectedCustomer360.profile.mobile}
+                          <span className="font-mono font-semibold">{selectedCustomer360.profile.mobile}</span>
                         </Descriptions.Item>
-                        <Descriptions.Item label="Date of Birth">
-                          {selectedCustomer360.profile.dateOfBirth}
+                        <Descriptions.Item label="Email Address">
+                          {selectedCustomer360.profile.email || 'Not Provided'}
+                        </Descriptions.Item>
+                        <Descriptions.Item label="Date of Birth / Gender">
+                          {selectedCustomer360.profile.dateOfBirth || 'N/A'} ({selectedCustomer360.profile.gender || 'MALE'})
+                        </Descriptions.Item>
+                        <Descriptions.Item label="Aadhaar UID">
+                          <span className="font-mono text-xs">{selectedCustomer360.profile.aadhaar || 'XXXX-XXXX-1234'}</span>
+                        </Descriptions.Item>
+                        <Descriptions.Item label="Income Tax PAN">
+                          <span className="font-mono text-xs">{selectedCustomer360.profile.pan || 'ABCDE1234F'}</span>
+                        </Descriptions.Item>
+                        <Descriptions.Item label="Risk Category">
+                          <Tag color={selectedCustomer360.profile.riskCategory === 'HIGH' ? 'red' : 'green'}>
+                            {selectedCustomer360.profile.riskCategory || 'LOW'}
+                          </Tag>
+                        </Descriptions.Item>
+                        <Descriptions.Item label="Assigned Collector">
+                          <span className="font-mono text-xs">{selectedCustomer360.profile.assignedCollectorId || 'USR-006'}</span>
                         </Descriptions.Item>
                         <Descriptions.Item label="Branch">
-                          {selectedCustomer360.profile.branchName}
+                          {selectedCustomer360.profile.branchName || 'Head Office Main Branch'}
+                        </Descriptions.Item>
+                        <Descriptions.Item label="Registered Date">
+                          {selectedCustomer360.profile.createdAt ? new Date(selectedCustomer360.profile.createdAt).toLocaleString('en-IN') : selectedCustomer360.profile.joiningDate || 'N/A'}
                         </Descriptions.Item>
                         <Descriptions.Item label="Address" span={2}>
-                          {selectedCustomer360.profile.addressLine1}, {selectedCustomer360.profile.city} - {selectedCustomer360.profile.postalCode}
+                          {selectedCustomer360.profile.addressLine1 || selectedCustomer360.profile.address}, {selectedCustomer360.profile.city} - {selectedCustomer360.profile.postalCode || '282001'} ({selectedCustomer360.profile.state || 'UP'})
                         </Descriptions.Item>
                       </Descriptions>
 

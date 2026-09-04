@@ -2,6 +2,8 @@ import {
   Controller,
   Get,
   Post,
+  Delete,
+  Param,
   Body,
   UseGuards,
   NotFoundException,
@@ -300,5 +302,21 @@ export class CollectionsController {
   async getAllReceipts() {
     await this.dataStore.refreshIfStale();
     return this.dataStore.receipts;
+  }
+
+  @Delete('receipts/:id')
+  async deleteReceipt(@Param('id') id: string, @CurrentUser() user: IUser) {
+    await this.dataStore.deleteReceipt(id);
+    this.dataStore.logAudit(
+      user?.id || 'USR-001',
+      user?.employeeName || 'Administrator',
+      'RECEIPT_DELETED',
+      'Receipt',
+      id,
+      undefined,
+      { receiptId: id },
+      `Voided/Deleted digital receipt ${id}`,
+    );
+    return { success: true, message: `Receipt ${id} deleted successfully.` };
   }
 }

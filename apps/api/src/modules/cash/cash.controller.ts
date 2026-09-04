@@ -2,6 +2,8 @@ import {
   Controller,
   Get,
   Post,
+  Delete,
+  Param,
   Body,
   UseGuards,
   NotFoundException,
@@ -160,5 +162,21 @@ export class CashController {
       message: difference === 0 ? 'Cash drawer matched and closed successfully' : 'Cash drawer closed with discrepancy',
       drawer,
     };
+  }
+
+  @Delete(':id')
+  async deleteDrawerSession(@Param('id') id: string, @CurrentUser() user: IUser) {
+    await this.dataStore.deleteCashDrawer(id);
+    this.dataStore.logAudit(
+      user?.id || 'USR-001',
+      user?.employeeName || 'Administrator',
+      'CASH_DRAWER_DELETED',
+      'CashDrawer',
+      id,
+      undefined,
+      { drawerId: id },
+      `Deleted cash drawer session ${id}`,
+    );
+    return { success: true, message: `Cash drawer session ${id} deleted successfully.` };
   }
 }
