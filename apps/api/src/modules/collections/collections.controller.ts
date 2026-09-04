@@ -120,6 +120,7 @@ export class CollectionsController {
 
     let paymentFor = 'General Payment';
     let transactionType = TransactionType.DEPOSIT;
+    let nextInst: any = undefined;
 
     // 1. Process Loan EMI Payment
     if (body.loanId) {
@@ -130,7 +131,7 @@ export class CollectionsController {
       paymentFor = `Loan EMI (${loan.loanNumber})`;
 
       // Update next due installment
-      const nextInst = this.dataStore.loanInstallments.find(
+      nextInst = this.dataStore.loanInstallments.find(
         (i) => i.loanId === loan.id && (i.status === InstallmentStatus.DUE || i.status === InstallmentStatus.UPCOMING),
       );
 
@@ -213,6 +214,7 @@ export class CollectionsController {
     if (body.loanId) {
       const l = this.dataStore.loans.find((loan) => loan.id === body.loanId);
       if (l) await this.dataStore.persistLoan(l);
+      if (nextInst) await this.dataStore.persistLoanInstallment(nextInst);
     } else if (body.accountId) {
       const a = this.dataStore.accounts.find((acc) => acc.id === body.accountId);
       if (a) await this.dataStore.persistAccount(a);

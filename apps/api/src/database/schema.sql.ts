@@ -264,6 +264,21 @@ CREATE TABLE IF NOT EXISTS complaints (
     resolved_at TIMESTAMP WITH TIME ZONE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
+
+-- 16. GENERAL JOURNAL ENTRIES
+CREATE TABLE IF NOT EXISTS journal_entries (
+    id VARCHAR(50) PRIMARY KEY,
+    journal_number VARCHAR(50) UNIQUE NOT NULL,
+    business_date DATE NOT NULL,
+    description TEXT,
+    total_debit NUMERIC(15, 2) NOT NULL,
+    total_credit NUMERIC(15, 2) NOT NULL,
+    status VARCHAR(20) DEFAULT 'POSTED',
+    created_by VARCHAR(50),
+    approved_by VARCHAR(50),
+    lines JSONB,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
 `;
 
 export const SEED_MASTER_DATA_SQL = `

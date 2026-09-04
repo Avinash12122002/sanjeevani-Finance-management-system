@@ -22,6 +22,8 @@ import {
   ProductType,
   RegulatoryStatus,
   PaginationParams,
+  IRDInstallment,
+  InstallmentStatus,
 } from '@sanjeevani/shared-types';
 
 @Controller('api/v1/accounts')
@@ -167,6 +169,27 @@ export class AccountsController {
     this.dataStore.accounts.unshift(newAccount);
     await this.dataStore.persistAccount(newAccount);
 
+    // Generate RD installments schedule if Recurring Deposit
+    if (product.productType === ProductType.RD) {
+      const rdInstallments: IRDInstallment[] = [];
+      for (let i = 1; i <= tenure; i++) {
+        const dueDate = new Date(openingDate);
+        dueDate.setMonth(dueDate.getMonth() + i);
+        rdInstallments.push({
+          id: `RDI-${newAccount.id}-${i}`,
+          rdAccountId: newAccount.id,
+          installmentNumber: i,
+          dueDate: dueDate.toISOString().split('T')[0],
+          amountDue: principal,
+          amountPaid: i === 1 ? principal : 0,
+          paidAt: i === 1 ? openingDateStr : undefined,
+          penaltyDue: 0,
+          status: i === 1 ? InstallmentStatus.PAID : InstallmentStatus.DUE,
+        });
+      }
+      this.dataStore.rdInstallments.push(...rdInstallments);
+    }
+
     this.dataStore.logAudit(
       user.id || 'USR-001',
       user.employeeName || 'Staff',
@@ -224,6 +247,7 @@ export class AccountsController {
 
     const removed = this.dataStore.accounts.splice(accIndex, 1)[0];
     await this.dataStore.deleteAccount(removed.id);
+    this.dataStore.rdInstallments = this.dataStore.rdInstallments.filter((r) => r.rdAccountId !== removed.id && r.rdAccountId !== removed.accountNumber);
 
     this.dataStore.logAudit(
       user.id || 'USR-001',

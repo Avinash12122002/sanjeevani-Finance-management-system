@@ -87,6 +87,18 @@ export class CashController {
     };
     this.dataStore.cashDrawers.unshift(newDrawer);
     await this.dataStore.persistCashDrawer(newDrawer);
+
+    this.dataStore.logAudit(
+      user.id || 'USR-001',
+      user.employeeName || user.username || 'Cashier',
+      'CASH_DRAWER_OPENED',
+      'CashDrawer',
+      newDrawer.id,
+      undefined,
+      newDrawer,
+      `Opened Cash Drawer for ${today} with opening balance ₹ ${opening}`,
+    );
+
     return newDrawer;
   }
 

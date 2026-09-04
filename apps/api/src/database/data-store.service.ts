@@ -216,6 +216,8 @@ export class DataStoreService implements OnModuleInit {
           gender: 'MALE',
           mobile: r.mobile,
           email: r.email || undefined,
+          aadhaar: r.aadhaar || undefined,
+          pan: r.pan || undefined,
           addressLine1: r.address || 'Address not specified',
           city: r.city || 'Agra',
           state: r.state || 'Uttar Pradesh',
@@ -330,8 +332,9 @@ export class DataStoreService implements OnModuleInit {
           amount: Number(r.amount || 0),
           paymentMode: (r.payment_mode as PaymentMode) || PaymentMode.CASH,
           transactionDate: r.created_at ? new Date(r.created_at).toISOString().split('T')[0] : '',
-          status: TransactionStatus.POSTED,
-          createdBy: 'USR-001',
+          status: (r.status as TransactionStatus) || TransactionStatus.POSTED,
+          runningBalance: Number(r.running_balance || 0),
+          createdBy: r.performed_by || 'USR-001',
           referenceNumber: r.reference_no,
           remarks: r.description,
           createdAt: r.created_at ? new Date(r.created_at).toISOString() : '',
@@ -456,6 +459,72 @@ export class DataStoreService implements OnModuleInit {
           ipAddress: r.client_ip || '127.0.0.1',
           timestamp: r.created_at ? new Date(r.created_at).toISOString() : '',
         }));
+      }
+
+      // Repayment Schedules (EMIs)
+      const schedRes = await this.pool.query('SELECT * FROM repayment_schedules ORDER BY installment_no ASC');
+      if (schedRes.rows.length > 0) {
+        this.loanInstallments = schedRes.rows.map((r) => ({
+          id: r.id,
+          loanId: r.loan_id,
+          installmentNumber: r.installment_no,
+          dueDate: r.due_date ? new Date(r.due_date).toISOString().split('T')[0] : '',
+          openingPrincipal: 0,
+          principalDue: Number(r.principal_component || 0),
+          interestDue: Number(r.interest_component || 0),
+          feeDue: 0,
+          penaltyDue: Number(r.penalty_charged || 0),
+          totalDue: Number(r.emi_amount || 0),
+          amountPaid: r.status === 'PAID' ? Number(r.emi_amount || 0) : 0,
+          principalPaid: r.status === 'PAID' ? Number(r.principal_component || 0) : 0,
+          interestPaid: r.status === 'PAID' ? Number(r.interest_component || 0) : 0,
+          closingPrincipal: 0,
+          paidAt: r.paid_date ? new Date(r.paid_date).toISOString() : undefined,
+          status: (r.status as InstallmentStatus) || InstallmentStatus.DUE,
+        }));
+      }
+
+      // Daily Closures / Business Date Locks
+      const closureRes = await this.pool.query('SELECT * FROM daily_closures ORDER BY business_date DESC');
+      if (closureRes.rows.length > 0) {
+        this.businessDayClosures = closureRes.rows.map((r) => ({
+          id: r.id,
+          branchId: r.branch_id || 'BR-001',
+          branchName: r.branch_name || 'Head Office - Main Branch',
+          businessDate: r.business_date ? new Date(r.business_date).toISOString().split('T')[0] : '',
+          openingCash: Number(r.opening_cash || 0),
+          totalCollections: Number(r.total_collections || 0),
+          totalDisbursements: Number(r.total_disbursements || 0),
+          cashInHand: Number(r.closing_cash || 0),
+          bankBalance: 0,
+          mismatchCount: 0,
+          status: (r.status as BusinessDateStatus) || BusinessDateStatus.LOCKED,
+          closedBy: r.closed_by_id,
+          closedByName: r.closed_by_name,
+          closedAt: r.closed_at ? new Date(r.closed_at).toISOString() : '',
+        }));
+      }
+
+      // General Journal Entries
+      try {
+        const jrnRes = await this.pool.query('SELECT * FROM journal_entries ORDER BY created_at DESC LIMIT 100');
+        if (jrnRes.rows.length > 0) {
+          this.journalEntries = jrnRes.rows.map((r) => ({
+            id: r.id,
+            journalNumber: r.journal_number,
+            businessDate: r.business_date ? new Date(r.business_date).toISOString().split('T')[0] : '',
+            description: r.description || '',
+            totalDebit: Number(r.total_debit || 0),
+            totalCredit: Number(r.total_credit || 0),
+            status: r.status || 'POSTED',
+            createdBy: r.created_by,
+            approvedBy: r.approved_by,
+            createdAt: r.created_at ? new Date(r.created_at).toISOString() : '',
+            lines: Array.isArray(r.lines) ? r.lines : typeof r.lines === 'string' ? JSON.parse(r.lines) : [],
+          }));
+        }
+      } catch (_jrnErr) {
+        // Table may not have been created yet if migrating
       }
     } catch (e: any) {
       this.logger.warn(`Could not load initial rows from PostgreSQL: ${e.message}`);
@@ -918,11 +987,14 @@ export class DataStoreService implements OnModuleInit {
     try {
       const fullName = `${c.firstName || ''} ${c.lastName || ''}`.trim() || 'Member';
       await this.pool.query(
-        `INSERT INTO customers (id, customer_number, full_name, mobile, email, address, city, state, kyc_status, risk_category, branch_id)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+        `INSERT INTO customers (id, customer_number, full_name, mobile, email, aadhaar, pan, address, city, state, kyc_status, risk_category, branch_id)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
          ON CONFLICT (id) DO UPDATE SET
            full_name = EXCLUDED.full_name,
            mobile = EXCLUDED.mobile,
+           email = EXCLUDED.email,
+           aadhaar = EXCLUDED.aadhaar,
+           pan = EXCLUDED.pan,
            kyc_status = EXCLUDED.kyc_status,
            address = EXCLUDED.address,
            city = EXCLUDED.city,
@@ -933,6 +1005,8 @@ export class DataStoreService implements OnModuleInit {
           fullName,
           c.mobile,
           c.email || null,
+          (c as any).aadhaar || null,
+          (c as any).pan || null,
           c.addressLine1 || null,
           c.city || null,
           c.state || null,
@@ -1145,9 +1219,10 @@ export class DataStoreService implements OnModuleInit {
   }
 
   async deleteUser(id: string) {
+    this.users = this.users.filter((u) => u.id !== id && u.username !== id);
     if (!this.pool) return;
     try {
-      await this.pool.query('DELETE FROM users WHERE id = $1', [id]);
+      await this.pool.query('DELETE FROM users WHERE id = $1 OR username = $1', [id]);
     } catch (e: any) {
       this.logger.error(`Failed to delete user ${id} from PostgreSQL: ${e.message}`);
     }
@@ -1215,9 +1290,10 @@ export class DataStoreService implements OnModuleInit {
   }
 
   async deleteProduct(id: string) {
+    this.products = this.products.filter((p) => p.id !== id && p.productCode !== id);
     if (!this.pool) return;
     try {
-      await this.pool.query('DELETE FROM products WHERE id = $1', [id]);
+      await this.pool.query('DELETE FROM products WHERE id = $1 OR product_code = $1', [id]);
     } catch (e: any) {
       this.logger.error(`Failed to delete product ${id} from PostgreSQL: ${e.message}`);
     }
@@ -1253,9 +1329,10 @@ export class DataStoreService implements OnModuleInit {
   }
 
   async deleteBranch(id: string) {
+    this.branches = this.branches.filter((b) => b.id !== id && b.branchCode !== id);
     if (!this.pool) return;
     try {
-      await this.pool.query('DELETE FROM branches WHERE id = $1', [id]);
+      await this.pool.query('DELETE FROM branches WHERE id = $1 OR branch_code = $1', [id]);
     } catch (e: any) {
       this.logger.error(`Failed to delete branch ${id} from PostgreSQL: ${e.message}`);
     }
@@ -1293,38 +1370,89 @@ export class DataStoreService implements OnModuleInit {
   }
 
   async deleteEmployee(id: string) {
+    this.employees = this.employees.filter((e) => e.id !== id && e.employeeNumber !== id);
     if (!this.pool) return;
     try {
-      await this.pool.query('DELETE FROM employees WHERE id = $1', [id]);
+      await this.pool.query('DELETE FROM employees WHERE id = $1 OR employee_number = $1', [id]);
     } catch (e: any) {
       this.logger.error(`Failed to delete employee ${id} from PostgreSQL: ${e.message}`);
     }
   }
 
   async deleteAccount(id: string) {
+    this.accounts = this.accounts.filter((a) => a.id !== id && a.accountNumber !== id);
+    this.rdInstallments = this.rdInstallments.filter((r) => r.rdAccountId !== id);
     if (!this.pool) return;
     try {
-      await this.pool.query('DELETE FROM accounts WHERE id = $1', [id]);
+      await this.pool.query('DELETE FROM accounts WHERE id = $1 OR account_number = $1', [id]);
     } catch (e: any) {
       this.logger.error(`Failed to delete account ${id} from PostgreSQL: ${e.message}`);
     }
   }
 
   async deleteCustomer(id: string) {
+    this.customers = this.customers.filter((c) => c.id !== id && c.customerNumber !== id);
+    this.customerPasswordMap.delete(id);
     if (!this.pool) return;
     try {
-      await this.pool.query('DELETE FROM customers WHERE id = $1', [id]);
+      await this.pool.query('DELETE FROM customers WHERE id = $1 OR customer_number = $1', [id]);
     } catch (e: any) {
       this.logger.error(`Failed to delete customer ${id} from PostgreSQL: ${e.message}`);
     }
   }
 
   async deleteLoan(id: string) {
+    this.loans = this.loans.filter((l) => l.id !== id && l.loanNumber !== id);
+    this.loanInstallments = this.loanInstallments.filter((i) => i.loanId !== id);
     if (!this.pool) return;
     try {
-      await this.pool.query('DELETE FROM loans WHERE id = $1', [id]);
+      await this.pool.query('DELETE FROM loans WHERE id = $1 OR loan_number = $1', [id]);
     } catch (e: any) {
       this.logger.error(`Failed to delete loan ${id} from PostgreSQL: ${e.message}`);
+    }
+  }
+
+  async persistLoanInstallment(inst: ILoanInstallment) {
+    if (!this.pool) return;
+    try {
+      await this.pool.query(
+        `INSERT INTO repayment_schedules (id, loan_id, installment_no, due_date, principal_component, interest_component, emi_amount, status, paid_date, penalty_charged)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+         ON CONFLICT (id) DO UPDATE SET
+           status = EXCLUDED.status,
+           paid_date = EXCLUDED.paid_date,
+           penalty_charged = EXCLUDED.penalty_charged`,
+        [
+          inst.id,
+          inst.loanId,
+          inst.installmentNumber,
+          inst.dueDate ? new Date(inst.dueDate) : new Date(),
+          inst.principalDue || 0,
+          inst.interestDue || 0,
+          inst.totalDue || 0,
+          inst.status || 'DUE',
+          inst.paidAt ? new Date(inst.paidAt) : null,
+          inst.penaltyDue || 0,
+        ],
+      );
+    } catch (e: any) {
+      this.logger.error(`Failed to persist loan installment ${inst.id} to PostgreSQL: ${e.message}`);
+    }
+  }
+
+  async persistLoanInstallments(installments: ILoanInstallment[]) {
+    for (const inst of installments) {
+      await this.persistLoanInstallment(inst);
+    }
+  }
+
+  async deleteLoanInstallments(loanId: string) {
+    this.loanInstallments = this.loanInstallments.filter((i) => i.loanId !== loanId);
+    if (!this.pool) return;
+    try {
+      await this.pool.query('DELETE FROM repayment_schedules WHERE loan_id = $1', [loanId]);
+    } catch (e: any) {
+      this.logger.error(`Failed to delete repayment schedules for loan ${loanId} from PostgreSQL: ${e.message}`);
     }
   }
 
@@ -1346,11 +1474,49 @@ export class DataStoreService implements OnModuleInit {
   }
 
   async deleteChartOfAccount(id: string) {
+    this.chartOfAccounts = this.chartOfAccounts.filter((c) => c.id !== id && c.accountCode !== id);
     if (!this.pool) return;
     try {
       await this.pool.query('DELETE FROM chart_of_accounts WHERE id = $1 OR account_code = $1', [id]);
     } catch (e: any) {
       this.logger.error(`Failed to delete COA ${id} from PostgreSQL: ${e.message}`);
+    }
+  }
+
+  async persistJournalEntry(j: IJournalEntry) {
+    if (!this.pool) return;
+    try {
+      await this.pool.query(
+        `INSERT INTO journal_entries (id, journal_number, business_date, description, total_debit, total_credit, status, created_by, approved_by, lines)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+         ON CONFLICT (id) DO UPDATE SET
+           status = EXCLUDED.status,
+           lines = EXCLUDED.lines`,
+        [
+          j.id,
+          j.journalNumber,
+          j.businessDate ? new Date(j.businessDate) : new Date(),
+          j.description || '',
+          j.totalDebit || 0,
+          j.totalCredit || 0,
+          j.status || 'POSTED',
+          j.createdBy || null,
+          j.approvedBy || null,
+          JSON.stringify(j.lines || []),
+        ],
+      );
+    } catch (e: any) {
+      this.logger.error(`Failed to persist journal entry ${j.journalNumber} to PostgreSQL: ${e.message}`);
+    }
+  }
+
+  async deleteJournalEntry(id: string) {
+    this.journalEntries = this.journalEntries.filter((j) => j.id !== id && j.journalNumber !== id);
+    if (!this.pool) return;
+    try {
+      await this.pool.query('DELETE FROM journal_entries WHERE id = $1 OR journal_number = $1', [id]);
+    } catch (e: any) {
+      this.logger.error(`Failed to delete journal entry ${id} from PostgreSQL: ${e.message}`);
     }
   }
 
@@ -1384,9 +1550,10 @@ export class DataStoreService implements OnModuleInit {
   }
 
   async deleteComplaint(id: string) {
+    this.complaints = this.complaints.filter((c) => c.id !== id && c.complaintNumber !== id);
     if (!this.pool) return;
     try {
-      await this.pool.query('DELETE FROM complaints WHERE id = $1', [id]);
+      await this.pool.query('DELETE FROM complaints WHERE id = $1 OR complaint_number = $1', [id]);
     } catch (e: any) {
       this.logger.error(`Failed to delete complaint ${id} from PostgreSQL: ${e.message}`);
     }
@@ -1444,6 +1611,7 @@ export class DataStoreService implements OnModuleInit {
     'customers',
     'daily_closures',
     'employees',
+    'journal_entries',
     'loans',
     'products',
     'receipts',
@@ -1507,6 +1675,7 @@ export class DataStoreService implements OnModuleInit {
       chart_of_accounts: ['id', 'account_code', 'account_name', 'account_type', 'current_balance', 'is_active'],
       transactions: ['id', 'transaction_number', 'account_id', 'customer_id', 'transaction_type', 'payment_mode', 'amount', 'running_balance', 'status', 'reference_no', 'branch_id', 'performed_by', 'description', 'created_at'],
       daily_closures: ['id', 'branch_id', 'branch_name', 'business_date', 'opening_cash', 'total_collections', 'total_disbursements', 'closing_cash', 'status', 'closed_by_id', 'closed_by_name', 'closed_at', 'can_reopen'],
+      journal_entries: ['id', 'journal_number', 'business_date', 'description', 'total_debit', 'total_credit', 'status', 'created_by', 'approved_by', 'lines', 'created_at'],
       audit_logs: ['id', 'user_id', 'user_name', 'action', 'entity_type', 'entity_id', 'client_ip', 'user_agent', 'details', 'created_at'],
       complaints: ['id', 'complaint_number', 'customer_id', 'customer_name', 'customer_number', 'category', 'description', 'priority', 'status', 'resolution', 'resolved_at', 'created_at'],
     };
@@ -1528,6 +1697,7 @@ export class DataStoreService implements OnModuleInit {
       case 'chart_of_accounts': return this.chartOfAccounts.length;
       case 'transactions': return this.transactions.length;
       case 'daily_closures': return this.businessDayClosures.length;
+      case 'journal_entries': return this.journalEntries.length;
       case 'audit_logs': return this.auditLogs.length;
       case 'complaints': return this.complaints.length;
       default: return 0;
@@ -1776,6 +1946,20 @@ export class DataStoreService implements OnModuleInit {
           closed_by_name: 'Administrator',
           closed_at: dc.closedAt,
           can_reopen: true,
+        }));
+      case 'journal_entries':
+        return this.journalEntries.map((j) => ({
+          id: j.id,
+          journal_number: j.journalNumber,
+          business_date: j.businessDate,
+          description: j.description,
+          total_debit: j.totalDebit,
+          total_credit: j.totalCredit,
+          status: j.status,
+          created_by: j.createdBy,
+          approved_by: j.approvedBy,
+          lines: j.lines,
+          created_at: j.createdAt,
         }));
       case 'audit_logs':
         return this.auditLogs.map((a) => ({

@@ -29,6 +29,7 @@ import {
   RecoveryBucket,
   UserRole,
   PaginationParams,
+  IJournalEntry,
 } from '@sanjeevani/shared-types';
 
 @Controller('api/v1')
@@ -352,11 +353,12 @@ export class LoansController {
     }));
 
     this.dataStore.loanInstallments.push(...installments);
+    await this.dataStore.persistLoanInstallments(installments);
     app.status = LoanApplicationStatus.DISBURSED;
 
     // Create Double-Entry Accounting Journal Entry (SRS §38: Dr Loan Receivable, Cr Bank/Cash)
     const journalNumber = this.dataStore.nextJournalNumber();
-    this.dataStore.journalEntries.unshift({
+    const disburseJournal: IJournalEntry = {
       id: `JRN-${Date.now()}`,
       journalNumber,
       businessDate: disburseDate,
@@ -365,9 +367,12 @@ export class LoansController {
       totalCredit: principal,
       status: 'POSTED',
       createdBy: user.id || 'USR-003',
+      approvedBy: user.id,
       createdAt: new Date().toISOString(),
       lines: [
         {
+          id: `JRNL-${Date.now()}-1`,
+          journalEntryId: `JRN-${Date.now()}`,
           ledgerAccountId: 'COA-1030',
           ledgerAccountCode: '1030',
           ledgerAccountName: 'Loan Portfolio Principal Receivable',
@@ -377,6 +382,8 @@ export class LoansController {
           customerId: app.customerId,
         },
         {
+          id: `JRNL-${Date.now()}-2`,
+          journalEntryId: `JRN-${Date.now()}`,
           ledgerAccountId: body.paymentMode === 'CASH' ? 'COA-1010' : 'COA-1020',
           ledgerAccountCode: body.paymentMode === 'CASH' ? '1010' : '1020',
           ledgerAccountName: body.paymentMode === 'CASH' ? 'Cash In Hand' : 'HDFC Bank Operations Account',
@@ -386,7 +393,9 @@ export class LoansController {
           customerId: app.customerId,
         },
       ],
-    });
+    };
+    this.dataStore.journalEntries.unshift(disburseJournal);
+    await this.dataStore.persistJournalEntry(disburseJournal);
 
     // Update Chart of Accounts balances in real time and persist
     const loanReceivableCoa = this.dataStore.chartOfAccounts.find((c) => c.id === 'COA-1030' || c.accountCode === '1030');
@@ -584,9 +593,7 @@ export class LoansController {
 
     const removed = this.dataStore.loans.splice(index, 1)[0];
     await this.dataStore.deleteLoan(removed.id);
-
-    // Remove associated installments
-    this.dataStore.loanInstallments = this.dataStore.loanInstallments.filter((i) => i.loanId !== removed.id);
+    await this.dataStore.deleteLoanInstallments(removed.id);
 
     this.dataStore.logAudit(
       user.id,

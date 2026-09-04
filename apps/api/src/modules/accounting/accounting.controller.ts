@@ -235,7 +235,33 @@ export class AccountingController {
       `Posted Journal ${journalNumber} for ₹ ${balanceCheck.totalDebit}`,
     );
 
+    await this.dataStore.persistJournalEntry(newJournal);
+
     return newJournal;
+  }
+
+  @Delete('journals/:id')
+  async deleteJournalEntry(@Param('id') id: string, @CurrentUser() user: IUser) {
+    const idx = this.dataStore.journalEntries.findIndex((j) => j.id === id || j.journalNumber === id);
+    if (idx === -1) {
+      throw new NotFoundException(`Journal entry not found: ${id}`);
+    }
+
+    const removed = this.dataStore.journalEntries.splice(idx, 1)[0];
+    await this.dataStore.deleteJournalEntry(removed.id);
+
+    this.dataStore.logAudit(
+      user.id,
+      user.employeeName || 'Accountant',
+      'JOURNAL_DELETED',
+      'JournalEntry',
+      removed.id,
+      removed,
+      undefined,
+      `Deleted Journal Entry ${removed.journalNumber}`,
+    );
+
+    return { message: `Journal entry ${removed.journalNumber} removed successfully.`, id: removed.id };
   }
 
   /**
