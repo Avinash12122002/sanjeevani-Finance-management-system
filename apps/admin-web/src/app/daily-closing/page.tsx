@@ -69,7 +69,11 @@ export default function DailyClosingPage() {
 
   const handleReopenDate = async (values: any) => {
     setSubmitting(true);
-    const res = await postApi('/daily-closing/reopen', values);
+    const targetDate = closingData?.currentBusinessDate || closingData?.closure?.businessDate || new Date().toISOString().split('T')[0];
+    const res = await postApi('/daily-closing/reopen', {
+      ...values,
+      date: targetDate,
+    });
     setSubmitting(false);
 
     if (res.success) {
