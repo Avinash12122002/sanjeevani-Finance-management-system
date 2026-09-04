@@ -698,18 +698,27 @@ export default function SettingsPage() {
                   rowKey="id"
                   loading={loading}
                   pagination={{ pageSize: 10 }}
+                  scroll={{ x: 900 }}
+                  onRow={(record) => ({
+                    onClick: (e: any) => {
+                      if (e.target.closest('button') || e.target.closest('.ant-popconfirm') || e.target.closest('.ant-popover')) return;
+                      handleOpenViewDetails(record, 'USER');
+                    },
+                    className: 'cursor-pointer hover:bg-emerald-50/50 transition-colors',
+                  })}
                   columns={[
                     {
                       title: 'Username',
                       key: 'usr',
+                      width: 160,
                       render: (_: any, r: any) => (
                         <div className="flex items-center gap-2">
-                          <div className="w-8 h-8 rounded-full bg-emerald-100 border border-emerald-300 flex items-center justify-center font-bold text-emerald-800 text-xs">
+                          <div className="w-8 h-8 rounded-full bg-emerald-100 border border-emerald-300 flex items-center justify-center font-bold text-emerald-800 text-xs shrink-0">
                             {r.username?.charAt(0)?.toUpperCase()}
                           </div>
-                          <div>
-                            <div className="font-semibold text-slate-800">{r.username}</div>
-                            <div className="text-xs text-slate-400 font-mono">{r.id}</div>
+                          <div className="min-w-0">
+                            <div className="font-semibold text-slate-800 truncate">{r.username}</div>
+                            <div className="text-xs text-slate-400 font-mono truncate">{r.id}</div>
                           </div>
                         </div>
                       ),
@@ -717,6 +726,7 @@ export default function SettingsPage() {
                     {
                       title: 'Roles & Permissions',
                       key: 'roles',
+                      width: 170,
                       render: (_: any, r: any) => (
                         <Space wrap size={[0, 4]}>
                           {(r.roles || ['LOAN_OFFICER']).map((role: string) => {
@@ -733,6 +743,7 @@ export default function SettingsPage() {
                     {
                       title: 'Contact Details',
                       key: 'contact',
+                      width: 180,
                       render: (_: any, r: any) => (
                         <div>
                           <div className="font-mono text-xs text-slate-700">{r.mobile || 'No mobile'}</div>
@@ -744,12 +755,13 @@ export default function SettingsPage() {
                       title: 'Branch',
                       dataIndex: 'branchName',
                       key: 'br',
+                      width: 180,
                       render: (b: string) => b || 'Head Office - Main Branch',
                     },
                     {
                       title: 'Login Status',
                       key: 'status',
-                      width: 100,
+                      width: 110,
                       render: (_: any, r: any) => (
                         <Tag color={r.isActive !== false ? 'success' : 'error'}>
                           {r.isActive !== false ? 'ACTIVE' : 'DISABLED'}
@@ -759,9 +771,15 @@ export default function SettingsPage() {
                     {
                       title: 'Actions',
                       key: 'actions',
-                      width: 140,
+                      width: 150,
                       render: (_: any, record: any) => (
                         <Space size={4}>
+                          <Button
+                            size="small"
+                            icon={<EyeOutlined />}
+                            onClick={() => handleOpenViewDetails(record, 'USER')}
+                            title="View User Account Details"
+                          />
                           <Button
                             size="small"
                             icon={<EditOutlined />}
@@ -989,16 +1007,26 @@ export default function SettingsPage() {
                   rowKey="id"
                   loading={loading}
                   pagination={{ pageSize: 10 }}
+                  scroll={{ x: 1100 }}
+                  onRow={(record) => ({
+                    onClick: (e: any) => {
+                      if (e.target.closest('button') || e.target.closest('.ant-popconfirm') || e.target.closest('.ant-popover')) return;
+                      handleOpenViewDetails(record, 'COMPLAINT');
+                    },
+                    className: 'cursor-pointer hover:bg-emerald-50/50 transition-colors',
+                  })}
                   columns={[
                     {
                       title: 'Ticket #',
                       dataIndex: 'complaintNumber',
                       key: 'num',
+                      width: 140,
                       render: (n: string) => <span className="font-mono font-bold text-emerald-700">{n}</span>,
                     },
                     {
                       title: 'Customer / Member',
                       key: 'cust',
+                      width: 170,
                       render: (_: any, r: any) => (
                         <div>
                           <div className="font-semibold text-slate-800">{r.customerName || 'General Customer'}</div>
@@ -1010,12 +1038,14 @@ export default function SettingsPage() {
                       title: 'Category',
                       dataIndex: 'category',
                       key: 'cat',
+                      width: 150,
                       render: (c: string) => <Tag color="blue">{c || 'Service Request'}</Tag>,
                     },
                     {
                       title: 'Priority',
                       dataIndex: 'priority',
                       key: 'pri',
+                      width: 110,
                       render: (p: string) => {
                         let color = 'default';
                         if (p === 'CRITICAL' || p === 'HIGH') color = 'red';
@@ -1028,6 +1058,7 @@ export default function SettingsPage() {
                       title: 'Status',
                       dataIndex: 'status',
                       key: 'st',
+                      width: 120,
                       render: (s: string) => {
                         let color = 'default';
                         if (s === 'OPEN') color = 'gold';
@@ -1040,21 +1071,40 @@ export default function SettingsPage() {
                       title: 'Issue Description',
                       dataIndex: 'description',
                       key: 'desc',
-                      ellipsis: true,
+                      width: 250,
+                      render: (desc: string) => (
+                        <div className="max-w-[240px] truncate text-xs text-slate-700 font-normal" title={desc}>
+                          {desc || 'No description provided'}
+                        </div>
+                      ),
                     },
                     {
                       title: 'Resolution Notes',
                       dataIndex: 'resolution',
                       key: 'res',
-                      ellipsis: true,
-                      render: (r: string) => r ? <span className="text-emerald-700 font-medium">{r}</span> : <span className="text-slate-400 italic">Pending</span>,
+                      width: 220,
+                      render: (r: string) =>
+                        r ? (
+                          <div className="max-w-[210px] truncate text-xs text-emerald-700 font-medium" title={r}>
+                            {r}
+                          </div>
+                        ) : (
+                          <span className="text-slate-400 italic text-xs">Pending</span>
+                        ),
                     },
                     {
                       title: 'Actions',
                       key: 'actions',
-                      width: 140,
+                      width: 160,
+                      fixed: 'right',
                       render: (_: any, record: any) => (
                         <Space size={4}>
+                          <Button
+                            size="small"
+                            icon={<EyeOutlined />}
+                            onClick={() => handleOpenViewDetails(record, 'COMPLAINT')}
+                            title="View Full Ticket Details"
+                          />
                           {record.status !== 'RESOLVED' && (
                             <Button
                               size="small"
@@ -2017,6 +2067,8 @@ export default function SettingsPage() {
               {viewRecordType === 'BRANCH' && `Branch Details: ${viewRecord?.name || viewRecord?.branchCode}`}
               {viewRecordType === 'STAFF' && `Staff User Profile: ${viewRecord?.name || viewRecord?.employeeNumber}`}
               {viewRecordType === 'PRODUCT' && `Financial Product: ${viewRecord?.productName || viewRecord?.productCode}`}
+              {viewRecordType === 'USER' && `User Account Details: ${viewRecord?.username || viewRecord?.id}`}
+              {viewRecordType === 'COMPLAINT' && `Grievance Ticket Details: ${viewRecord?.complaintNumber || viewRecord?.id}`}
             </span>
           </div>
         }
@@ -2096,6 +2148,144 @@ export default function SettingsPage() {
               <Descriptions.Item label="Maximum Amount">{FinancialEngine.formatINR(viewRecord.maximumAmount || 1000000)}</Descriptions.Item>
               <Descriptions.Item label="System ID"><span className="font-mono text-xs">{viewRecord.id}</span></Descriptions.Item>
             </Descriptions>
+          </div>
+        )}
+
+        {viewRecord && viewRecordType === 'USER' && (
+          <div className="space-y-6">
+            <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-emerald-200 text-emerald-900 flex items-center justify-center font-bold text-base">
+                  {viewRecord.username?.charAt(0)?.toUpperCase()}
+                </div>
+                <div>
+                  <div className="text-xs text-emerald-700 font-semibold uppercase">Username / ID</div>
+                  <div className="text-xl font-bold font-mono text-emerald-950">{viewRecord.username}</div>
+                </div>
+              </div>
+              <Tag color={viewRecord.isActive !== false ? 'success' : 'error'} className="px-3 py-1 text-sm font-semibold">
+                {viewRecord.isActive !== false ? 'ACTIVE' : 'DISABLED'}
+              </Tag>
+            </div>
+            <Descriptions bordered column={1} size="middle">
+              <Descriptions.Item label="Username">{viewRecord.username}</Descriptions.Item>
+              <Descriptions.Item label="Roles & Permissions">
+                <Space wrap size={[0, 4]}>
+                  {(viewRecord.roles || ['LOAN_OFFICER']).map((r: string) => {
+                    let color = 'blue';
+                    if (r.includes('ADMIN')) color = 'red';
+                    else if (r.includes('MANAGER')) color = 'purple';
+                    else if (r.includes('CASHIER')) color = 'green';
+                    else if (r.includes('ACCOUNTANT')) color = 'cyan';
+                    return <Tag key={r} color={color}>{r}</Tag>;
+                  })}
+                </Space>
+              </Descriptions.Item>
+              <Descriptions.Item label="Mobile Number">{viewRecord.mobile || 'N/A'}</Descriptions.Item>
+              <Descriptions.Item label="Email Address">{viewRecord.email || 'N/A'}</Descriptions.Item>
+              <Descriptions.Item label="Assigned Branch">{viewRecord.branchName || 'Head Office - Main Branch'}</Descriptions.Item>
+              <Descriptions.Item label="System User ID"><span className="font-mono text-xs">{viewRecord.id}</span></Descriptions.Item>
+              <Descriptions.Item label="Account Status">
+                <Tag color={viewRecord.isActive !== false ? 'green' : 'red'}>
+                  {viewRecord.isActive !== false ? 'Active & Permitted' : 'Disabled / Suspended'}
+                </Tag>
+              </Descriptions.Item>
+              <Descriptions.Item label="Account Created">{viewRecord.createdAt ? new Date(viewRecord.createdAt).toLocaleString('en-IN') : 'N/A'}</Descriptions.Item>
+            </Descriptions>
+          </div>
+        )}
+
+        {viewRecord && viewRecordType === 'COMPLAINT' && (
+          <div className="space-y-6">
+            <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center justify-between">
+              <div>
+                <div className="text-xs text-emerald-700 font-semibold uppercase">Complaint Ticket</div>
+                <div className="text-xl font-bold font-mono text-emerald-950">{viewRecord.complaintNumber}</div>
+              </div>
+              <div className="flex items-center gap-2">
+                <Tag
+                  color={
+                    viewRecord.status === 'RESOLVED' ? 'green' : viewRecord.status === 'IN_PROGRESS' ? 'blue' : 'gold'
+                  }
+                  className="px-3 py-1 text-sm font-semibold"
+                >
+                  {viewRecord.status || 'OPEN'}
+                </Tag>
+                <Tag
+                  color={
+                    viewRecord.priority === 'CRITICAL' || viewRecord.priority === 'HIGH'
+                      ? 'red'
+                      : viewRecord.priority === 'MEDIUM'
+                      ? 'orange'
+                      : 'green'
+                  }
+                  className="px-2.5 py-1 text-xs font-bold"
+                >
+                  {viewRecord.priority || 'MEDIUM'}
+                </Tag>
+              </div>
+            </div>
+            <Descriptions bordered column={1} size="middle">
+              <Descriptions.Item label="Ticket Number">
+                <span className="font-mono font-bold text-emerald-800">{viewRecord.complaintNumber}</span>
+              </Descriptions.Item>
+              <Descriptions.Item label="Customer / Member">
+                <div>
+                  <div className="font-semibold text-slate-800">{viewRecord.customerName || 'General Customer'}</div>
+                  <div className="text-xs text-slate-400 font-mono">{viewRecord.customerNumber || viewRecord.customerId}</div>
+                </div>
+              </Descriptions.Item>
+              <Descriptions.Item label="Category">
+                <Tag color="blue">{viewRecord.category || 'Service Request'}</Tag>
+              </Descriptions.Item>
+              <Descriptions.Item label="Submission Date">
+                {viewRecord.createdAt ? new Date(viewRecord.createdAt).toLocaleString('en-IN') : 'N/A'}
+              </Descriptions.Item>
+              <Descriptions.Item label="Subject">
+                <span className="font-semibold text-slate-800">{viewRecord.subject || 'Member Service Grievance'}</span>
+              </Descriptions.Item>
+              <Descriptions.Item label="Issue Description">
+                <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 leading-relaxed whitespace-pre-wrap">
+                  {viewRecord.description || 'No detailed description provided.'}
+                </div>
+              </Descriptions.Item>
+              <Descriptions.Item label="Resolution Status">
+                {viewRecord.resolution ? (
+                  <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-xs text-emerald-900 font-medium whitespace-pre-wrap">
+                    {viewRecord.resolution}
+                  </div>
+                ) : (
+                  <span className="text-slate-400 italic">Pending Resolution</span>
+                )}
+              </Descriptions.Item>
+              {viewRecord.resolvedAt && (
+                <Descriptions.Item label="Resolved Date">
+                  {new Date(viewRecord.resolvedAt).toLocaleString('en-IN')}
+                </Descriptions.Item>
+              )}
+              {viewRecord.resolvedBy && (
+                <Descriptions.Item label="Resolved By">{viewRecord.resolvedBy}</Descriptions.Item>
+              )}
+              <Descriptions.Item label="System Ticket ID">
+                <span className="font-mono text-xs text-slate-500">{viewRecord.id}</span>
+              </Descriptions.Item>
+            </Descriptions>
+
+            {viewRecord.status !== 'RESOLVED' && (
+              <Button
+                type="primary"
+                style={{ background: '#059669', borderColor: '#059669' }}
+                icon={<CheckCircleOutlined />}
+                onClick={() => {
+                  setViewDrawerOpen(false);
+                  handleOpenResolveComplaint(viewRecord);
+                }}
+                block
+                className="rounded-xl h-11 font-bold text-sm shadow-md"
+              >
+                Resolve This Ticket Now
+              </Button>
+            )}
           </div>
         )}
       </Drawer>
