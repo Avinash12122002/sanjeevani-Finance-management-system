@@ -70,8 +70,8 @@ export default function AccountingPage() {
   const [journalLines, setJournalLines] = useState<
     { ledgerAccountId: string; debitAmount: number; creditAmount: number }[]
   >([
-    { ledgerAccountId: 'COA-1010', debitAmount: 10000, creditAmount: 0 },
-    { ledgerAccountId: 'COA-4010', debitAmount: 0, creditAmount: 10000 },
+    { ledgerAccountId: '', debitAmount: 0, creditAmount: 0 },
+    { ledgerAccountId: '', debitAmount: 0, creditAmount: 0 },
   ]);
   const [journalDescription, setJournalDescription] = useState('Operating Adjustment');
 
@@ -117,6 +117,11 @@ export default function AccountingPage() {
     if (res.success) {
       message.success(`Journal Entry ${res.data?.journalNumber || 'Posted'} posted successfully!`);
       setJournalModalVisible(false);
+      setJournalLines([
+        { ledgerAccountId: '', debitAmount: 0, creditAmount: 0 },
+        { ledgerAccountId: '', debitAmount: 0, creditAmount: 0 },
+      ]);
+      setJournalDescription('Operating Adjustment');
       loadAccountingData();
     } else {
       message.error(res.message || res.error || 'Failed to post journal');
@@ -512,7 +517,14 @@ export default function AccountingPage() {
       <Modal
         title="Create Balanced Double-Entry Journal Entry"
         open={journalModalVisible}
-        onCancel={() => setJournalModalVisible(false)}
+        onCancel={() => {
+          setJournalModalVisible(false);
+          setJournalLines([
+            { ledgerAccountId: '', debitAmount: 0, creditAmount: 0 },
+            { ledgerAccountId: '', debitAmount: 0, creditAmount: 0 },
+          ]);
+          setJournalDescription('Operating Adjustment');
+        }}
         footer={null}
         width={720}
       >

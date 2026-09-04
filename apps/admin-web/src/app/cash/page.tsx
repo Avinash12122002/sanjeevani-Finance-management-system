@@ -42,6 +42,7 @@ export default function CashDrawerPage() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [form] = Form.useForm();
   const [openDrawerForm] = Form.useForm();
+  const [submitting, setSubmitting] = useState(false);
 
   const handleOpenDrawer = async (values: any) => {
     setSubmitting(true);
@@ -99,7 +100,6 @@ export default function CashDrawerPage() {
     );
   };
 
-  const [submitting, setSubmitting] = useState(false);
 
   const handleReconcileClose = async (values: any) => {
     const totalPhysical = calculateTotalDenomination();

@@ -854,7 +854,7 @@ export default function LoansPage() {
                 ) : 'Pending Assessment'}
               </Descriptions.Item>
               <Descriptions.Item label="Monthly Stated Income">
-                {FinancialEngine.formatINR((viewApp as any).monthlyIncome || 35000)}
+                {FinancialEngine.formatINR(viewApp.declaredIncome || 0)}
               </Descriptions.Item>
               <Descriptions.Item label="Application Submission Date">
                 {(viewApp as any).applicationDate || (viewApp.createdAt ? new Date(viewApp.createdAt).toLocaleDateString('en-IN') : 'N/A')}

@@ -192,13 +192,13 @@ export default function ReportsPage() {
                     {
                       title: 'Client IP Address',
                       key: 'ip',
-                      render: (_, r) => <span className="font-mono text-xs text-blue-700 font-semibold">{r.stateAfter?.clientIp || r.reason?.match(/\d+\.\d+\.\d+\.\d+/)?.[0] || '127.0.0.1'}</span>,
+                      render: (_: any, r: any) => <span className="font-mono text-xs text-blue-700 font-semibold">{r.newValue?.clientIp || r.reason?.match(/\d+\.\d+\.\d+\.\d+/)?.[0] || '127.0.0.1'}</span>,
                     },
                     {
                       title: 'Device / Client Browser',
                       key: 'dev',
                       ellipsis: true,
-                      render: (_, r) => <span className="text-xs text-slate-500 max-w-[200px] truncate block">{r.stateAfter?.userAgent || 'Standard Browser / Desktop'}</span>,
+                      render: (_: any, r: any) => <span className="text-xs text-slate-500 max-w-[200px] truncate block">{r.newValue?.userAgent || 'Standard Browser / Desktop'}</span>,
                     },
                     { title: 'Security Details', dataIndex: 'reason', key: 'reason', ellipsis: true },
                     { title: 'Timestamp', dataIndex: 'timestamp', key: 'ts', render: (t) => new Date(t).toLocaleString('en-IN') },

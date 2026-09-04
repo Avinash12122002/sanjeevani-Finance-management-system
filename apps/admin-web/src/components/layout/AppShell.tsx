@@ -129,17 +129,21 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
   const ROLE_ALLOWED_PAGES: Record<string, string[]> = {
     SUPER_ADMIN: ['/', '/customers', '/accounts', '/loans', '/collections', '/cash', '/accounting', '/daily-closing', '/reports', '/settings'],
+    GENERAL_MANAGER: ['/', '/customers', '/accounts', '/loans', '/collections', '/cash', '/accounting', '/daily-closing', '/reports', '/settings'],
     BRANCH_MANAGER: ['/', '/customers', '/accounts', '/loans', '/collections', '/cash', '/accounting', '/daily-closing', '/reports'],
+    ACCOUNTANT: ['/', '/accounts', '/loans', '/collections', '/cash', '/accounting', '/daily-closing', '/reports'],
     LOAN_OFFICER: ['/', '/customers', '/loans', '/accounts', '/reports'],
     CASHIER: ['/', '/customers', '/collections', '/cash', '/accounts', '/reports'],
-    FIELD_COLLECTOR: ['/', '/customers', '/collections', '/reports'],
+    COLLECTION_AGENT: ['/', '/customers', '/collections', '/reports'],
+    RECOVERY_OFFICER: ['/', '/customers', '/loans', '/collections', '/reports'],
+    CUSTOMER_SERVICE: ['/', '/customers', '/collections', '/reports'],
     AUDITOR: ['/', '/customers', '/accounting', '/daily-closing', '/reports'],
   };
 
   const allowedPages = ROLE_ALLOWED_PAGES[userRole] || ROLE_ALLOWED_PAGES.SUPER_ADMIN;
 
   const dashboardLabel =
-    userRole === 'FIELD_COLLECTOR'
+    userRole === 'COLLECTION_AGENT' || userRole === 'RECOVERY_OFFICER'
       ? 'Collector Route & Dues'
       : userRole === 'CASHIER'
       ? 'Cashier Counter Console'

@@ -35,6 +35,7 @@ export default function DailyClosingPage() {
   const [selectedRecord, setSelectedRecord] = useState<IBusinessDayClosure | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [form] = Form.useForm();
+  const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
     loadClosingData();
@@ -52,7 +53,6 @@ export default function DailyClosingPage() {
     setLoading(false);
   };
 
-  const [submitting, setSubmitting] = useState(false);
 
   const handleExecuteClosing = async () => {
     setSubmitting(true);

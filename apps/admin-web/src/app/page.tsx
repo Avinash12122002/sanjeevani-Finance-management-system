@@ -144,7 +144,7 @@ export default function OwnerDashboardPage() {
   const branchName = currentUser?.branchName || 'Head Office Agra';
 
   const roleTitle =
-    userRole === 'FIELD_COLLECTOR'
+    userRole === 'COLLECTION_AGENT' || userRole === 'RECOVERY_OFFICER'
       ? 'Field Recovery & Collection Console'
       : userRole === 'CASHIER'
       ? 'Cashier Counter & Vault Control'
@@ -155,7 +155,7 @@ export default function OwnerDashboardPage() {
       : 'Sanjeevani Finance Operations Control Center';
 
   const roleBadge =
-    userRole === 'FIELD_COLLECTOR'
+    userRole === 'COLLECTION_AGENT' || userRole === 'RECOVERY_OFFICER'
       ? 'FIELD RECOVERY DESK'
       : userRole === 'CASHIER'
       ? 'TELLER & VAULT DESK'
@@ -166,7 +166,7 @@ export default function OwnerDashboardPage() {
       : 'EXECUTIVE MIS CONSOLE';
 
   const roleSubtitle =
-    userRole === 'FIELD_COLLECTOR'
+    userRole === 'COLLECTION_AGENT' || userRole === 'RECOVERY_OFFICER'
       ? `Welcome back, ${userName} • Assigned Route: ${branchName} Area`
       : userRole === 'CASHIER'
       ? `Welcome back, ${userName} • Cash Drawer & Vault Session: ${branchName}`
@@ -196,7 +196,7 @@ export default function OwnerDashboardPage() {
         </div>
 
         <div className="flex items-center gap-3">
-          {userRole === 'FIELD_COLLECTOR' && (
+          {(userRole === 'COLLECTION_AGENT' || userRole === 'RECOVERY_OFFICER') && (
             <Button
               type="primary"
               icon={<DollarCircleOutlined />}
@@ -229,7 +229,7 @@ export default function OwnerDashboardPage() {
             </Button>
           )}
 
-          {['SUPER_ADMIN', 'BRANCH_MANAGER', 'AUDITOR'].includes(userRole) && (
+          {['SUPER_ADMIN', 'GENERAL_MANAGER', 'BRANCH_MANAGER', 'AUDITOR'].includes(userRole) && (
             <Button
               type="primary"
               icon={<CheckCircleOutlined />}

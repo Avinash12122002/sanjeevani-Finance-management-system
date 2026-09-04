@@ -581,7 +581,7 @@ export default function SettingsPage() {
     }
   };
 
-  if (currentUser && !currentUser.roles?.includes('SUPER_ADMIN')) {
+  if (currentUser && !currentUser.roles?.some((r: string) => r === 'SUPER_ADMIN' || r === 'GENERAL_MANAGER')) {
     return (
       <div className="p-8 bg-white rounded-2xl border border-slate-200 text-center max-w-xl mx-auto my-12 space-y-4 shadow-sm">
         <div className="w-16 h-16 bg-amber-50 text-amber-600 rounded-full flex items-center justify-center text-2xl mx-auto border border-amber-200">
@@ -589,7 +589,7 @@ export default function SettingsPage() {
         </div>
         <h2 className="text-xl font-bold text-slate-900 m-0">Restricted Administration Access</h2>
         <p className="text-slate-500 text-sm">
-          System Master Data, Staff Management, and Scheme Rules are strictly reserved for Super Administrators (Managing Directors).
+          System Master Data, Staff Management, and Scheme Rules are strictly reserved for Super Administrators and General Managers.
         </p>
         <Button
           type="primary"
