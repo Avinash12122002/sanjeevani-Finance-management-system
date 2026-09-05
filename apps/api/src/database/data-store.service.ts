@@ -2186,11 +2186,16 @@ export class DataStoreService implements OnModuleInit {
       case 'products': this.products.push(data as any); break;
       case 'accounts': this.accounts.push(data as any); break;
       case 'loans': this.loans.push(data as any); break;
+      case 'repayment_schedules': this.loanInstallments.push(data as any); break;
       case 'receipts': this.receipts.push(data as any); break;
       case 'cash_drawers': this.cashDrawers.push(data as any); break;
       case 'chart_of_accounts': this.chartOfAccounts.push(data as any); break;
       case 'transactions': this.transactions.push(data as any); break;
       case 'complaints': this.complaints.push(data as any); break;
+      case 'customer_documents': this.customerDocuments.push(data as any); break;
+      case 'journal_entries': this.journalEntries.push(data as any); break;
+      case 'daily_closures': this.businessDayClosures.push(data as any); break;
+      case 'audit_logs': this.auditLogs.push(data as any); break;
     }
 
     return data;
@@ -2239,11 +2244,16 @@ export class DataStoreService implements OnModuleInit {
       case 'products': updateInArr(this.products); break;
       case 'accounts': updateInArr(this.accounts); break;
       case 'loans': updateInArr(this.loans); break;
+      case 'repayment_schedules': updateInArr(this.loanInstallments); break;
       case 'receipts': updateInArr(this.receipts); break;
       case 'cash_drawers': updateInArr(this.cashDrawers); break;
       case 'chart_of_accounts': updateInArr(this.chartOfAccounts); break;
       case 'transactions': updateInArr(this.transactions); break;
       case 'complaints': updateInArr(this.complaints); break;
+      case 'customer_documents': updateInArr(this.customerDocuments); break;
+      case 'journal_entries': updateInArr(this.journalEntries); break;
+      case 'daily_closures': updateInArr(this.businessDayClosures); break;
+      case 'audit_logs': updateInArr(this.auditLogs); break;
     }
 
     return { id, ...data };
@@ -2274,11 +2284,16 @@ export class DataStoreService implements OnModuleInit {
       case 'products': this.products = this.products.filter((p) => p.id !== id); break;
       case 'accounts': this.accounts = this.accounts.filter((a) => a.id !== id); break;
       case 'loans': this.loans = this.loans.filter((l) => l.id !== id); break;
+      case 'repayment_schedules': this.loanInstallments = this.loanInstallments.filter((inst) => inst.id !== id); break;
       case 'receipts': this.receipts = this.receipts.filter((r) => r.id !== id); break;
       case 'cash_drawers': this.cashDrawers = this.cashDrawers.filter((c) => c.id !== id); break;
       case 'chart_of_accounts': this.chartOfAccounts = this.chartOfAccounts.filter((c) => c.id !== id); break;
       case 'transactions': this.transactions = this.transactions.filter((t) => t.id !== id); break;
       case 'complaints': this.complaints = this.complaints.filter((c) => c.id !== id); break;
+      case 'customer_documents': this.customerDocuments = this.customerDocuments.filter((d) => d.id !== id); break;
+      case 'journal_entries': this.journalEntries = this.journalEntries.filter((j) => j.id !== id); break;
+      case 'daily_closures': this.businessDayClosures = this.businessDayClosures.filter((dc) => dc.id !== id); break;
+      case 'audit_logs': this.auditLogs = this.auditLogs.filter((a) => a.id !== id); break;
     }
 
     return { success: true, message: `Record ${id} deleted from ${tableName}` };
