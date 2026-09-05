@@ -367,7 +367,13 @@ export default function CustomerPortalPage() {
               <div className="flex items-center justify-between w-full pr-1">
                 <span className="truncate">{item.label}</span>
                 {typeof item.badge === 'number' && item.badge > 0 ? (
-                  <span className="ml-2 px-1.5 py-0.5 text-[10px] font-bold rounded-full bg-slate-800 text-emerald-400 border border-emerald-500/30">
+                  <span
+                    className={`ml-2 rounded-full bg-slate-800 text-emerald-400 border border-emerald-500/30 inline-flex items-center justify-center font-bold leading-none shrink-0 shadow-sm ${
+                      item.badge < 10
+                        ? 'w-5 h-5 min-w-[20px] max-h-5 text-[11px]'
+                        : 'min-w-[20px] h-5 px-1.5 text-[10px]'
+                    }`}
+                  >
                     {item.badge}
                   </span>
                 ) : null}
