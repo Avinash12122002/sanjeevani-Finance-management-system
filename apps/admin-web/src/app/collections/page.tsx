@@ -181,7 +181,7 @@ export default function CollectionsPage() {
       title: 'Collected At',
       dataIndex: 'generatedAt',
       key: 'time',
-      render: (t: string) => new Date(t).toLocaleString('en-IN'),
+      render: (t: string) => (t ? new Date(t).toLocaleString('en-IN') : '-'),
     },
     {
       title: 'Action',
@@ -480,7 +480,7 @@ export default function CollectionsPage() {
               <div className="font-mono text-slate-600">{currentReceipt.transactionNumber || 'N/A'}</div>
 
               <div>Date & Time:</div>
-              <div>{new Date(currentReceipt.generatedAt).toLocaleString('en-IN')}</div>
+              <div>{currentReceipt.generatedAt ? new Date(currentReceipt.generatedAt).toLocaleString('en-IN') : 'Just now'}</div>
 
               <div>Collector / Cashier:</div>
               <div>{currentReceipt.collectorName || 'Head Office Staff'}</div>

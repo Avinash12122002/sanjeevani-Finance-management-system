@@ -520,7 +520,7 @@ export class DataStoreService implements OnModuleInit {
             createdBy: r.created_by,
             approvedBy: r.approved_by,
             createdAt: r.created_at ? new Date(r.created_at).toISOString() : '',
-            lines: Array.isArray(r.lines) ? r.lines : typeof r.lines === 'string' ? JSON.parse(r.lines) : [],
+            lines: Array.isArray(r.lines) ? r.lines : typeof r.lines === 'string' ? (() => { try { return JSON.parse(r.lines); } catch { return []; } })() : [],
           }));
         }
       } catch (_jrnErr) {

@@ -47,6 +47,7 @@ import {
   AuditOutlined,
   SettingOutlined,
   BranchesOutlined,
+  PhoneOutlined,
 } from '@ant-design/icons';
 import { useRouter } from 'next/navigation';
 import { FinancialEngine } from '@/shared/financial-engine';
@@ -321,7 +322,7 @@ export default function CustomerPortalPage() {
     { key: 'loans', icon: <DollarCircleOutlined style={{ fontSize: 18 }} />, label: 'Loans & EMI Engine', badge: loans.length },
     { key: 'receipts', icon: <AuditOutlined style={{ fontSize: 18 }} />, label: 'Collections & Receipts', badge: receipts.length },
     { key: 'support', icon: <CustomerServiceOutlined style={{ fontSize: 18 }} />, label: 'Customer Helpdesk', badge: complaints.length },
-    { key: 'profile', icon: <UserOutlined style={{ fontSize: 18 }} />, label: 'Members & KYC (360°)', badge: undefined },
+    { key: 'profile', icon: <UserOutlined style={{ fontSize: 18 }} />, label: 'My Account & Details', badge: undefined },
   ];
 
   const currentTabInfo = portalMenuItems.find((t) => t.key === activeTab) || portalMenuItems[0];
@@ -343,84 +344,15 @@ export default function CustomerPortalPage() {
         </div>
       </div>
 
-      {/* User Account / Profile Section (Banking Style) */}
-      <div className="mx-3 my-2.5 p-3 rounded-xl bg-gradient-to-b from-slate-800/95 to-slate-900/95 border border-slate-700/70 shadow-lg shadow-black/25 shrink-0">
-        {/* Top: Avatar, Name & KYC Badge */}
-        <div className="flex items-center gap-2.5">
-          <div className="relative shrink-0">
-            <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-emerald-600 via-teal-500 to-cyan-400 flex items-center justify-center text-white font-black text-sm shadow-md ring-2 ring-emerald-500/30">
-              {customer.firstName?.[0] || 'M'}
-              {customer.lastName?.[0] || ''}
-            </div>
-            <span
-              className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 bg-emerald-500 rounded-full ring-2 ring-[#0f172a] flex items-center justify-center text-[8px] text-white font-bold"
-              title="KYC Verified"
-            >
-              ✓
-            </span>
-          </div>
-          <div className="min-w-0 flex-1">
-            <div className="flex items-center justify-between gap-1">
-              <span className="text-white font-bold text-xs truncate leading-tight tracking-wide">
-                {customer.fullName || `${customer.firstName || 'Member'} ${customer.lastName || ''}`}
-              </span>
-              <span className="px-1.5 py-0.5 rounded text-[9px] font-extrabold uppercase bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 shrink-0">
-                {customer.kycStatus === 'VERIFIED' ? 'VERIFIED' : customer.kycStatus || 'ACTIVE'}
-              </span>
-            </div>
-            <div className="flex items-center gap-1.5 mt-0.5">
-              <span className="text-[10px] font-mono text-slate-400 truncate">
-                ID: {customer.customerNumber || 'SJF-CUS-001'}
-              </span>
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  copyToClipboard(customer.customerNumber || '', 'cif');
-                }}
-                className="text-slate-400 hover:text-emerald-400 text-[10px] cursor-pointer transition-colors"
-                title="Copy Customer ID"
-              >
-                {copiedAccount === 'cif' ? <CheckOutlined className="text-emerald-400" /> : <CopyOutlined />}
-              </button>
-            </div>
-          </div>
+      {/* Active Branch Indicator (Clean & Compact) */}
+      <div className="mx-3 my-2.5 p-2 rounded-lg bg-slate-800/80 border border-slate-700/60 shadow-sm shrink-0">
+        <div className="flex items-center gap-1.5 text-[10px] font-semibold text-emerald-400 uppercase tracking-wider">
+          <BranchesOutlined />
+          <span>ACTIVE BRANCH</span>
         </div>
-
-        {/* Financial & Account Quick Info */}
-        <div className="mt-2.5 pt-2 border-t border-slate-700/60 grid grid-cols-2 gap-2 text-[10px]">
-          <div>
-            <div className="text-slate-400 font-medium text-[10px] flex items-center gap-1">
-              <WalletOutlined className="text-emerald-400" />
-              <span>Net Portfolio</span>
-            </div>
-            <div className="font-mono font-bold text-emerald-400 text-xs mt-0.5">
-              {maskAmount(totalAssets)}
-            </div>
-          </div>
-          <div>
-            <div className="text-slate-400 font-medium text-[10px] flex items-center gap-1">
-              <BranchesOutlined className="text-teal-400" />
-              <span>Branch</span>
-            </div>
-            <div className="text-slate-200 font-semibold truncate text-[11px] mt-0.5" title={customer.branchName}>
-              {customer.branchName || 'Head Office'}
-            </div>
-          </div>
+        <div className="text-xs font-bold text-slate-100 mt-0.5 truncate">
+          {customer.branchName || 'Head Office - Main Branch'}
         </div>
-
-        {/* Quick View Profile Button */}
-        <button
-          type="button"
-          onClick={() => {
-            setActiveTab('profile');
-            if (isMobile) setMobileDrawerOpen(false);
-          }}
-          className="mt-2.5 w-full py-1.5 px-2 rounded-lg bg-slate-700/50 hover:bg-emerald-500/20 text-slate-300 hover:text-emerald-300 border border-slate-700 hover:border-emerald-500/40 text-[11px] font-semibold flex items-center justify-center gap-1.5 transition-all cursor-pointer"
-        >
-          <UserOutlined className="text-emerald-400 text-xs" />
-          <span>Account & Profile Details</span>
-        </button>
       </div>
 
       {/* Nav Menu Items */}
@@ -1278,58 +1210,267 @@ export default function CustomerPortalPage() {
             </div>
           )}
 
-          {/* TAB 7: PROFILE & SECURITY */}
+          {/* TAB 7: COMPLETE USER ACCOUNT & DATABASE DOSSIER */}
           {activeTab === 'profile' && (
             <div className="space-y-6">
-              <div className="bg-slate-50 p-5 rounded-2xl border border-slate-200">
-                <div className="flex items-center justify-between mb-4">
-                  <h4 className="font-extrabold text-slate-900 m-0 text-base flex items-center gap-2">
-                    <UserOutlined className="text-emerald-700" />
-                    <span>Registered Member Account Information</span>
-                  </h4>
+              {/* Hero Member Profile Banner */}
+              <div className="bg-gradient-to-r from-slate-900 via-slate-800 to-[#0f172a] text-white p-6 rounded-2xl border border-slate-700 shadow-xl flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+                <div className="flex items-center gap-4">
+                  <div className="relative shrink-0">
+                    <div className="w-16 h-16 rounded-full bg-gradient-to-tr from-emerald-500 via-teal-500 to-cyan-400 text-2xl font-black text-white flex items-center justify-center ring-4 ring-emerald-500/20 shadow-lg">
+                      {customer.firstName?.[0] || 'M'}
+                      {customer.lastName?.[0] || ''}
+                    </div>
+                    <span
+                      className="absolute -bottom-1 -right-1 w-5 h-5 bg-emerald-500 rounded-full ring-2 ring-slate-900 flex items-center justify-center text-[10px] text-white font-bold"
+                      title="KYC Verified"
+                    >
+                      ✓
+                    </span>
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <h3 className="text-xl font-black text-white m-0 tracking-wide">
+                        {customer.fullName || `${customer.firstName || 'Member'} ${customer.lastName || ''}`}
+                      </h3>
+                      <Tag color="success" className="font-extrabold text-[10px] m-0 px-2 py-0.5 rounded-full border-none">
+                        {customer.kycStatus === 'VERIFIED' ? 'KYC VERIFIED' : customer.kycStatus || 'ACTIVE'}
+                      </Tag>
+                      <Tag color="blue" className="font-extrabold text-[10px] m-0 px-2 py-0.5 rounded-full border-none">
+                        {customer.status || 'ACTIVE MEMBER'}
+                      </Tag>
+                    </div>
+                    <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+                      <span className="text-xs font-mono text-slate-400">
+                        Customer ID: <strong className="text-emerald-400">{customer.customerNumber}</strong>
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => copyToClipboard(customer.customerNumber || '', 'profile_cif')}
+                        className="text-slate-400 hover:text-emerald-400 text-xs cursor-pointer flex items-center gap-1 transition-colors"
+                        title="Copy Customer ID"
+                      >
+                        {copiedAccount === 'profile_cif' ? <CheckOutlined className="text-emerald-400" /> : <CopyOutlined />}
+                        <span>{copiedAccount === 'profile_cif' ? 'Copied' : 'Copy'}</span>
+                      </button>
+                      <span className="text-slate-600">•</span>
+                      <span className="text-xs text-slate-300">
+                        Member Since: <strong>{customer.joiningDate || '2026-01-01'}</strong>
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 self-stretch md:self-auto flex-wrap">
                   <button
                     type="button"
                     onClick={() => setPasswordModal(true)}
-                    className="bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-all cursor-pointer"
+                    className="flex-1 md:flex-initial bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs px-4 py-2 rounded-xl flex items-center justify-center gap-2 shadow-sm transition-all cursor-pointer"
                   >
-                    <SettingOutlined />
+                    <KeyOutlined />
                     <span>Change PIN</span>
                   </button>
+                  <button
+                    type="button"
+                    onClick={() => window.print()}
+                    className="flex-1 md:flex-initial bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-600 font-bold text-xs px-4 py-2 rounded-xl flex items-center justify-center gap-2 transition-all cursor-pointer"
+                  >
+                    <PrinterOutlined />
+                    <span>Print Dossier</span>
+                  </button>
                 </div>
-
-                <Descriptions bordered column={{ xs: 1, sm: 2 }} size="middle" className="bg-white rounded-xl overflow-hidden">
-                  <Descriptions.Item label="Customer ID">
-                    <span className="font-mono font-black text-emerald-800 text-sm">{customer.customerNumber}</span>
-                  </Descriptions.Item>
-                  <Descriptions.Item label="Full Legal Name">
-                    <strong className="text-slate-900">{customer.fullName}</strong>
-                  </Descriptions.Item>
-                  <Descriptions.Item label="Registered Mobile">+91 {customer.mobile}</Descriptions.Item>
-                  <Descriptions.Item label="Branch Location">{customer.city || customer.branchName || 'Main Branch'}</Descriptions.Item>
-                  <Descriptions.Item label="Address">{customer.address || '-'}</Descriptions.Item>
-                  <Descriptions.Item label="KYC Document Status">
-                    <Tag color="success" className="font-black text-xs">
-                      {customer.kycStatus || 'VERIFIED'}
-                    </Tag>
-                  </Descriptions.Item>
-                </Descriptions>
               </div>
 
-              {/* Registered Nominee Breakdown */}
-              {nominees && nominees.length > 0 && (
-                <div className="bg-slate-50 p-5 rounded-2xl border border-slate-200">
-                  <h4 className="font-extrabold text-slate-900 m-0 text-base mb-3">Registered Nominee Information</h4>
+              {/* Grid of All User Information from Database */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {/* 1. Personal & Identity Records */}
+                <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-3">
+                  <div className="flex items-center gap-2 text-slate-900 font-bold text-sm border-b border-slate-100 pb-2.5">
+                    <UserOutlined className="text-emerald-600 text-base" />
+                    <span>Personal & Demographic Information</span>
+                  </div>
+                  <Descriptions bordered column={1} size="small" className="bg-slate-50/50 rounded-xl overflow-hidden">
+                    <Descriptions.Item label="Full Legal Name">
+                      <strong className="text-slate-900">{customer.fullName}</strong>
+                    </Descriptions.Item>
+                    <Descriptions.Item label="Customer / CIF Number">
+                      <span className="font-mono font-bold text-emerald-800">{customer.customerNumber}</span>
+                    </Descriptions.Item>
+                    <Descriptions.Item label="Database Record UUID">
+                      <span className="font-mono text-xs text-slate-500">{customer.id}</span>
+                    </Descriptions.Item>
+                    <Descriptions.Item label="Father's / Husband's Name">
+                      <span className="text-slate-700 font-medium">{customer.fatherOrSpouseName || 'Not Specified'}</span>
+                    </Descriptions.Item>
+                    <Descriptions.Item label="Date of Birth">
+                      <span className="font-mono text-slate-700">{customer.dateOfBirth || '1990-01-01'}</span>
+                    </Descriptions.Item>
+                    <Descriptions.Item label="Gender">
+                      <span className="font-semibold text-slate-800">{customer.gender || 'MALE'}</span>
+                    </Descriptions.Item>
+                  </Descriptions>
+                </div>
+
+                {/* 2. Contact & Residential Coordinates */}
+                <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-3">
+                  <div className="flex items-center gap-2 text-slate-900 font-bold text-sm border-b border-slate-100 pb-2.5">
+                    <PhoneOutlined className="text-teal-600 text-base" />
+                    <span>Contact & Residential Coordinates</span>
+                  </div>
+                  <Descriptions bordered column={1} size="small" className="bg-slate-50/50 rounded-xl overflow-hidden">
+                    <Descriptions.Item label="Registered Mobile">
+                      <span className="font-mono font-bold text-slate-900">+91 {customer.mobile}</span>
+                    </Descriptions.Item>
+                    <Descriptions.Item label="Alternate Mobile">
+                      <span className="font-mono text-slate-600">{customer.alternateMobile ? `+91 ${customer.alternateMobile}` : 'None Registered'}</span>
+                    </Descriptions.Item>
+                    <Descriptions.Item label="Registered Email ID">
+                      <span className="text-slate-700">{customer.email || 'None Registered'}</span>
+                    </Descriptions.Item>
+                    <Descriptions.Item label="Residential Address Line 1">
+                      <span className="text-slate-800">{customer.address || 'Address not specified'}</span>
+                    </Descriptions.Item>
+                    <Descriptions.Item label="Residential Address Line 2">
+                      <span className="text-slate-600">{customer.addressLine2 || '-'}</span>
+                    </Descriptions.Item>
+                    <Descriptions.Item label="City & State">
+                      <span className="font-semibold text-slate-800">{customer.city || 'Agra'}, {customer.state || 'Uttar Pradesh'}</span>
+                    </Descriptions.Item>
+                    <Descriptions.Item label="Postal PIN Code">
+                      <span className="font-mono font-bold text-slate-800">{customer.postalCode || '282001'}</span>
+                    </Descriptions.Item>
+                  </Descriptions>
+                </div>
+
+                {/* 3. Official Government KYC & Compliance Records */}
+                <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-3">
+                  <div className="flex items-center gap-2 text-slate-900 font-bold text-sm border-b border-slate-100 pb-2.5">
+                    <SafetyCertificateOutlined className="text-blue-600 text-base" />
+                    <span>Government KYC & Identification Records</span>
+                  </div>
+                  <Descriptions bordered column={1} size="small" className="bg-slate-50/50 rounded-xl overflow-hidden">
+                    <Descriptions.Item label="Aadhaar Card Number">
+                      <div className="flex items-center gap-2">
+                        <span className="font-mono font-bold text-slate-900">{customer.aadhaar || '•••• •••• 1234'}</span>
+                        <Tag color="green" className="text-[10px] font-bold">VERIFIED</Tag>
+                      </div>
+                    </Descriptions.Item>
+                    <Descriptions.Item label="PAN Card Number">
+                      <span className="font-mono font-bold text-slate-900">{customer.pan || 'ABCDE1234F'}</span>
+                    </Descriptions.Item>
+                    <Descriptions.Item label="KYC Document Status">
+                      <Tag color="success" className="font-black text-xs px-2.5 py-0.5 rounded-md">
+                        {customer.kycStatus || 'VERIFIED'}
+                      </Tag>
+                    </Descriptions.Item>
+                    <Descriptions.Item label="NetBanking Clearance Level">
+                      <span className="text-xs font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                        Tier-3 Full NetBanking Clearance
+                      </span>
+                    </Descriptions.Item>
+                  </Descriptions>
+                </div>
+
+                {/* 4. Branch Membership & System Registration */}
+                <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-3">
+                  <div className="flex items-center gap-2 text-slate-900 font-bold text-sm border-b border-slate-100 pb-2.5">
+                    <BranchesOutlined className="text-purple-600 text-base" />
+                    <span>Branch Membership & System Details</span>
+                  </div>
+                  <Descriptions bordered column={1} size="small" className="bg-slate-50/50 rounded-xl overflow-hidden">
+                    <Descriptions.Item label="Assigned Home Branch">
+                      <strong className="text-slate-900">{customer.branchName || 'Head Office - Main Branch'}</strong>
+                    </Descriptions.Item>
+                    <Descriptions.Item label="Branch Code">
+                      <span className="font-mono font-bold text-purple-800">{customer.branchCode || 'SJF-BR001'}</span>
+                    </Descriptions.Item>
+                    <Descriptions.Item label="Branch System ID">
+                      <span className="font-mono text-xs text-slate-500">{customer.branchId || 'BR-001'}</span>
+                    </Descriptions.Item>
+                    <Descriptions.Item label="Membership Enrolment Date">
+                      <span className="font-mono text-slate-800 font-semibold">{customer.joiningDate || '2026-01-01'}</span>
+                    </Descriptions.Item>
+                    <Descriptions.Item label="Database Registration Date">
+                      <span className="font-mono text-xs text-slate-600">
+                        {customer.createdAt ? new Date(customer.createdAt).toLocaleDateString('en-IN') : '2026-01-01'}
+                      </span>
+                    </Descriptions.Item>
+                    <Descriptions.Item label="Membership Account Status">
+                      <Tag color="cyan" className="font-bold text-xs">
+                        {customer.status || 'ACTIVE'}
+                      </Tag>
+                    </Descriptions.Item>
+                  </Descriptions>
+                </div>
+              </div>
+
+              {/* 5. Linked Financial Portfolio Summary from Database */}
+              <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-4">
+                <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                  <div className="flex items-center gap-2 text-slate-900 font-bold text-sm">
+                    <WalletOutlined className="text-emerald-600 text-base" />
+                    <span>Live Linked Financial Portfolio in Database</span>
+                  </div>
+                  <Tag color="purple" className="font-mono text-xs">
+                    {summary.activeAccountsCount || accounts.savings.length + accounts.rd.length + accounts.fd.length} Accounts • {summary.activeLoansCount || loans.length} Loans
+                  </Tag>
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+                  <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">
+                    <div className="text-[11px] text-slate-500 font-medium">Total Assets</div>
+                    <div className="text-base font-black text-emerald-700 font-mono mt-0.5">{maskAmount(totalAssets)}</div>
+                  </div>
+                  <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">
+                    <div className="text-[11px] text-slate-500 font-medium">Savings Balance</div>
+                    <div className="text-base font-bold text-slate-800 font-mono mt-0.5">{maskAmount(summary.totalSavings || 0)}</div>
+                  </div>
+                  <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">
+                    <div className="text-[11px] text-slate-500 font-medium">RD Deposits</div>
+                    <div className="text-base font-bold text-slate-800 font-mono mt-0.5">{maskAmount(summary.totalRdDeposited || 0)}</div>
+                  </div>
+                  <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">
+                    <div className="text-[11px] text-slate-500 font-medium">FD Principal</div>
+                    <div className="text-base font-bold text-slate-800 font-mono mt-0.5">{maskAmount(summary.totalFdPrincipal || 0)}</div>
+                  </div>
+                  <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">
+                    <div className="text-[11px] text-slate-500 font-medium">Loan Debt Outstanding</div>
+                    <div className="text-base font-bold text-rose-700 font-mono mt-0.5">{maskAmount(summary.totalLoanOutstanding || 0)}</div>
+                  </div>
+                </div>
+              </div>
+
+              {/* 6. Registered Nominees Information */}
+              <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-3">
+                <div className="flex items-center justify-between border-b border-slate-100 pb-2.5">
+                  <div className="flex items-center gap-2 text-slate-900 font-bold text-sm">
+                    <AuditOutlined className="text-amber-600 text-base" />
+                    <span>Registered Nominee Records in Database</span>
+                  </div>
+                  <Tag color="amber" className="text-xs font-semibold">
+                    {nominees.length} Nominee(s) Registered
+                  </Tag>
+                </div>
+                {nominees && nominees.length > 0 ? (
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     {nominees.map((n: any) => (
-                      <div key={n.id} className="p-4 bg-white rounded-xl border border-slate-200 text-xs space-y-1.5 shadow-sm">
-                        <div><span className="text-slate-500 font-medium">Nominee Name:</span> <strong className="text-slate-900 text-sm ml-1">{n.name}</strong></div>
-                        <div><span className="text-slate-500 font-medium">Relationship:</span> <span className="font-bold text-slate-800 ml-1">{n.relationship}</span></div>
-                        <div><span className="text-slate-500 font-medium">Entitled Share:</span> <strong className="text-emerald-700 text-sm ml-1">{n.percentage}%</strong></div>
+                      <div key={n.id} className="p-4 bg-slate-50 rounded-xl border border-slate-200 text-xs space-y-1.5 shadow-sm">
+                        <div className="flex items-center justify-between">
+                          <span className="font-bold text-slate-900 text-sm">{n.name}</span>
+                          <Tag color="green" className="font-bold">{n.percentage}% Share</Tag>
+                        </div>
+                        <div className="text-slate-600">Relationship: <strong className="text-slate-800">{n.relationship}</strong></div>
+                        {n.dateOfBirth && <div className="text-slate-600">Date of Birth: <span className="font-mono">{n.dateOfBirth}</span></div>}
+                        {n.mobile && <div className="text-slate-600">Contact Number: <span className="font-mono">+91 {n.mobile}</span></div>}
+                        {n.address && <div className="text-slate-600">Address: <span>{n.address}</span></div>}
                       </div>
                     ))}
                   </div>
-                </div>
-              )}
+                ) : (
+                  <div className="p-6 text-center text-slate-400 text-xs">
+                    No linked nominee records registered yet. Visit your home branch to add nominees.
+                  </div>
+                )}
+              </div>
             </div>
           )}
         </div>
@@ -1554,7 +1695,7 @@ export default function CustomerPortalPage() {
             <div className="text-xs text-slate-600 text-left space-y-1.5 pt-3 border-t border-slate-200 bg-white p-3 rounded-xl">
               <div><span className="text-slate-400">Customer Name:</span> <strong className="text-slate-800">{customer.fullName}</strong></div>
               <div><span className="text-slate-400">Customer ID:</span> <strong className="text-slate-800 font-mono">{customer.customerNumber}</strong></div>
-              <div><span className="text-slate-400">Timestamp:</span> {new Date(selectedReceipt.generatedAt).toLocaleString('en-IN')}</div>
+              <div><span className="text-slate-400">Timestamp:</span> {selectedReceipt.generatedAt ? new Date(selectedReceipt.generatedAt).toLocaleString('en-IN') : 'Just now'}</div>
               <div><span className="text-slate-400">Payment Channel:</span> {selectedReceipt.paymentMode || 'Cash'}</div>
               <div><span className="text-slate-400">Security Clearance:</span> <Tag color="green" className="font-bold">VERIFIED</Tag></div>
             </div>

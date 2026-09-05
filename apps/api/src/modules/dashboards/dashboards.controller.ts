@@ -32,9 +32,14 @@ export class DashboardsController {
       .filter((a) => a.productType === ProductType.TERM_DEPOSIT)
       .reduce((sum, a) => sum + (a.principalAmount || 0), 0);
 
+    const savingsTotal = this.dataStore.accounts
+      .filter((a) => a.productType === ProductType.SAVINGS)
+      .reduce((sum, a) => sum + (a.currentBalance || 0), 0);
+
     const loanTotal = this.dataStore.loans.reduce((sum, l) => sum + (l.outstandingPrincipal || 0), 0);
 
     const productDistribution = [
+      { product: 'Savings Account', value: savingsTotal },
       { product: 'Recurring Deposit (RD)', value: rdTotal },
       { product: 'Fixed Deposit (TD)', value: tdTotal },
       { product: 'Active Loan Book', value: loanTotal },

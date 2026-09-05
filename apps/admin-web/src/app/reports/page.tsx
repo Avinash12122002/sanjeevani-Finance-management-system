@@ -173,7 +173,7 @@ export default function ReportsPage() {
                     { title: 'Entity', key: 'ent', render: (_, r) => `${r.entityType} #${r.entityId}`, ellipsis: true },
                     { title: 'Staff Operator', dataIndex: 'userName', key: 'user', ellipsis: true },
                     { title: 'Reason / Remarks', dataIndex: 'reason', key: 'reason', ellipsis: true },
-                    { title: 'Timestamp', dataIndex: 'timestamp', key: 'ts', render: (t) => new Date(t).toLocaleString('en-IN') },
+                    { title: 'Timestamp', dataIndex: 'timestamp', key: 'ts', render: (t) => (t ? new Date(t).toLocaleString('en-IN') : '-') },
                   ]}
                 />
               ),
@@ -211,7 +211,7 @@ export default function ReportsPage() {
                       render: (_: any, r: any) => <span className="text-xs text-slate-500 max-w-[200px] truncate block">{r.newValue?.userAgent || 'Standard Browser / Desktop'}</span>,
                     },
                     { title: 'Security Details', dataIndex: 'reason', key: 'reason', ellipsis: true },
-                    { title: 'Timestamp', dataIndex: 'timestamp', key: 'ts', render: (t) => new Date(t).toLocaleString('en-IN') },
+                    { title: 'Timestamp', dataIndex: 'timestamp', key: 'ts', render: (t) => (t ? new Date(t).toLocaleString('en-IN') : '-') },
                   ]}
                 />
               ),
