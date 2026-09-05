@@ -163,8 +163,43 @@ export class DataStoreService implements OnModuleInit {
   private async loadFromPostgres() {
     if (!this.pool) return;
     try {
+      const [
+        branchRes,
+        userRes,
+        custRes,
+        accRes,
+        loanRes,
+        rcpRes,
+        txnRes,
+        cdRes,
+        prodRes,
+        empRes,
+        coaRes,
+        cmpRes,
+        auditRes,
+        schedRes,
+        closureRes,
+        jrnRes,
+      ] = await Promise.all([
+        this.pool.query('SELECT * FROM branches').catch(() => ({ rows: [] })),
+        this.pool.query('SELECT * FROM users').catch(() => ({ rows: [] })),
+        this.pool.query('SELECT * FROM customers ORDER BY created_at ASC').catch(() => ({ rows: [] })),
+        this.pool.query('SELECT * FROM accounts ORDER BY created_at ASC').catch(() => ({ rows: [] })),
+        this.pool.query('SELECT * FROM loans ORDER BY created_at ASC').catch(() => ({ rows: [] })),
+        this.pool.query('SELECT * FROM receipts ORDER BY created_at ASC').catch(() => ({ rows: [] })),
+        this.pool.query('SELECT * FROM transactions ORDER BY created_at ASC').catch(() => ({ rows: [] })),
+        this.pool.query('SELECT * FROM cash_drawers ORDER BY opened_at DESC LIMIT 10').catch(() => ({ rows: [] })),
+        this.pool.query('SELECT * FROM products ORDER BY created_at ASC').catch(() => ({ rows: [] })),
+        this.pool.query('SELECT * FROM employees ORDER BY created_at ASC').catch(() => ({ rows: [] })),
+        this.pool.query('SELECT * FROM chart_of_accounts ORDER BY account_code ASC').catch(() => ({ rows: [] })),
+        this.pool.query('SELECT * FROM complaints ORDER BY created_at DESC LIMIT 100').catch(() => ({ rows: [] })),
+        this.pool.query('SELECT * FROM audit_logs ORDER BY created_at DESC LIMIT 100').catch(() => ({ rows: [] })),
+        this.pool.query('SELECT * FROM repayment_schedules ORDER BY installment_no ASC').catch(() => ({ rows: [] })),
+        this.pool.query('SELECT * FROM daily_closures ORDER BY business_date DESC').catch(() => ({ rows: [] })),
+        this.pool.query('SELECT * FROM journal_entries ORDER BY created_at DESC LIMIT 100').catch(() => ({ rows: [] })),
+      ]);
+
       // Branches
-      const branchRes = await this.pool.query('SELECT * FROM branches');
       if (branchRes.rows.length > 0) {
         this.branches = branchRes.rows.map((r) => ({
           id: r.id,
@@ -181,7 +216,6 @@ export class DataStoreService implements OnModuleInit {
       }
 
       // Users
-      const userRes = await this.pool.query('SELECT * FROM users');
       if (userRes.rows.length > 0) {
         this.users = userRes.rows.map((r) => ({
           id: r.id,
@@ -200,7 +234,6 @@ export class DataStoreService implements OnModuleInit {
       }
 
       // Customers
-      const custRes = await this.pool.query('SELECT * FROM customers ORDER BY created_at ASC');
       if (custRes.rows.length > 0) {
         this.customers = custRes.rows.map((r) => ({
           id: r.id,
@@ -239,7 +272,6 @@ export class DataStoreService implements OnModuleInit {
       }
 
       // Accounts
-      const accRes = await this.pool.query('SELECT * FROM accounts ORDER BY created_at ASC');
       if (accRes.rows.length > 0) {
         this.accounts = accRes.rows.map((r) => ({
           id: r.id,
@@ -267,7 +299,6 @@ export class DataStoreService implements OnModuleInit {
       }
 
       // Loans
-      const loanRes = await this.pool.query('SELECT * FROM loans ORDER BY created_at ASC');
       if (loanRes.rows.length > 0) {
         this.loans = loanRes.rows.map((r) => ({
           id: r.id,
@@ -298,7 +329,6 @@ export class DataStoreService implements OnModuleInit {
       }
 
       // Receipts
-      const rcpRes = await this.pool.query('SELECT * FROM receipts ORDER BY created_at ASC');
       if (rcpRes.rows.length > 0) {
         this.receipts = rcpRes.rows.map((r) => ({
           id: r.id,
@@ -320,7 +350,6 @@ export class DataStoreService implements OnModuleInit {
       }
 
       // Transactions
-      const txnRes = await this.pool.query('SELECT * FROM transactions ORDER BY created_at ASC');
       if (txnRes.rows.length > 0) {
         this.transactions = txnRes.rows.map((r) => ({
           id: r.id,
@@ -343,7 +372,6 @@ export class DataStoreService implements OnModuleInit {
       }
 
       // Cash Drawers
-      const cdRes = await this.pool.query('SELECT * FROM cash_drawers ORDER BY opened_at DESC LIMIT 10');
       if (cdRes.rows.length > 0) {
         this.cashDrawers = cdRes.rows.map((r) => ({
           id: r.id,
@@ -365,7 +393,6 @@ export class DataStoreService implements OnModuleInit {
       }
 
       // Products
-      const prodRes = await this.pool.query('SELECT * FROM products ORDER BY created_at ASC');
       if (prodRes.rows.length > 0) {
         this.products = prodRes.rows.map((r) => ({
           id: r.id,
@@ -389,7 +416,6 @@ export class DataStoreService implements OnModuleInit {
       }
 
       // Employees
-      const empRes = await this.pool.query('SELECT * FROM employees ORDER BY created_at ASC');
       if (empRes.rows.length > 0) {
         this.employees = empRes.rows.map((r) => ({
           id: r.id,
@@ -411,7 +437,6 @@ export class DataStoreService implements OnModuleInit {
       }
 
       // Chart of Accounts
-      const coaRes = await this.pool.query('SELECT * FROM chart_of_accounts ORDER BY account_code ASC');
       if (coaRes.rows.length > 0) {
         this.chartOfAccounts = coaRes.rows.map((r) => ({
           id: r.id,
@@ -426,7 +451,6 @@ export class DataStoreService implements OnModuleInit {
       }
 
       // Complaints
-      const cmpRes = await this.pool.query('SELECT * FROM complaints ORDER BY created_at DESC LIMIT 100');
       if (cmpRes.rows.length > 0) {
         this.complaints = cmpRes.rows.map((r) => ({
           id: r.id,
@@ -444,7 +468,6 @@ export class DataStoreService implements OnModuleInit {
       }
 
       // Audit Logs
-      const auditRes = await this.pool.query('SELECT * FROM audit_logs ORDER BY created_at DESC LIMIT 100');
       if (auditRes.rows.length > 0) {
         this.auditLogs = auditRes.rows.map((r) => ({
           id: r.id,
@@ -462,7 +485,6 @@ export class DataStoreService implements OnModuleInit {
       }
 
       // Repayment Schedules (EMIs)
-      const schedRes = await this.pool.query('SELECT * FROM repayment_schedules ORDER BY installment_no ASC');
       if (schedRes.rows.length > 0) {
         this.loanInstallments = schedRes.rows.map((r) => ({
           id: r.id,
@@ -485,7 +507,6 @@ export class DataStoreService implements OnModuleInit {
       }
 
       // Daily Closures / Business Date Locks
-      const closureRes = await this.pool.query('SELECT * FROM daily_closures ORDER BY business_date DESC');
       if (closureRes.rows.length > 0) {
         this.businessDayClosures = closureRes.rows.map((r) => ({
           id: r.id,
@@ -506,25 +527,20 @@ export class DataStoreService implements OnModuleInit {
       }
 
       // General Journal Entries
-      try {
-        const jrnRes = await this.pool.query('SELECT * FROM journal_entries ORDER BY created_at DESC LIMIT 100');
-        if (jrnRes.rows.length > 0) {
-          this.journalEntries = jrnRes.rows.map((r) => ({
-            id: r.id,
-            journalNumber: r.journal_number,
-            businessDate: r.business_date ? new Date(r.business_date).toISOString().split('T')[0] : '',
-            description: r.description || '',
-            totalDebit: Number(r.total_debit || 0),
-            totalCredit: Number(r.total_credit || 0),
-            status: r.status || 'POSTED',
-            createdBy: r.created_by,
-            approvedBy: r.approved_by,
-            createdAt: r.created_at ? new Date(r.created_at).toISOString() : '',
-            lines: Array.isArray(r.lines) ? r.lines : typeof r.lines === 'string' ? (() => { try { return JSON.parse(r.lines); } catch { return []; } })() : [],
-          }));
-        }
-      } catch (_jrnErr) {
-        // Table may not have been created yet if migrating
+      if (jrnRes.rows.length > 0) {
+        this.journalEntries = jrnRes.rows.map((r) => ({
+          id: r.id,
+          journalNumber: r.journal_number,
+          businessDate: r.business_date ? new Date(r.business_date).toISOString().split('T')[0] : '',
+          description: r.description || '',
+          totalDebit: Number(r.total_debit || 0),
+          totalCredit: Number(r.total_credit || 0),
+          status: r.status || 'POSTED',
+          createdBy: r.created_by,
+          approvedBy: r.approved_by,
+          createdAt: r.created_at ? new Date(r.created_at).toISOString() : '',
+          lines: Array.isArray(r.lines) ? r.lines : typeof r.lines === 'string' ? (() => { try { return JSON.parse(r.lines); } catch { return []; } })() : [],
+        }));
       }
     } catch (e: any) {
       this.logger.warn(`Could not load initial rows from PostgreSQL: ${e.message}`);
@@ -532,26 +548,31 @@ export class DataStoreService implements OnModuleInit {
   }
 
   private lastSyncTime = 0;
-  private isSyncing = false;
+  private syncPromise: Promise<void> | null = null;
 
   /**
-   * Refreshes in-memory store from PostgreSQL if stale (default maxAge = 1.5 seconds).
-   * This ensures any edits made directly in pgAdmin 4 or Supabase are visible on the web portal immediately!
+   * Refreshes in-memory store from PostgreSQL if stale (default maxAge = 3000ms).
+   * Shares a single active syncPromise so concurrent requests wait together and don't duplicate work.
    */
-  async refreshIfStale(maxAgeMs = 1500): Promise<void> {
+  async refreshIfStale(maxAgeMs = 3000): Promise<void> {
+    if (this.syncPromise) {
+      return this.syncPromise;
+    }
     const now = Date.now();
-    if (now - this.lastSyncTime < maxAgeMs || this.isSyncing || !this.pool) {
+    if (now - this.lastSyncTime < maxAgeMs || !this.pool) {
       return;
     }
-    this.isSyncing = true;
-    try {
-      await this.loadFromPostgres();
-      this.lastSyncTime = Date.now();
-    } catch (e: any) {
-      this.logger.warn(`Auto-refresh notice: ${e.message}`);
-    } finally {
-      this.isSyncing = false;
-    }
+    this.syncPromise = (async () => {
+      try {
+        await this.loadFromPostgres();
+        this.lastSyncTime = Date.now();
+      } catch (e: any) {
+        this.logger.warn(`Auto-refresh notice: ${e.message}`);
+      } finally {
+        this.syncPromise = null;
+      }
+    })();
+    return this.syncPromise;
   }
 
   async forceSync(): Promise<void> {

@@ -10,6 +10,7 @@ import {
   Typography,
   Button,
   Alert,
+  Skeleton,
 } from 'antd';
 import {
   UsergroupAddOutlined,
@@ -100,6 +101,7 @@ const initialCharts = {
 export default function OwnerDashboardPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
+  const [initialLoading, setInitialLoading] = useState(true);
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [metrics, setMetrics] = useState<IDashboardMetrics>(initialMetrics);
   const [charts, setCharts] = useState<any>(initialCharts);
@@ -114,8 +116,31 @@ export default function OwnerDashboardPage() {
           setCurrentUser(JSON.parse(stored));
         } catch (e) {}
       }
+
+      // Restore cached metrics instantly so the UI never flashes 0 on refresh
+      const cachedMetrics = localStorage.getItem('sfms_cached_metrics');
+      if (cachedMetrics) {
+        try {
+          const parsed = JSON.parse(cachedMetrics);
+          if (parsed && typeof parsed.totalMembers === 'number') {
+            setMetrics(parsed);
+            setInitialLoading(false);
+          }
+        } catch (e) {}
+      }
+
+      const cachedCharts = localStorage.getItem('sfms_cached_charts');
+      if (cachedCharts) {
+        try {
+          const parsed = JSON.parse(cachedCharts);
+          if (parsed) setCharts(parsed);
+        } catch (e) {}
+      }
+
       if (token) {
         loadDashboard();
+      } else {
+        setInitialLoading(false);
       }
     }
   }, []);
@@ -129,13 +154,24 @@ export default function OwnerDashboardPage() {
         fetchApi<IRedAlert[]>('/dashboard/red-alerts'),
       ]);
 
-      if (mRes.success && mRes.data) setMetrics(mRes.data);
-      if (cRes.success && cRes.data) setCharts(cRes.data);
+      if (mRes.success && mRes.data) {
+        setMetrics(mRes.data);
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('sfms_cached_metrics', JSON.stringify(mRes.data));
+        }
+      }
+      if (cRes.success && cRes.data) {
+        setCharts(cRes.data);
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('sfms_cached_charts', JSON.stringify(cRes.data));
+        }
+      }
       if (aRes.success && aRes.data) setRedAlerts(aRes.data);
     } catch (e) {
       console.warn('Dashboard live fetch error, using safe initial state', e);
     } finally {
       setLoading(false);
+      setInitialLoading(false);
     }
   };
 
@@ -296,7 +332,11 @@ export default function OwnerDashboardPage() {
                 <UsergroupAddOutlined className="text-emerald-600 text-lg" />
               </div>
               <div className="text-2xl font-black text-slate-900 mt-2">
-                {metrics.totalMembers.toLocaleString()}
+                {initialLoading && metrics.totalMembers === 0 ? (
+                  <Skeleton.Button active size="small" style={{ width: 45, height: 28, borderRadius: 6 }} />
+                ) : (
+                  metrics.totalMembers.toLocaleString()
+                )}
               </div>
               <div className="text-xs text-emerald-600 mt-1 flex items-center gap-1 font-medium">
                 <RiseOutlined /> {metrics.activeMembers} Active KYC Verified

@@ -33,6 +33,7 @@ export async function fetchApi<T = any>(
 
   try {
     const res = await fetch(`${API_BASE}${normalizedEndpoint}`, {
+      cache: 'no-store',
       ...options,
       headers,
     });
