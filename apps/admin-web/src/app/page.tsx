@@ -141,7 +141,7 @@ export default function OwnerDashboardPage() {
 
   const userRole = currentUser?.roles?.[0] || 'SUPER_ADMIN';
   const userName = currentUser?.employeeName || currentUser?.username || 'Staff User';
-  const branchName = currentUser?.branchName || 'Head Office Agra';
+  const branchName = currentUser?.branchName || 'Head Office - Main Branch (Delhi)';
 
   const roleTitle =
     userRole === 'COLLECTION_AGENT' || userRole === 'RECOVERY_OFFICER'

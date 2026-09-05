@@ -92,7 +92,7 @@ export class LoansController {
       customerNumber: customer.customerNumber,
       customerMobile: customer.mobile,
       branchId: branch?.id || 'BR-001',
-      branchName: branch?.name || 'Head Office Agra',
+      branchName: branch?.name || 'Head Office - Main Branch (Delhi)',
       loanProductId: product.id,
       loanProductName: product.productName,
       requestedAmount,
@@ -355,6 +355,7 @@ export class LoansController {
     this.dataStore.loanInstallments.push(...installments);
     await this.dataStore.persistLoanInstallments(installments);
     app.status = LoanApplicationStatus.DISBURSED;
+    app.updatedAt = new Date().toISOString();
 
     // Create Double-Entry Accounting Journal Entry (SRS §38: Dr Loan Receivable, Cr Bank/Cash)
     const journalNumber = this.dataStore.nextJournalNumber();

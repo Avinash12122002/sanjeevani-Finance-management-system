@@ -28,7 +28,7 @@ import {
 @Controller('api/v1/customers')
 @UseGuards(JwtAuthGuard)
 export class CustomersController {
-  constructor(private dataStore: DataStoreService) {}
+  constructor(private dataStore: DataStoreService) { }
 
   @Get()
   async getCustomers(
@@ -101,7 +101,7 @@ export class CustomersController {
       customerNumber,
       branchId: branch?.id || 'BR-001',
       branchCode: branch?.branchCode || 'SJF-BR001',
-      branchName: branch?.name || 'Head Office Agra',
+      branchName: branch?.name || 'Head Office - Main Branch (Delhi)',
       firstName: body.firstName.trim(),
       middleName: body.middleName?.trim() || undefined,
       lastName: body.lastName.trim(),
@@ -112,9 +112,9 @@ export class CustomersController {
       alternateMobile: body.alternateMobile?.trim() || undefined,
       email: body.email?.trim() || undefined,
       addressLine1: body.addressLine1?.trim() || 'Address not specified',
-      city: body.city?.trim() || 'Agra',
-      state: body.state?.trim() || 'Uttar Pradesh',
-      postalCode: body.postalCode?.trim() || '282001',
+      city: body.city?.trim() || 'Delhi',
+      state: body.state?.trim() || 'Delhi',
+      postalCode: body.postalCode?.trim() || '110086',
       photoUrl: body.photoUrl || undefined,
       joiningDate: today,
       status: CustomerStatus.ACTIVE,

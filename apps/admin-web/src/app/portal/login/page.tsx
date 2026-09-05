@@ -58,8 +58,10 @@ export default function CustomerPortalLoginPage() {
 
   const handleAuthSuccess = (resData: any) => {
     if (resData.accessToken) {
-      localStorage.setItem('sfms_customer_token', resData.accessToken);
-      localStorage.setItem('sfms_customer', JSON.stringify(resData.customer));
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('sfms_customer_token', resData.accessToken);
+        localStorage.setItem('sfms_customer', JSON.stringify(resData.customer));
+      }
       message.success(`Welcome, ${resData.customer?.fullName || 'Member'}!`);
       router.push('/portal');
     }

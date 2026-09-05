@@ -250,6 +250,32 @@ export class AccountingController {
     const removed = this.dataStore.journalEntries.splice(idx, 1)[0];
     await this.dataStore.deleteJournalEntry(removed.id);
 
+    // Reverse the debit/credit effects on Chart of Accounts balances (BR-016)
+    if (Array.isArray(removed.lines)) {
+      for (const line of removed.lines) {
+        const coa = this.dataStore.chartOfAccounts.find(
+          (c) => c.id === line.ledgerAccountId || c.accountCode === line.ledgerAccountCode,
+        );
+        if (coa) {
+          const isDebitNature =
+            coa.accountType === AccountClassification.ASSET ||
+            coa.accountType === AccountClassification.EXPENSE;
+          if (isDebitNature) {
+            coa.currentBalance = FinancialEngine.add(
+              FinancialEngine.subtract(coa.currentBalance, line.debitAmount || 0),
+              line.creditAmount || 0,
+            );
+          } else {
+            coa.currentBalance = FinancialEngine.add(
+              FinancialEngine.subtract(coa.currentBalance, line.creditAmount || 0),
+              line.debitAmount || 0,
+            );
+          }
+          await this.dataStore.persistChartOfAccount(coa);
+        }
+      }
+    }
+
     this.dataStore.logAudit(
       user.id,
       user.employeeName || 'Accountant',

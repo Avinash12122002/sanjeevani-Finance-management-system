@@ -40,7 +40,7 @@ export class CashController {
       drawer = {
         id: `CD-${Date.now()}`,
         branchId: user.branchId || 'BR-001',
-        branchName: user.branchName || 'Head Office Agra',
+        branchName: user.branchName || 'Head Office - Main Branch (Delhi)',
         cashierId: user.id || 'USR-003',
         cashierName: user.employeeName || 'Cashier',
         businessDate: today,
@@ -74,7 +74,7 @@ export class CashController {
     const newDrawer: ICashDrawer = {
       id: `CD-${Date.now()}`,
       branchId: branch?.id || 'BR-001',
-      branchName: branch?.name || 'Head Office Agra',
+      branchName: branch?.name || 'Head Office - Main Branch (Delhi)',
       cashierId: user.id || 'USR-001',
       cashierName: user.employeeName || user.username || 'Cashier',
       businessDate: today,

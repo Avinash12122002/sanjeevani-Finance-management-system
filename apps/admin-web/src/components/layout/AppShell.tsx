@@ -235,12 +235,13 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
   const displayName = currentUser?.employeeName || currentUser?.username || 'Staff User';
   const displayRole = currentUser?.roles?.[0] || 'SUPER_ADMIN';
-  const initials = displayName
+  const initials = (displayName || 'S')
     .split(' ')
+    .filter(Boolean)
     .map((n) => n[0])
     .join('')
     .slice(0, 2)
-    .toUpperCase();
+    .toUpperCase() || 'S';
 
   const userProfileMenu = {
     items: [

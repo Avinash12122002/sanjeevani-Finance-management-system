@@ -36,7 +36,7 @@ export class CustomerPortalController {
   constructor(
     private dataStore: DataStoreService,
     private jwtService: JwtService,
-  ) {}
+  ) { }
 
   /**
    * Helper: Dispatch OTP via MSG91 OTP Widget API (SMS)
@@ -340,9 +340,9 @@ export class CustomerPortalController {
         gender: 'MALE',
         mobile: cleanMobile,
         addressLine1: 'Registered via Online Customer Portal',
-        city: 'Agra',
-        state: 'Uttar Pradesh',
-        postalCode: '282001',
+        city: 'Delhi',
+        state: 'Delhi',
+        postalCode: '110086',
         joiningDate: new Date().toISOString().split('T')[0],
         status: CustomerStatus.ACTIVE,
         kycStatus: KYCStatus.PENDING,
@@ -539,9 +539,9 @@ export class CustomerPortalController {
     const isValidPass = customPass
       ? customPass === password
       : password === 'Pass@123' ||
-        password === 'Password@123' ||
-        password === last4Mobile ||
-        (customer.dateOfBirth && password === customer.dateOfBirth.replace(/-/g, ''));
+      password === 'Password@123' ||
+      password === last4Mobile ||
+      (customer.dateOfBirth && password === customer.dateOfBirth.replace(/-/g, ''));
 
     if (!isValidPass) {
       throw new UnauthorizedException('Incorrect password. Please try again or log in with OTP.');
@@ -619,9 +619,9 @@ export class CustomerPortalController {
     const isValidPass = customPass
       ? customPass === password
       : password === 'Pass@123' ||
-        password === 'Password@123' ||
-        password === last4Mobile ||
-        (customer.dateOfBirth && password === customer.dateOfBirth.replace(/-/g, ''));
+      password === 'Password@123' ||
+      password === last4Mobile ||
+      (customer.dateOfBirth && password === customer.dateOfBirth.replace(/-/g, ''));
 
     if (!isValidPass) {
       throw new UnauthorizedException('Invalid password.');
@@ -751,15 +751,15 @@ export class CustomerPortalController {
         gender: customer.gender || 'MALE',
         address: customer.addressLine1 || 'Address not specified',
         addressLine2: customer.addressLine2,
-        city: customer.city || 'Agra',
-        state: customer.state || 'Uttar Pradesh',
-        postalCode: customer.postalCode || '282001',
+        city: customer.city || 'Delhi',
+        state: customer.state || 'Delhi',
+        postalCode: customer.postalCode || '110086',
         kycStatus: customer.kycStatus || 'VERIFIED',
         status: customer.status || 'ACTIVE',
         joiningDate: customer.joiningDate || (customer.createdAt ? customer.createdAt.split('T')[0] : '2026-01-01'),
         branchId: customer.branchId || 'BR-001',
         branchCode: customer.branchCode || 'SJF-BR001',
-        branchName: customer.branchName || 'Head Office - Main Branch',
+        branchName: customer.branchName || 'Head Office - Main Branch (Delhi)',
         createdAt: customer.createdAt,
       },
       summary: {

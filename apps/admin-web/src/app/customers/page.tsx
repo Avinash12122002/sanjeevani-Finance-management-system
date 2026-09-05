@@ -368,12 +368,12 @@ export default function CustomersPage() {
 
           <Row gutter={16}>
             <Col span={12}>
-              <Form.Item name="city" label="City / District" initialValue="Agra">
+              <Form.Item name="city" label="City / District" initialValue="Delhi">
                 <Input />
               </Form.Item>
             </Col>
             <Col span={12}>
-              <Form.Item name="postalCode" label="PIN Code" initialValue="282001">
+              <Form.Item name="postalCode" label="PIN Code" initialValue="110086">
                 <Input />
               </Form.Item>
             </Col>
@@ -637,13 +637,13 @@ export default function CustomersPage() {
                           <span className="font-mono text-xs">{selectedCustomer360.profile.assignedCollectorId || 'USR-006'}</span>
                         </Descriptions.Item>
                         <Descriptions.Item label="Branch">
-                          {selectedCustomer360.profile.branchName || 'Head Office Main Branch'}
+                          {selectedCustomer360.profile.branchName || 'Head Office - Main Branch (Delhi)'}
                         </Descriptions.Item>
                         <Descriptions.Item label="Registered Date">
                           {selectedCustomer360.profile.createdAt ? new Date(selectedCustomer360.profile.createdAt).toLocaleString('en-IN') : selectedCustomer360.profile.joiningDate || 'N/A'}
                         </Descriptions.Item>
                         <Descriptions.Item label="Address" span={2}>
-                          {selectedCustomer360.profile.addressLine1 || selectedCustomer360.profile.address}, {selectedCustomer360.profile.city} - {selectedCustomer360.profile.postalCode || '282001'} ({selectedCustomer360.profile.state || 'UP'})
+                          {selectedCustomer360.profile.addressLine1 || selectedCustomer360.profile.address}, {selectedCustomer360.profile.city || 'Delhi'} - {selectedCustomer360.profile.postalCode || '110086'} ({selectedCustomer360.profile.state || 'Delhi'})
                         </Descriptions.Item>
                       </Descriptions>
 

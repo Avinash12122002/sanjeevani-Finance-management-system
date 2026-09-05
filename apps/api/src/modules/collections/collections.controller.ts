@@ -21,6 +21,7 @@ import {
   IUser,
   ITransaction,
   IReceipt,
+  IJournalEntry,
 } from '@sanjeevani/shared-types';
 
 @Controller('api/v1/collections')
@@ -57,7 +58,7 @@ export class CollectionsController {
         referenceNumber: a.accountNumber,
         expectedAmount: a.principalAmount,
         overdueAmount: 0,
-        dueDate: '2026-09-05',
+        dueDate: new Date().toISOString().split('T')[0],
         status: 'DUE',
       })),
     ];
@@ -203,7 +204,7 @@ export class CollectionsController {
       paymentFor,
       collectorId: user.id || 'USR-006',
       collectorName: user.employeeName || 'Collector',
-      branchName: customer.branchName || 'Head Office Agra',
+      branchName: customer.branchName || 'Head Office - Main Branch (Delhi)',
       generatedAt: new Date().toISOString(),
       deliveryStatus: 'SENT',
     };
@@ -235,7 +236,7 @@ export class CollectionsController {
     const isCash = body.paymentMode === PaymentMode.CASH || !body.paymentMode;
     const debitAccount = isCash ? 'COA-1010' : 'COA-1020';
 
-    this.dataStore.journalEntries.unshift({
+    const collectionJournal: IJournalEntry = {
       id: `JRN-${Date.now()}`,
       journalNumber,
       transactionId: transaction.id,
@@ -266,7 +267,10 @@ export class CollectionsController {
           customerId: customer.id,
         },
       ],
-    });
+    };
+
+    this.dataStore.journalEntries.unshift(collectionJournal);
+    await this.dataStore.persistJournalEntry(collectionJournal);
 
     // Update Chart of Account balances in real time and persist to PostgreSQL
     const debitCoa = this.dataStore.chartOfAccounts.find((c) => c.id === debitAccount || c.accountCode === (isCash ? '1010' : '1020'));

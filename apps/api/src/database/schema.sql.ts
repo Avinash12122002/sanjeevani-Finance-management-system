@@ -284,12 +284,17 @@ CREATE TABLE IF NOT EXISTS journal_entries (
 export const SEED_MASTER_DATA_SQL = `
 -- Seed Branch
 INSERT INTO branches (id, branch_code, name, address, city, state, phone, status)
-VALUES ('BR-001', 'SJF-BR001', 'Head Office - Main Branch', 'Administrative Head Office', 'Agra', 'Uttar Pradesh', '+91 562 2520101', 'ACTIVE')
-ON CONFLICT (id) DO NOTHING;
+VALUES ('BR-001', 'SJF-BR001', 'Head Office - Main Branch (Delhi)', 'Administrative Head Office, Connaught Place', 'Delhi', 'Delhi', '+91 11 23456789', 'ACTIVE')
+ON CONFLICT (id) DO UPDATE SET
+  name = EXCLUDED.name,
+  address = EXCLUDED.address,
+  city = EXCLUDED.city,
+  state = EXCLUDED.state,
+  phone = EXCLUDED.phone;
 
 -- Seed Super Admin User
 INSERT INTO users (id, username, email, mobile, roles, branch_id, branch_name, employee_id, employee_name, is_active, password_hash)
-VALUES ('USR-001', 'owner_admin', 'owner@sanjeevanifinance.com', '9876543210', '{"SUPER_ADMIN"}', 'BR-001', 'Head Office - Main Branch', 'EMP-001', 'System Administrator (Owner)', TRUE, 'Password@123')
+VALUES ('USR-001', 'owner_admin', 'owner@sanjeevanifinance.com', '9876543210', '{"SUPER_ADMIN"}', 'BR-001', 'Head Office - Main Branch (Delhi)', 'EMP-001', 'System Administrator (Owner)', TRUE, 'Password@123')
 ON CONFLICT (id) DO NOTHING;
 
 -- Seed Super Admin Employee

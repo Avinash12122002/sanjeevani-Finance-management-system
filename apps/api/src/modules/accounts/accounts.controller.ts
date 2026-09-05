@@ -151,7 +151,7 @@ export class AccountsController {
       productName: product.productName,
       productType: product.productType,
       branchId: branch?.id || 'BR-001',
-      branchName: branch?.name || 'Head Office Agra',
+      branchName: branch?.name || 'Head Office - Main Branch (Delhi)',
       openingDate: openingDateStr,
       principalAmount: principal,
       interestRate: product.interestRate,

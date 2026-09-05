@@ -1708,7 +1708,7 @@ export default function SettingsPage() {
                 name="name"
                 rules={[{ required: true, message: 'Enter branch name' }]}
               >
-                <Input placeholder="e.g. South Agra City Branch" />
+                <Input placeholder="e.g. Connaught Place Delhi Branch" />
               </Form.Item>
             </Col>
             <Col span={24}>
@@ -1717,7 +1717,7 @@ export default function SettingsPage() {
                 name="address"
                 rules={[{ required: true, message: 'Enter branch address' }]}
               >
-                <Input placeholder="e.g. Shop 12, Main Market" />
+                <Input placeholder="e.g. Connaught Place, Central Delhi" />
               </Form.Item>
             </Col>
             <Col span={12}>
@@ -1725,8 +1725,9 @@ export default function SettingsPage() {
                 label="City"
                 name="city"
                 rules={[{ required: true, message: 'Enter city' }]}
+                initialValue="Delhi"
               >
-                <Input placeholder="e.g. Agra" />
+                <Input placeholder="e.g. Delhi" />
               </Form.Item>
             </Col>
             <Col span={12}>
@@ -1734,14 +1735,14 @@ export default function SettingsPage() {
                 label="State"
                 name="state"
                 rules={[{ required: true, message: 'Enter state' }]}
-                initialValue="Uttar Pradesh"
+                initialValue="Delhi"
               >
                 <Input placeholder="State" />
               </Form.Item>
             </Col>
             <Col span={24}>
               <Form.Item label="Contact Phone" name="phone">
-                <Input placeholder="e.g. +91 562 2520102" />
+                <Input placeholder="e.g. +91 11 23456789" />
               </Form.Item>
             </Col>
           </Row>
