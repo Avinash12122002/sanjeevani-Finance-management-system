@@ -343,15 +343,84 @@ export default function CustomerPortalPage() {
         </div>
       </div>
 
-      {/* Active Branch Indicator */}
-      <div className="mx-3 my-3 p-2.5 rounded-lg bg-slate-800/90 border border-slate-700/60 shadow-sm">
-        <div className="flex items-center gap-1.5 text-[11px] font-semibold text-emerald-400 uppercase tracking-wider">
-          <BranchesOutlined />
-          <span>ACTIVE BRANCH</span>
+      {/* User Account / Profile Section (Banking Style) */}
+      <div className="mx-3 my-2.5 p-3 rounded-xl bg-gradient-to-b from-slate-800/95 to-slate-900/95 border border-slate-700/70 shadow-lg shadow-black/25 shrink-0">
+        {/* Top: Avatar, Name & KYC Badge */}
+        <div className="flex items-center gap-2.5">
+          <div className="relative shrink-0">
+            <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-emerald-600 via-teal-500 to-cyan-400 flex items-center justify-center text-white font-black text-sm shadow-md ring-2 ring-emerald-500/30">
+              {customer.firstName?.[0] || 'M'}
+              {customer.lastName?.[0] || ''}
+            </div>
+            <span
+              className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 bg-emerald-500 rounded-full ring-2 ring-[#0f172a] flex items-center justify-center text-[8px] text-white font-bold"
+              title="KYC Verified"
+            >
+              ✓
+            </span>
+          </div>
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center justify-between gap-1">
+              <span className="text-white font-bold text-xs truncate leading-tight tracking-wide">
+                {customer.fullName || `${customer.firstName || 'Member'} ${customer.lastName || ''}`}
+              </span>
+              <span className="px-1.5 py-0.5 rounded text-[9px] font-extrabold uppercase bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 shrink-0">
+                {customer.kycStatus === 'VERIFIED' ? 'VERIFIED' : customer.kycStatus || 'ACTIVE'}
+              </span>
+            </div>
+            <div className="flex items-center gap-1.5 mt-0.5">
+              <span className="text-[10px] font-mono text-slate-400 truncate">
+                ID: {customer.customerNumber || 'SJF-CUS-001'}
+              </span>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  copyToClipboard(customer.customerNumber || '', 'cif');
+                }}
+                className="text-slate-400 hover:text-emerald-400 text-[10px] cursor-pointer transition-colors"
+                title="Copy Customer ID"
+              >
+                {copiedAccount === 'cif' ? <CheckOutlined className="text-emerald-400" /> : <CopyOutlined />}
+              </button>
+            </div>
+          </div>
         </div>
-        <div className="text-xs font-bold text-slate-100 mt-1 truncate">
-          {customer.branchName || 'Head Office - Main Branch'}
+
+        {/* Financial & Account Quick Info */}
+        <div className="mt-2.5 pt-2 border-t border-slate-700/60 grid grid-cols-2 gap-2 text-[10px]">
+          <div>
+            <div className="text-slate-400 font-medium text-[10px] flex items-center gap-1">
+              <WalletOutlined className="text-emerald-400" />
+              <span>Net Portfolio</span>
+            </div>
+            <div className="font-mono font-bold text-emerald-400 text-xs mt-0.5">
+              {maskAmount(totalAssets)}
+            </div>
+          </div>
+          <div>
+            <div className="text-slate-400 font-medium text-[10px] flex items-center gap-1">
+              <BranchesOutlined className="text-teal-400" />
+              <span>Branch</span>
+            </div>
+            <div className="text-slate-200 font-semibold truncate text-[11px] mt-0.5" title={customer.branchName}>
+              {customer.branchName || 'Head Office'}
+            </div>
+          </div>
         </div>
+
+        {/* Quick View Profile Button */}
+        <button
+          type="button"
+          onClick={() => {
+            setActiveTab('profile');
+            if (isMobile) setMobileDrawerOpen(false);
+          }}
+          className="mt-2.5 w-full py-1.5 px-2 rounded-lg bg-slate-700/50 hover:bg-emerald-500/20 text-slate-300 hover:text-emerald-300 border border-slate-700 hover:border-emerald-500/40 text-[11px] font-semibold flex items-center justify-center gap-1.5 transition-all cursor-pointer"
+        >
+          <UserOutlined className="text-emerald-400 text-xs" />
+          <span>Account & Profile Details</span>
+        </button>
       </div>
 
       {/* Nav Menu Items */}
