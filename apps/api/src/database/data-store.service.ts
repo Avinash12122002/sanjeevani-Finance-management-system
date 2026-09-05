@@ -1735,7 +1735,7 @@ export class DataStoreService implements OnModuleInit {
     }
   }
 
-  // --- RAW DATABASE TABLES EXPLORER & CRUD (15 TABLES) ---
+  // --- RAW DATABASE TABLES EXPLORER & CRUD (17 TABLES) ---
   readonly ALL_DB_TABLES = [
     'accounts',
     'audit_logs',
@@ -1743,6 +1743,7 @@ export class DataStoreService implements OnModuleInit {
     'cash_drawers',
     'chart_of_accounts',
     'complaints',
+    'customer_documents',
     'customers',
     'daily_closures',
     'employees',
@@ -1813,6 +1814,7 @@ export class DataStoreService implements OnModuleInit {
       journal_entries: ['id', 'journal_number', 'business_date', 'description', 'total_debit', 'total_credit', 'status', 'created_by', 'approved_by', 'lines', 'created_at'],
       audit_logs: ['id', 'user_id', 'user_name', 'action', 'entity_type', 'entity_id', 'client_ip', 'user_agent', 'details', 'created_at'],
       complaints: ['id', 'complaint_number', 'customer_id', 'customer_name', 'customer_number', 'category', 'description', 'priority', 'status', 'resolution', 'resolved_at', 'created_at'],
+      customer_documents: ['id', 'customer_id', 'document_type', 'file_name', 'file_url', 'file_size', 'mime_type', 'uploaded_by', 'uploaded_at'],
     };
     return cols[table] || ['id'];
   }
@@ -1835,6 +1837,7 @@ export class DataStoreService implements OnModuleInit {
       case 'journal_entries': return this.journalEntries.length;
       case 'audit_logs': return this.auditLogs.length;
       case 'complaints': return this.complaints.length;
+      case 'customer_documents': return this.customerDocuments.length;
       default: return 0;
     }
   }
@@ -2123,6 +2126,18 @@ export class DataStoreService implements OnModuleInit {
           resolution: c.resolution,
           resolved_at: c.resolvedAt,
           created_at: c.createdAt,
+        }));
+      case 'customer_documents':
+        return this.customerDocuments.map((doc) => ({
+          id: doc.id,
+          customer_id: doc.customerId,
+          document_type: doc.documentType,
+          file_name: doc.fileName,
+          file_url: doc.fileUrl,
+          file_size: doc.fileSize,
+          mime_type: doc.mimeType,
+          uploaded_by: doc.uploadedBy,
+          uploaded_at: doc.uploadedAt,
         }));
       default:
         return [];

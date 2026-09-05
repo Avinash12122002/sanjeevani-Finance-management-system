@@ -1285,7 +1285,7 @@ export default function SettingsPage() {
           },
           {
             key: 'db_explorer',
-            label: renderTabHeader('Database', dbTables.length || 16, 'PostgreSQL Database Explorer', <TableOutlined className="text-teal-600 text-xs" />),
+            label: renderTabHeader('Database', dbTables.length || 17, 'PostgreSQL Database Explorer', <TableOutlined className="text-teal-600 text-xs" />),
             children: (
               <Card
                 className="glass-card"
@@ -1296,7 +1296,7 @@ export default function SettingsPage() {
                       <div>
                         <div className="font-bold text-slate-800 text-base flex items-center gap-2">
                           <span>PostgreSQL Database Explorer & Inspector</span>
-                          <Tag color="emerald" className="font-mono text-xs m-0">{dbTables.length || 16} TABLES CONNECTED</Tag>
+                          <Tag color="emerald" className="font-mono text-xs m-0">{dbTables.length || 17} TABLES CONNECTED</Tag>
                         </div>
                         <div className="text-xs text-slate-500 font-normal">
                           Read, Create, Update & Delete 100% of rows and columns saved in database.
