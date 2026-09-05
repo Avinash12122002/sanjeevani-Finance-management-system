@@ -30,36 +30,47 @@ export interface EmiCalculationResult {
   schedule: EmiScheduleItem[];
 }
 
+function toSafeDecimal(val: number | string | undefined | null): Decimal {
+  if (val === undefined || val === null || val === '') return new Decimal(0);
+  if (typeof val === 'number' && isNaN(val)) return new Decimal(0);
+  try {
+    return new Decimal(val);
+  } catch {
+    return new Decimal(0);
+  }
+}
+
 export class FinancialEngine {
   /**
    * Safe financial addition using Decimal.js
    */
   static add(a: number | string, b: number | string): number {
-    return new Decimal(a).plus(new Decimal(b)).toDecimalPlaces(2).toNumber();
+    return toSafeDecimal(a).plus(toSafeDecimal(b)).toDecimalPlaces(2).toNumber();
   }
 
   /**
    * Safe financial subtraction using Decimal.js
    */
   static subtract(a: number | string, b: number | string): number {
-    return new Decimal(a).minus(new Decimal(b)).toDecimalPlaces(2).toNumber();
+    return toSafeDecimal(a).minus(toSafeDecimal(b)).toDecimalPlaces(2).toNumber();
   }
 
   /**
    * Safe financial multiplication
    */
   static multiply(a: number | string, b: number | string): number {
-    return new Decimal(a).times(new Decimal(b)).toDecimalPlaces(2).toNumber();
+    return toSafeDecimal(a).times(toSafeDecimal(b)).toDecimalPlaces(2).toNumber();
   }
 
   /**
    * Safe financial division
    */
   static divide(a: number | string, b: number | string): number {
-    if (new Decimal(b).isZero()) {
-      throw new Error('Division by zero in financial engine');
+    const divisor = toSafeDecimal(b);
+    if (divisor.isZero()) {
+      return 0;
     }
-    return new Decimal(a).dividedBy(new Decimal(b)).toDecimalPlaces(2).toNumber();
+    return toSafeDecimal(a).dividedBy(divisor).toDecimalPlaces(2).toNumber();
   }
 
   /**
@@ -274,7 +285,7 @@ export class FinancialEngine {
    * Formats Indian Rupee (INR) with Indian numbering format (e.g. ₹ 1,25,000.00)
    */
   static formatINR(amount: number | string): string {
-    const num = new Decimal(amount || 0).toDecimalPlaces(2);
+    const num = toSafeDecimal(amount).toDecimalPlaces(2);
     const parts = num.toFixed(2).split('.');
     let integerPart = parts[0];
     const decimalPart = parts[1];
