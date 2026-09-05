@@ -110,12 +110,7 @@ export default function CollectionsPage() {
       title: 'Member / Customer',
       dataIndex: 'customerName',
       key: 'customerName',
-      render: (name: string, r: any) => (
-        <div>
-          <div className="font-semibold text-slate-800">{name}</div>
-          <div className="text-xs text-slate-500 font-mono">{r.customerNumber}</div>
-        </div>
-      ),
+      render: (name: string) => <span className="font-semibold text-slate-800">{name}</span>,
     },
     {
       title: 'Reference A/c or Loan',
@@ -153,12 +148,7 @@ export default function CollectionsPage() {
       title: 'Member Name',
       dataIndex: 'customerName',
       key: 'customerName',
-      render: (name: string, r: IReceipt) => (
-        <div>
-          <div className="font-semibold">{name}</div>
-          <div className="text-xs text-slate-500 font-mono">{r.customerNumber}</div>
-        </div>
-      ),
+      render: (name: string) => <span className="font-semibold">{name}</span>,
     },
     {
       title: 'Payment For',
@@ -299,7 +289,7 @@ export default function CollectionsPage() {
                   rowKey="id"
                   loading={loading}
                   pagination={{ pageSize: 10 }}
-                  onRow={(record) => ({
+                  onRow={(record: any) => ({
                     onClick: (e: any) => {
                       if (e.target.closest('button') || e.target.closest('.ant-popconfirm') || e.target.closest('.ant-popover')) return;
                       setSelectedCustomerId(record.customerId);
@@ -328,7 +318,7 @@ export default function CollectionsPage() {
                   rowKey="id"
                   loading={loading}
                   pagination={{ pageSize: 10 }}
-                  onRow={(record) => ({
+                  onRow={(record: any) => ({
                     onClick: (e: any) => {
                       if (e.target.closest('button') || e.target.closest('.ant-popconfirm') || e.target.closest('.ant-popover')) return;
                       setCurrentReceipt(record);

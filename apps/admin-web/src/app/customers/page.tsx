@@ -169,11 +169,8 @@ export default function CustomersPage() {
       key: 'name',
       render: (_: any, r: ICustomer) => (
         <div className="flex items-center gap-2">
-          <Avatar style={{ backgroundColor: '#059669' }}>{r.firstName?.[0] || 'M'}</Avatar>
-          <div>
-            <div className="font-semibold text-slate-800">{`${r.firstName} ${r.lastName}`}</div>
-            <div className="text-xs text-slate-500">{r.fatherOrSpouseName}</div>
-          </div>
+          <Avatar size={28} style={{ backgroundColor: '#059669', fontSize: 13 }}>{r.firstName?.[0] || 'M'}</Avatar>
+          <span className="font-semibold text-slate-800">{`${r.firstName} ${r.lastName}`}</span>
         </div>
       ),
     },
@@ -181,39 +178,8 @@ export default function CustomersPage() {
       title: 'Contact',
       dataIndex: 'mobile',
       key: 'mobile',
-      render: (m: string, r: ICustomer) => (
-        <div>
-          <div className="font-medium text-slate-700 font-mono">{m}</div>
-          {r.alternateMobile && (
-            <div className="text-[11px] text-slate-400 font-mono">Alt: {r.alternateMobile}</div>
-          )}
-        </div>
-      ),
-    },
-    {
-      title: 'Statutory IDs',
-      key: 'ids',
-      render: (_: any, r: ICustomer) => (
-        <div className="space-y-0.5">
-          <div className="text-xs font-mono">
-            <span className="font-semibold text-slate-400">PAN:</span>{' '}
-            {r.pan ? <Tag color="blue" className="font-mono m-0 px-1 py-0">{r.pan}</Tag> : <span className="text-slate-400">-</span>}
-          </div>
-          <div className="text-xs font-mono">
-            <span className="font-semibold text-slate-400">UID:</span>{' '}
-            {r.aadhaar ? <Tag color="purple" className="font-mono m-0 px-1 py-0">{r.aadhaar}</Tag> : <span className="text-slate-400">-</span>}
-          </div>
-        </div>
-      ),
-    },
-    {
-      title: 'Branch / City',
-      key: 'branch',
-      render: (_: any, r: ICustomer) => (
-        <div>
-          <div className="text-xs text-slate-800">{r.branchName || 'Delhi HO'}</div>
-          <div className="text-[11px] text-slate-400">{r.city || 'Delhi'} ({r.state || 'Delhi'})</div>
-        </div>
+      render: (m: string) => (
+        <span className="font-mono text-slate-700 font-medium">{m}</span>
       ),
     },
     {

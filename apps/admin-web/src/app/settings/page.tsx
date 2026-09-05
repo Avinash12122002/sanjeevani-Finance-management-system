@@ -709,9 +709,9 @@ export default function SettingsPage() {
                       title: 'Staff Member',
                       key: 'staff',
                       render: (_: any, r: any) => (
-                        <div>
-                          <div className="font-semibold text-slate-800">{r.name}</div>
-                          <div className="text-xs font-mono text-emerald-700 font-bold">{r.employeeNumber}</div>
+                        <div className="flex items-center gap-2">
+                          <span className="font-semibold text-slate-800">{r.name}</span>
+                          <span className="text-xs font-mono text-emerald-700 font-bold">({r.employeeNumber})</span>
                         </div>
                       ),
                     },
@@ -732,10 +732,7 @@ export default function SettingsPage() {
                       title: 'Contact',
                       key: 'contact',
                       render: (_: any, r: any) => (
-                        <div>
-                          <div className="font-mono text-xs">{r.mobile}</div>
-                          {r.email && <div className="text-xs text-slate-400 truncate max-w-[150px]">{r.email}</div>}
-                        </div>
+                        <span className="font-mono text-xs text-slate-700">{r.mobile}</span>
                       ),
                     },
                     { title: 'Branch', dataIndex: 'branchName', key: 'br', ellipsis: true },
@@ -820,13 +817,10 @@ export default function SettingsPage() {
                       width: 160,
                       render: (_: any, r: any) => (
                         <div className="flex items-center gap-2">
-                          <div className="w-8 h-8 rounded-full bg-emerald-100 border border-emerald-300 flex items-center justify-center font-bold text-emerald-800 text-xs shrink-0">
+                          <div className="w-6 h-6 rounded-full bg-emerald-100 border border-emerald-300 flex items-center justify-center font-bold text-emerald-800 text-xs shrink-0">
                             {r.username?.charAt(0)?.toUpperCase()}
                           </div>
-                          <div className="min-w-0">
-                            <div className="font-semibold text-slate-800 truncate">{r.username}</div>
-                            <div className="text-xs text-slate-400 font-mono truncate">{r.id}</div>
-                          </div>
+                          <span className="font-semibold text-slate-800 truncate">{r.username}</span>
                         </div>
                       ),
                     },
@@ -850,12 +844,9 @@ export default function SettingsPage() {
                     {
                       title: 'Contact Details',
                       key: 'contact',
-                      width: 180,
+                      width: 160,
                       render: (_: any, r: any) => (
-                        <div>
-                          <div className="font-mono text-xs text-slate-700">{r.mobile || 'No mobile'}</div>
-                          <div className="text-xs text-slate-400 truncate max-w-[170px]">{r.email || 'No email'}</div>
-                        </div>
+                        <span className="font-mono text-xs text-slate-700">{r.mobile || r.email || '—'}</span>
                       ),
                     },
                     {
@@ -947,9 +938,9 @@ export default function SettingsPage() {
                       title: 'Product',
                       key: 'prod',
                       render: (_: any, r: any) => (
-                        <div>
-                          <div className="font-semibold text-slate-800">{r.productName}</div>
-                          <div className="text-xs font-mono text-emerald-700 font-bold">{r.productCode}</div>
+                        <div className="flex items-center gap-2">
+                          <span className="font-semibold text-slate-800">{r.productName}</span>
+                          <span className="text-xs font-mono text-emerald-700 font-bold">({r.productCode})</span>
                         </div>
                       ),
                     },
@@ -1037,9 +1028,9 @@ export default function SettingsPage() {
                       title: 'Branch',
                       key: 'br',
                       render: (_: any, r: any) => (
-                        <div>
-                          <div className="font-semibold text-slate-800">{r.name}</div>
-                          <div className="text-xs font-mono text-emerald-700 font-bold">{r.branchCode}</div>
+                        <div className="flex items-center gap-2">
+                          <span className="font-semibold text-slate-800">{r.name}</span>
+                          <span className="text-xs font-mono text-emerald-700 font-bold">({r.branchCode})</span>
                         </div>
                       ),
                     },
@@ -1048,10 +1039,7 @@ export default function SettingsPage() {
                       key: 'loc',
                       ellipsis: true,
                       render: (_: any, r: any) => (
-                        <div className="text-xs">
-                          <div>{r.city ? `${r.city}, ${r.state || ''}` : r.address || '-'}</div>
-                          {r.phone && <div className="text-slate-400 font-mono">{r.phone}</div>}
-                        </div>
+                        <span className="text-xs text-slate-700">{r.city ? `${r.city}, ${r.state || 'Delhi'}` : r.address || 'Delhi'}</span>
                       ),
                     },
                     { title: 'Status', dataIndex: 'status', key: 'st', width: 90, render: (s) => <Tag color={s === 'ACTIVE' ? 'success' : 'default'}>{s || 'ACTIVE'}</Tag> },
@@ -1135,10 +1123,7 @@ export default function SettingsPage() {
                       key: 'cust',
                       width: 170,
                       render: (_: any, r: any) => (
-                        <div>
-                          <div className="font-semibold text-slate-800">{r.customerName || 'General Customer'}</div>
-                          <div className="text-xs text-slate-400 font-mono">{r.customerNumber || r.customerId}</div>
-                        </div>
+                        <span className="font-semibold text-slate-800">{r.customerName || 'General Customer'}</span>
                       ),
                     },
                     {

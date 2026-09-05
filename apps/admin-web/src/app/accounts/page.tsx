@@ -132,15 +132,11 @@ export default function AccountsPage() {
       render: (acc: string) => <span className="font-mono font-bold text-blue-700">{acc}</span>,
     },
     {
-      title: 'Member / Customer',
-      key: 'customer',
+      title: 'Member Name',
+      dataIndex: 'customerName',
+      key: 'customerName',
       ellipsis: true,
-      render: (_: any, r: IAccount) => (
-        <div>
-          <div className="font-semibold">{r.customerName}</div>
-          <div className="text-xs text-slate-500 font-mono">{r.customerNumber}</div>
-        </div>
-      ),
+      render: (name: string) => <span className="font-semibold text-slate-800">{name}</span>,
     },
     {
       title: 'Product Type',
