@@ -25,6 +25,18 @@ if (!fs.existsSync(uploadDir)) {
   fs.mkdirSync(uploadDir, { recursive: true });
 }
 
+export interface UploadedMulterFile {
+  fieldname: string;
+  originalname: string;
+  encoding: string;
+  mimetype: string;
+  size: number;
+  destination: string;
+  filename: string;
+  path: string;
+  buffer?: Buffer;
+}
+
 @Controller('api/v1/documents')
 @UseGuards(JwtAuthGuard)
 export class DocumentsController {
@@ -49,7 +61,7 @@ export class DocumentsController {
   )
   async uploadCustomerDocument(
     @Param('customerId') customerId: string,
-    @UploadedFile() file: Express.Multer.File,
+    @UploadedFile() file: UploadedMulterFile,
     @Body('documentType') documentType: string,
     @CurrentUser() user: IUser,
   ) {
