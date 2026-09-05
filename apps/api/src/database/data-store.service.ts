@@ -74,6 +74,7 @@ export class DataStoreService implements OnModuleInit {
   businessDayClosures: IBusinessDayClosure[] = [];
   auditLogs: IAuditLog[] = [];
   complaints: IComplaint[] = [];
+  customerDocuments: any[] = [];
   recoveryCases: IRecoveryCase[] = [];
   redAlerts: IRedAlert[] = [];
   customerPasswordMap = new Map<string, string>();
@@ -202,6 +203,7 @@ export class DataStoreService implements OnModuleInit {
         schedRes,
         closureRes,
         jrnRes,
+        docRes,
       ] = await Promise.all([
         this.pool.query('SELECT * FROM branches').catch(() => ({ rows: [] })),
         this.pool.query('SELECT * FROM users').catch(() => ({ rows: [] })),
@@ -219,6 +221,7 @@ export class DataStoreService implements OnModuleInit {
         this.pool.query('SELECT * FROM repayment_schedules ORDER BY installment_no ASC').catch(() => ({ rows: [] })),
         this.pool.query('SELECT * FROM daily_closures ORDER BY business_date DESC').catch(() => ({ rows: [] })),
         this.pool.query('SELECT * FROM journal_entries ORDER BY created_at DESC LIMIT 100').catch(() => ({ rows: [] })),
+        this.pool.query('SELECT * FROM customer_documents ORDER BY uploaded_at DESC').catch(() => ({ rows: [] })),
       ]);
 
       // Branches
@@ -577,6 +580,21 @@ export class DataStoreService implements OnModuleInit {
           approvedBy: r.approved_by,
           createdAt: r.created_at ? new Date(r.created_at).toISOString() : '',
           lines: Array.isArray(r.lines) ? r.lines : typeof r.lines === 'string' ? (() => { try { return JSON.parse(r.lines); } catch { return []; } })() : [],
+        }));
+      }
+
+      // Customer Documents
+      if (docRes && docRes.rows && docRes.rows.length > 0) {
+        this.customerDocuments = docRes.rows.map((r) => ({
+          id: r.id,
+          customerId: r.customer_id,
+          documentType: r.document_type,
+          fileName: r.file_name,
+          fileUrl: r.file_url,
+          fileSize: r.file_size,
+          mimeType: r.mime_type,
+          uploadedBy: r.uploaded_by,
+          uploadedAt: r.uploaded_at ? new Date(r.uploaded_at).toISOString() : new Date().toISOString(),
         }));
       }
     } catch (e: any) {
@@ -1089,6 +1107,23 @@ export class DataStoreService implements OnModuleInit {
       );
     } catch (e: any) {
       this.logger.error(`Failed to persist customer ${c.id} to PostgreSQL: ${e.message}`);
+    }
+  }
+
+  async persistCustomerDocument(doc: any) {
+    if (!this.pool) return;
+    try {
+      await this.pool.query(
+        `INSERT INTO customer_documents (id, customer_id, document_type, file_name, file_url, file_size, mime_type, uploaded_by, uploaded_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+         ON CONFLICT (id) DO UPDATE SET
+           document_type = EXCLUDED.document_type,
+           file_name = EXCLUDED.file_name,
+           file_url = EXCLUDED.file_url`,
+        [doc.id, doc.customerId, doc.documentType, doc.fileName, doc.fileUrl, doc.fileSize || 0, doc.mimeType || 'application/octet-stream', doc.uploadedBy || 'Staff', doc.uploadedAt || new Date()],
+      );
+    } catch (e: any) {
+      this.logger.warn(`persistCustomerDocument failed: ${e.message}`);
     }
   }
 

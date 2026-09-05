@@ -101,7 +101,7 @@ export default function LoansPage() {
   const [calcPrincipal, setCalcPrincipal] = useState<number>(100000);
   const [calcRate, setCalcRate] = useState<number>(14.0);
   const [calcTenure, setCalcTenure] = useState<number>(12);
-  const [calcMethod, setCalcMethod] = useState<'REDUCING_BALANCE' | 'FLAT_RATE'>('REDUCING_BALANCE');
+  const [calcMethod, setCalcMethod] = useState<InterestMethod>(InterestMethod.REDUCING_BALANCE);
   const [calculatorResult, setCalculatorResult] = useState<any>(null);
 
   const [form] = Form.useForm();
@@ -127,13 +127,13 @@ export default function LoansPage() {
     setLoading(false);
   };
 
-  const recalculateEmi = (p: number, r: number, n: number, method: 'REDUCING_BALANCE' | 'FLAT_RATE') => {
+  const recalculateEmi = (p: number, r: number, n: number, method: InterestMethod | 'REDUCING_BALANCE' | 'FLAT_RATE') => {
     try {
       const res = FinancialEngine.calculateLoanEmi({
         principal: p,
         annualInterestRate: r,
         tenureMonths: n,
-        interestMethod: method,
+        interestMethod: method as any,
         startDate: new Date().toISOString().split('T')[0],
       });
       setCalculatorResult(res);
@@ -265,7 +265,14 @@ export default function LoansPage() {
       title: 'Status',
       dataIndex: 'status',
       key: 'status',
-      render: (st: string) => <Tag color={st === 'ACTIVE' ? 'blue' : 'success'}>{st}</Tag>,
+      render: (st: string) => (
+        <Tag
+          icon={st === 'ACTIVE' ? <CheckCircleOutlined /> : undefined}
+          color={st === 'ACTIVE' ? 'blue' : st === 'CLOSED' ? 'success' : st === 'NPA' ? 'error' : 'orange'}
+        >
+          {st}
+        </Tag>
+      ),
     },
     {
       title: 'Actions',
@@ -320,8 +327,11 @@ export default function LoansPage() {
       dataIndex: 'status',
       key: 'status',
       render: (st: string) => (
-        <Tag color={st === 'READY_FOR_DISBURSEMENT' ? 'success' : st === 'MANAGER_REVIEW' ? 'purple' : 'orange'}>
-          {st}
+        <Tag
+          icon={st === 'READY_FOR_DISBURSEMENT' ? <CheckCircleOutlined /> : undefined}
+          color={st === 'READY_FOR_DISBURSEMENT' ? 'success' : st === 'MANAGER_REVIEW' ? 'purple' : 'orange'}
+        >
+          {st.replace(/_/g, ' ')}
         </Tag>
       ),
     },
@@ -524,6 +534,17 @@ export default function LoansPage() {
                         }}
                         className="w-full mt-1"
                       />
+                      <Slider
+                        min={1}
+                        max={36}
+                        step={0.5}
+                        value={calcRate}
+                        onChange={(v) => {
+                          setCalcRate(v);
+                          recalculateEmi(calcPrincipal, v, calcTenure, calcMethod);
+                        }}
+                        tooltip={{ formatter: (v) => `${v}% p.a.` }}
+                      />
                     </div>
 
                     <div>
@@ -559,8 +580,8 @@ export default function LoansPage() {
                         }}
                         className="w-full mt-1"
                         options={[
-                          { label: 'Reducing Balance Method (Standard Banking)', value: 'REDUCING_BALANCE' },
-                          { label: 'Flat Rate Method', value: 'FLAT_RATE' },
+                          { label: '📉 Reducing Balance (Standard Banking)', value: InterestMethod.REDUCING_BALANCE },
+                          { label: '📊 Flat Rate Method', value: InterestMethod.FLAT_RATE },
                         ]}
                       />
                     </div>

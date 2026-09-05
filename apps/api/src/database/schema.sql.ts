@@ -248,10 +248,26 @@ CREATE TABLE IF NOT EXISTS daily_closures (
     closed_by_id VARCHAR(50),
     closed_by_name VARCHAR(150),
     closed_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    can_reopen BOOLEAN DEFAULT TRUE
+    reopened_at TIMESTAMP WITH TIME ZONE,
+    reopened_by_id VARCHAR(50),
+    reopened_by_name VARCHAR(150),
+    reopen_reason TEXT
 );
 
--- 14. AUDIT & SURVEILLANCE LOGS
+-- 14. CUSTOMER KYC DOCUMENTS & PHOTO SCANS (§6, §47)
+CREATE TABLE IF NOT EXISTS customer_documents (
+    id VARCHAR(50) PRIMARY KEY,
+    customer_id VARCHAR(50) NOT NULL,
+    document_type VARCHAR(50) NOT NULL,
+    file_name VARCHAR(255) NOT NULL,
+    file_url VARCHAR(500) NOT NULL,
+    file_size INT,
+    mime_type VARCHAR(100),
+    uploaded_by VARCHAR(150),
+    uploaded_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 15. AUDIT & SURVEILLANCE LOGS
 CREATE TABLE IF NOT EXISTS audit_logs (
     id VARCHAR(50) PRIMARY KEY,
     user_id VARCHAR(50),

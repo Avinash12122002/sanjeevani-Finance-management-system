@@ -185,48 +185,74 @@ export default function DailyClosingPage() {
         </div>
       </div>
 
-      {/* Date Status Banner */}
-      <Card className="glass-card">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className={`w-12 h-12 rounded-xl flex items-center justify-center text-white text-xl ${isLocked ? 'bg-red-600' : 'bg-emerald-600'}`}>
-              {isLocked ? <LockOutlined /> : <CheckCircleOutlined />}
-            </div>
-            <div>
-              <div className="text-xs text-slate-500 font-semibold uppercase">CURRENT BUSINESS DATE</div>
-              <div className="text-2xl font-black text-slate-900">{closingData?.currentBusinessDate}</div>
-            </div>
-          </div>
+      {/* Date Status Banner with Key Metrics */}
+      <Row gutter={[16, 16]}>
+        <Col xs={24} lg={16}>
+          <Card className="glass-card h-full">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className={`w-12 h-12 rounded-xl flex items-center justify-center text-white text-xl ${isLocked ? 'bg-red-600' : 'bg-emerald-600'}`}>
+                  {isLocked ? <LockOutlined /> : <CheckCircleOutlined />}
+                </div>
+                <div>
+                  <div className="text-xs text-slate-500 font-semibold uppercase">CURRENT BUSINESS DATE</div>
+                  <div className="text-2xl font-black text-slate-900">{closingData?.currentBusinessDate}</div>
+                </div>
+              </div>
 
-          <div>
-            <Tag color={isLocked ? 'error' : 'success'} className="px-4 py-1.5 font-bold text-sm rounded-full">
-              STATUS: {closingData?.status}
-            </Tag>
-          </div>
-        </div>
+              <div>
+                <Tag color={isLocked ? 'error' : 'success'} className="px-4 py-1.5 font-bold text-sm rounded-full">
+                  STATUS: {closingData?.status}
+                </Tag>
+              </div>
+            </div>
 
-        {/* 9-Step Closing Workflow Progress (SRS §63) */}
-        <div className="mt-6 pt-6 border-t border-slate-100">
-          <div className="text-xs font-bold text-slate-700 uppercase tracking-wider mb-4">
-            Daily Closing 9-Step Pipeline (SRS §63)
-          </div>
-          <Steps
-            size="small"
-            current={isLocked ? 9 : 6}
-            items={[
-              { title: 'Collections' },
-              { title: 'Collector Recon' },
-              { title: 'Cashier Drawer' },
-              { title: 'Bank Check' },
-              { title: 'Pending Approval' },
-              { title: 'Ledger Posted' },
-              { title: 'Mismatch Check' },
-              { title: 'Manager Sign-off' },
-              { title: 'Date Locked' },
-            ]}
-          />
-        </div>
-      </Card>
+            {/* 9-Step Closing Workflow Progress (SRS §63) */}
+            <div className="mt-6 pt-6 border-t border-slate-100">
+              <div className="text-xs font-bold text-slate-700 uppercase tracking-wider mb-4">
+                Daily Closing 9-Step Pipeline (SRS §63)
+              </div>
+              <Steps
+                size="small"
+                current={isLocked ? 9 : 6}
+                items={[
+                  { title: 'Collections' },
+                  { title: 'Collector Recon' },
+                  { title: 'Cashier Drawer' },
+                  { title: 'Bank Check' },
+                  { title: 'Pending Approval' },
+                  { title: 'Ledger Posted' },
+                  { title: 'Mismatch Check' },
+                  { title: 'Manager Sign-off' },
+                  { title: 'Date Locked' },
+                ]}
+              />
+            </div>
+          </Card>
+        </Col>
+        <Col xs={24} lg={8}>
+          <Card className="glass-card h-full" title={<span className="font-bold text-slate-800 text-sm">Settlement Summary</span>}>
+            <div className="space-y-3 text-xs">
+              <div className="flex justify-between items-center py-1.5 border-b border-slate-100">
+                <span className="text-slate-500">Historical Closures:</span>
+                <span className="font-bold text-slate-800">{history.length} Days</span>
+              </div>
+              <div className="flex justify-between items-center py-1.5 border-b border-slate-100">
+                <span className="text-slate-500">Last Closed Date:</span>
+                <span className="font-mono font-semibold text-slate-700">{history[0]?.businessDate || 'N/A'}</span>
+              </div>
+              <div className="flex justify-between items-center py-1.5 border-b border-slate-100">
+                <span className="text-slate-500">Settlement Currency:</span>
+                <span className="font-bold text-emerald-700">INR (₹)</span>
+              </div>
+              <div className="flex justify-between items-center py-1.5">
+                <span className="text-slate-500">Pipeline Mode:</span>
+                <Tag color="cyan">BR-009 ENFORCED</Tag>
+              </div>
+            </div>
+          </Card>
+        </Col>
+      </Row>
 
       {/* Historical Closures */}
       <Card className="glass-card" title="Historical Daily Closures & Date Locks (BR-009)">

@@ -20,6 +20,10 @@ import {
   Popconfirm,
   message,
   Divider,
+  Upload,
+  Alert,
+  Radio,
+  Tooltip,
 } from 'antd';
 import {
   BookOutlined,
@@ -29,6 +33,13 @@ import {
   CheckCircleOutlined,
   MinusCircleOutlined,
   EyeOutlined,
+  UploadOutlined,
+  DownloadOutlined,
+  SyncOutlined,
+  CheckSquareOutlined,
+  WarningOutlined,
+  AuditOutlined,
+  FileExcelOutlined,
 } from '@ant-design/icons';
 import { fetchApi, postApi, patchApi, deleteApi } from '@/lib/api-client';
 import { FinancialEngine } from '@sanjeevani/financial-engine';
@@ -74,6 +85,117 @@ export default function AccountingPage() {
     { ledgerAccountId: '', debitAmount: 0, creditAmount: 0 },
   ]);
   const [journalDescription, setJournalDescription] = useState('Operating Adjustment');
+
+  // Bank Statement Reconciliation State (§28, §29)
+  const [reconData, setReconData] = useState<any>(null);
+  const [reconLoading, setReconLoading] = useState(false);
+  const [statementRows, setStatementRows] = useState<any[]>([]);
+  const [reconFilter, setReconFilter] = useState<'ALL' | 'MATCHED' | 'UNRECORDED' | 'UNPRESENTED'>('ALL');
+  const [adjustmentModal, setAdjustmentModal] = useState(false);
+  const [selectedRowForAdjustment, setSelectedRowForAdjustment] = useState<any>(null);
+  const [adjustmentSubmitting, setAdjustmentSubmitting] = useState(false);
+  const [adjustmentForm] = Form.useForm();
+
+  const handleRunReconciliation = async (rowsToReconcile: any[]) => {
+    setReconLoading(true);
+    try {
+      const res = await postApi('/accounting/bank-reconciliation/match', {
+        statementRows: rowsToReconcile,
+      });
+      if (res.success && res.data) {
+        setReconData(res.data);
+        message.success(`Reconciliation complete: ${res.data.matchedCount} matched, ${res.data.unrecordedCount} unrecorded.`);
+      } else {
+        message.error(res.message || 'Failed to match bank statement');
+      }
+    } catch {
+      message.error('An error occurred during reconciliation matching.');
+    } finally {
+      setReconLoading(false);
+    }
+  };
+
+  const handleLoadSampleStatement = () => {
+    const today = new Date().toISOString().split('T')[0];
+    const sample = [
+      { date: today, narration: 'NEFT/RTGS Deposit Collection Batch', referenceNo: 'TXN-001', deposit: 25000, withdrawal: 0, balance: 525000 },
+      { date: today, narration: 'Cheque Clearance Vendor Payout', referenceNo: 'CHQ-88910', deposit: 0, withdrawal: 12000, balance: 513000 },
+      { date: today, narration: 'SMS Alert Charges Q3', referenceNo: 'BNK-CHG-99', deposit: 0, withdrawal: 118, balance: 512882 },
+      { date: today, narration: 'Quarterly Savings Bank Interest', referenceNo: 'INT-CREDIT', deposit: 3450, withdrawal: 0, balance: 516332 },
+    ];
+    setStatementRows(sample);
+    handleRunReconciliation(sample);
+  };
+
+  const handleStatementCsvChange = (file: File) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const text = e.target?.result as string;
+      if (!text) return;
+      const lines = text.split(/\r?\n/).filter(line => line.trim().length > 0);
+      if (lines.length <= 1) {
+        message.warning('CSV file is empty or contains only header row.');
+        return;
+      }
+      const parsed = lines.slice(1).map((line, idx) => {
+        const regex = /(?:^|,)(\"(?:[^\"]+|\"\")*\"|[^,]*)/g;
+        const cols: string[] = [];
+        let match;
+        while ((match = regex.exec(line)) !== null) {
+          let val = match[1];
+          if (val.startsWith(',')) val = val.substring(1);
+          val = val.trim().replace(/^["']|["']$/g, '').replace(/""/g, '"');
+          cols.push(val);
+          if (regex.lastIndex === line.length) break;
+        }
+        return {
+          id: `STMT-${idx + 1}`,
+          date: cols[0] || new Date().toISOString().split('T')[0],
+          narration: cols[1] || 'Bank Entry',
+          referenceNo: cols[2] || '',
+          withdrawal: Number(cols[3]) || 0,
+          deposit: Number(cols[4]) || 0,
+          balance: Number(cols[5]) || 0,
+        };
+      });
+      setStatementRows(parsed);
+      handleRunReconciliation(parsed);
+    };
+    reader.readAsText(file);
+    return false;
+  };
+
+  const handleOpenAdjustment = (row: any) => {
+    setSelectedRowForAdjustment(row);
+    adjustmentForm.setFieldsValue({
+      type: row.deposit > 0 ? 'INTEREST_CREDIT' : 'BANK_CHARGE',
+      amount: row.amount || row.deposit || row.withdrawal,
+      narration: row.narration || '',
+      referenceNo: row.referenceNo || '',
+    });
+    setAdjustmentModal(true);
+  };
+
+  const handleCreateAdjustment = async (values: any) => {
+    setAdjustmentSubmitting(true);
+    try {
+      const res = await postApi('/accounting/bank-reconciliation/create-adjustment', values);
+      if (res.success) {
+        message.success(res.message || 'Adjustment booked into ledger!');
+        setAdjustmentModal(false);
+        loadAccountingData();
+        if (statementRows.length > 0) {
+          handleRunReconciliation(statementRows);
+        }
+      } else {
+        message.error(res.message || 'Failed to book adjustment');
+      }
+    } catch {
+      message.error('Adjustment error');
+    } finally {
+      setAdjustmentSubmitting(false);
+    }
+  };
 
   useEffect(() => {
     loadAccountingData();
@@ -320,6 +442,9 @@ export default function AccountingPage() {
           </p>
         </div>
         <Space>
+          <Button icon={<SyncOutlined spin={loading} />} onClick={loadAccountingData}>
+            Refresh
+          </Button>
           <Button icon={<PlusOutlined />} onClick={() => setAddAccountModal(true)}>
             + Add Ledger Account
           </Button>
@@ -398,7 +523,11 @@ export default function AccountingPage() {
                 <div className="flex justify-between items-center mb-4">
                   <div>
                     <span className="font-bold text-slate-800 text-base">Trial Balance Summary</span>
-                    <Tag color="success" className="ml-2 font-mono">
+                    <Tag
+                      icon={trialBalance.isBalanced ? <CheckSquareOutlined /> : <WarningOutlined />}
+                      color={trialBalance.isBalanced ? "success" : "error"}
+                      className="ml-2 font-mono"
+                    >
                       {trialBalance.isBalanced ? 'BALANCED: SUM(DR) === SUM(CR)' : 'UNBALANCED'}
                     </Tag>
                   </div>
@@ -416,13 +545,21 @@ export default function AccountingPage() {
                     { title: 'Account Name', dataIndex: 'name', key: 'name' },
                     { title: 'Type', dataIndex: 'type', key: 'type' },
                     {
-                      title: 'Debit Amount (₹)',
+                      title: (
+                        <Tooltip title="Total Debit balance (Asset / Expense additions)">
+                          <span>Debit Amount (₹)</span>
+                        </Tooltip>
+                      ),
                       dataIndex: 'debit',
                       key: 'dr',
                       render: (d) => (d > 0 ? FinancialEngine.formatINR(d) : '-'),
                     },
                     {
-                      title: 'Credit Amount (₹)',
+                      title: (
+                        <Tooltip title="Total Credit balance (Liability / Equity / Income additions)">
+                          <span>Credit Amount (₹)</span>
+                        </Tooltip>
+                      ),
                       dataIndex: 'credit',
                       key: 'cr',
                       render: (c) => (c > 0 ? FinancialEngine.formatINR(c) : '-'),
@@ -517,6 +654,7 @@ export default function AccountingPage() {
                       </div>
                     ))}
 
+                    <Divider className="my-3" />
                     <div className="font-bold text-xs text-slate-500 uppercase mt-4">Equity & Reserves</div>
                     {bs.equity?.map((e: any) => (
                       <div key={e.id} className="flex justify-between py-1 border-b border-slate-100 text-sm">
@@ -530,6 +668,229 @@ export default function AccountingPage() {
                       <span>{FinancialEngine.formatINR(bs.totalLiabilitiesAndEquity)}</span>
                     </div>
                   </div>
+                </Card>
+              </div>
+            ),
+          },
+          {
+            key: 'bank-reconciliation',
+            label: `Bank Reconciliation (§28)`,
+            children: (
+              <div className="space-y-6">
+                {/* Summary Metrics Cards */}
+                <Row gutter={16}>
+                  <Col span={6}>
+                    <Card className="glass-card" size="small">
+                      <div className="text-xs text-slate-500 font-semibold uppercase">Software Bank Balance (COA-1020)</div>
+                      <div className="text-2xl font-bold font-mono text-emerald-800 mt-1">
+                        {FinancialEngine.formatINR(
+                          reconData ? reconData.softwareBalance : (coa.find((c) => c.accountCode === '1020' || c.id === 'COA-1020')?.currentBalance || 0),
+                        )}
+                      </div>
+                      <div className="text-[11px] text-slate-400 mt-1">Delhi Head Office Commercial Account</div>
+                    </Card>
+                  </Col>
+                  <Col span={6}>
+                    <Card className="glass-card" size="small">
+                      <div className="text-xs text-slate-500 font-semibold uppercase">Bank Statement Balance</div>
+                      <div className="text-2xl font-bold font-mono text-blue-900 mt-1">
+                        {FinancialEngine.formatINR(
+                          reconData
+                            ? reconData.statementEndingBalance
+                            : statementRows.length > 0
+                            ? statementRows[statementRows.length - 1].balance
+                            : (coa.find((c) => c.accountCode === '1020' || c.id === 'COA-1020')?.currentBalance || 0),
+                        )}
+                      </div>
+                      <div className="text-[11px] text-slate-400 mt-1">As per uploaded bank statement</div>
+                    </Card>
+                  </Col>
+                  <Col span={6}>
+                    <Card className="glass-card" size="small">
+                      <div className="text-xs text-slate-500 font-semibold uppercase">Reconciliation Variance</div>
+                      <div className={`text-2xl font-bold font-mono mt-1 ${reconData && reconData.variance !== 0 ? 'text-rose-600' : 'text-emerald-700'}`}>
+                        {FinancialEngine.formatINR(reconData ? reconData.variance : 0)}
+                      </div>
+                      <div className="text-[11px] mt-1">
+                        {reconData && reconData.variance === 0 ? (
+                          <Tag color="success" className="text-[10px]">100% BALANCED</Tag>
+                        ) : (
+                          <Tag color="warning" className="text-[10px]">UNRECONCILED DIFFERENCE</Tag>
+                        )}
+                      </div>
+                    </Card>
+                  </Col>
+                  <Col span={6}>
+                    <Card className="glass-card" size="small">
+                      <div className="text-xs text-slate-500 font-semibold uppercase">Matching Engine Status</div>
+                      <div className="text-lg font-bold text-slate-800 mt-1">
+                        {reconData ? `${reconData.matchedCount} Cleared` : 'Awaiting Statement'}
+                      </div>
+                      <div className="text-[11px] text-slate-500 mt-1">
+                        {reconData ? `${reconData.unrecordedCount} Missing in Books • ${reconData.unpresentedCount} Pending in Bank` : 'Upload bank CSV to begin'}
+                      </div>
+                    </Card>
+                  </Col>
+                </Row>
+
+                {/* Reconciliation Action Bar */}
+                <Card className="glass-card">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div className="flex items-center gap-2">
+                      <Upload
+                        accept=".csv,text/csv"
+                        beforeUpload={handleStatementCsvChange}
+                        showUploadList={false}
+                      >
+                        <Button icon={<UploadOutlined />} type="primary" style={{ background: '#059669', borderColor: '#059669' }}>
+                          Upload Bank Statement (.CSV)
+                        </Button>
+                      </Upload>
+                      <Button
+                        icon={<FileExcelOutlined />}
+                        onClick={handleLoadSampleStatement}
+                      >
+                        Load Sample Bank Statement
+                      </Button>
+                      <Button
+                        icon={<DownloadOutlined />}
+                        onClick={() => {
+                          const csv = 'date,narration,referenceNo,withdrawal,deposit,balance\n2026-09-01,Opening Balance,,0,0,500000\n2026-09-02,Cash Deposit Branch,TXN-001,0,25000,525000\n2026-09-03,Cheque Clearing,CHQ-1001,15000,0,510000\n2026-09-04,Bank Charges SMS Alert,BNK-001,118,0,509882\n';
+                          const blob = new Blob([csv], { type: 'text/csv' });
+                          const url = URL.createObjectURL(blob);
+                          const a = document.createElement('a');
+                          a.href = url;
+                          a.download = 'bank_statement_template.csv';
+                          a.click();
+                        }}
+                      >
+                        Template (.CSV)
+                      </Button>
+                    </div>
+
+                    <Radio.Group
+                      value={reconFilter}
+                      onChange={(e) => setReconFilter(e.target.value)}
+                      size="middle"
+                    >
+                      <Radio.Button value="ALL">All Lines</Radio.Button>
+                      <Radio.Button value="MATCHED">
+                        Matched ({reconData?.matchedCount || 0})
+                      </Radio.Button>
+                      <Radio.Button value="UNRECORDED">
+                        Missing in Books ({reconData?.unrecordedCount || 0})
+                      </Radio.Button>
+                      <Radio.Button value="UNPRESENTED">
+                        Pending in Bank ({reconData?.unpresentedCount || 0})
+                      </Radio.Button>
+                    </Radio.Group>
+                  </div>
+                </Card>
+
+                {/* Reconciliation Comparison Table */}
+                <Card className="glass-card" title="Bank Statement vs Software Ledger Matching Grid (SRS §28, §29)">
+                  {reconLoading ? (
+                    <div className="py-12 text-center text-slate-400 text-sm">Matching statement against software general ledger...</div>
+                  ) : !reconData && statementRows.length === 0 ? (
+                    <div className="p-8 text-center bg-slate-50 border border-dashed border-slate-200 rounded-xl space-y-3">
+                      <AuditOutlined className="text-4xl text-slate-400" />
+                      <div className="text-slate-700 font-semibold text-sm">No Bank Statement Loaded for Reconciliation</div>
+                      <p className="text-slate-400 text-xs max-w-md mx-auto">
+                        Upload your bank account statement CSV or click &quot;Load Sample Bank Statement&quot; to test the automated reconciliation matching engine.
+                      </p>
+                      <Button type="primary" icon={<FileExcelOutlined />} onClick={handleLoadSampleStatement} style={{ background: '#059669', borderColor: '#059669' }}>
+                        Load Sample Bank Statement
+                      </Button>
+                    </div>
+                  ) : (
+                    <Table
+                      size="small"
+                      rowKey={(r: any) => r.id || `${r.date}-${r.narration}-${r.amount}`}
+                      pagination={{ pageSize: 10 }}
+                      dataSource={
+                        reconFilter === 'ALL'
+                          ? [...(reconData?.statementRows || []), ...(reconData?.unpresentedSoftwareTxns || [])]
+                          : reconFilter === 'MATCHED'
+                          ? (reconData?.statementRows || []).filter((r: any) => r.status === 'MATCHED')
+                          : reconFilter === 'UNRECORDED'
+                          ? (reconData?.statementRows || []).filter((r: any) => r.status === 'UNRECORDED_IN_BOOKS')
+                          : (reconData?.unpresentedSoftwareTxns || [])
+                      }
+                      columns={[
+                        {
+                          title: 'Date',
+                          dataIndex: 'date',
+                          key: 'date',
+                          width: 110,
+                          render: (d: string) => <span className="font-mono text-xs">{d}</span>,
+                        },
+                        {
+                          title: 'Particulars / Description',
+                          dataIndex: 'narration',
+                          key: 'narration',
+                          render: (desc: string, r: any) => (
+                            <div>
+                              <div className="font-medium text-slate-800">{desc}</div>
+                              {r.referenceNo && <span className="font-mono text-[11px] text-slate-400">Ref: {r.referenceNo}</span>}
+                            </div>
+                          ),
+                        },
+                        {
+                          title: 'Withdrawal / DR',
+                          dataIndex: 'withdrawal',
+                          key: 'withdrawal',
+                          render: (w: number, r: any) => {
+                            const val = w || (r.type === 'WITHDRAWAL' ? r.amount : 0);
+                            return val > 0 ? <span className="font-bold text-rose-600">{FinancialEngine.formatINR(val)}</span> : '-';
+                          },
+                        },
+                        {
+                          title: 'Deposit / CR',
+                          dataIndex: 'deposit',
+                          key: 'deposit',
+                          render: (d: number, r: any) => {
+                            const val = d || (r.type === 'DEPOSIT' ? r.amount : 0);
+                            return val > 0 ? <span className="font-bold text-emerald-700">{FinancialEngine.formatINR(val)}</span> : '-';
+                          },
+                        },
+                        {
+                          title: 'Running Balance',
+                          dataIndex: 'balance',
+                          key: 'balance',
+                          render: (b: number) => (b !== undefined && b > 0 ? <span className="font-mono">{FinancialEngine.formatINR(b)}</span> : '-'),
+                        },
+                        {
+                          title: 'Reconciliation Status',
+                          dataIndex: 'status',
+                          key: 'status',
+                          render: (st: string) => {
+                            if (st === 'MATCHED') return <Tag color="success">MATCHED & CLEARED</Tag>;
+                            if (st === 'UNRECORDED_IN_BOOKS') return <Tag color="warning">UNRECORDED IN BOOKS</Tag>;
+                            return <Tag color="processing">PENDING IN BANK</Tag>;
+                          },
+                        },
+                        {
+                          title: 'Action',
+                          key: 'action',
+                          render: (_: any, r: any) => {
+                            if (r.status === 'UNRECORDED_IN_BOOKS') {
+                              return (
+                                <Button
+                                  size="small"
+                                  type="primary"
+                                  ghost
+                                  onClick={() => handleOpenAdjustment(r)}
+                                >
+                                  Book into Ledger
+                                </Button>
+                              );
+                            }
+                            return <span className="text-xs text-slate-400">-</span>;
+                          },
+                        },
+                      ]}
+                    />
+                  )}
                 </Card>
               </div>
             ),
@@ -883,6 +1244,96 @@ export default function AccountingPage() {
           </div>
         )}
       </Drawer>
+
+      {/* BOOK BANK ADJUSTMENT MODAL (§28) */}
+      <Modal
+        title={
+          <div className="flex items-center gap-2">
+            <AuditOutlined className="text-emerald-600" />
+            <span>Book Unrecorded Bank Entry into General Ledger</span>
+          </div>
+        }
+        open={adjustmentModal}
+        onCancel={() => {
+          setAdjustmentModal(false);
+          setSelectedRowForAdjustment(null);
+          adjustmentForm.resetFields();
+        }}
+        footer={null}
+        width={560}
+      >
+        <Form
+          form={adjustmentForm}
+          layout="vertical"
+          onFinish={handleCreateAdjustment}
+          className="pt-2"
+        >
+          <Alert
+            type="info"
+            showIcon
+            message="Direct Ledger Post to Bank COA-1020"
+            description="Booking this entry will immediately create offsetting double-entry journals in the Chart of Accounts and update the live bank ledger balance."
+            className="mb-4"
+          />
+
+          <Form.Item
+            name="type"
+            label="Adjustment Nature"
+            rules={[{ required: true }]}
+          >
+            <Select
+              options={[
+                { label: 'Bank Fee / SMS / Service Charges (Expense DR)', value: 'BANK_CHARGE' },
+                { label: 'Quarterly Savings Interest Credit (Income CR)', value: 'INTEREST_CREDIT' },
+                { label: 'Direct Member Deposit / RTGS (Liability CR)', value: 'DIRECT_DEPOSIT' },
+                { label: 'Direct Vendor Debit / Standing Instruction', value: 'DIRECT_DEBIT' },
+              ]}
+            />
+          </Form.Item>
+
+          <Row gutter={16}>
+            <Col span={12}>
+              <Form.Item
+                name="amount"
+                label="Amount (₹)"
+                rules={[{ required: true, message: 'Amount is required' }]}
+              >
+                <InputNumber
+                  style={{ width: '100%' }}
+                  min={1}
+                  precision={2}
+                  placeholder="e.g. 118"
+                />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item name="referenceNo" label="Bank Ref / UTR / Cheque No">
+                <Input placeholder="e.g. UTR12345678" />
+              </Form.Item>
+            </Col>
+          </Row>
+
+          <Form.Item
+            name="narration"
+            label="Entry Particulars / Ledger Narration"
+            rules={[{ required: true, message: 'Narration required' }]}
+          >
+            <Input placeholder="e.g. Bank SMS Alert Charges for Q3" />
+          </Form.Item>
+
+          <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
+            <Button onClick={() => setAdjustmentModal(false)}>Cancel</Button>
+            <Button
+              type="primary"
+              htmlType="submit"
+              loading={adjustmentSubmitting}
+              style={{ background: '#059669', borderColor: '#059669' }}
+            >
+              Post Adjustment to Ledger
+            </Button>
+          </div>
+        </Form>
+      </Modal>
     </div>
   );
 }

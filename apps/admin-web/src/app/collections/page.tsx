@@ -181,7 +181,7 @@ export default function CollectionsPage() {
         <Space size={4}>
           <Button
             size="small"
-            icon={<PrinterOutlined />}
+            icon={<EyeOutlined />}
             onClick={() => {
               setCurrentReceipt(r);
               setReceiptModalVisible(true);
@@ -485,7 +485,8 @@ export default function CollectionsPage() {
             </div>
 
             {/* Official Stamp & Verification */}
-            <div className="flex items-center justify-between pt-3 border-t border-slate-200 text-[11px] text-slate-500">
+            <Divider className="my-2" />
+            <div className="flex items-center justify-between text-[11px] text-slate-500">
               <div className="flex items-center gap-1 text-emerald-700 font-semibold">
                 <CheckCircleOutlined /> System Verified Digital Copy
               </div>

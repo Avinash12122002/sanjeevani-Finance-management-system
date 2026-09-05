@@ -276,4 +276,137 @@ export class AccountsController {
 
     return { message: `Account ${removed.accountNumber} removed successfully.`, id: removed.id };
   }
+
+  @Post(':id/calculate-premature')
+  async calculatePrematureClosure(
+    @Param('id') id: string,
+    @Body() body: { closureDate?: string; penaltyRateOverride?: number },
+  ) {
+    await this.dataStore.refreshIfStale();
+    const account = this.dataStore.accounts.find((a) => a.id === id || a.accountNumber === id);
+    if (!account) throw new NotFoundException(`Account not found: ${id}`);
+    if (account.status === AccountStatus.CLOSED) {
+      throw new BadRequestException('Account is already closed.');
+    }
+
+    const openDateStr = account.openingDate || account.createdAt || new Date().toISOString();
+    const openDate = new Date(openDateStr);
+    const closeDate = body.closureDate ? new Date(body.closureDate) : new Date();
+    const diffTime = Math.max(0, closeDate.getTime() - openDate.getTime());
+    const elapsedDays = Math.max(1, Math.floor(diffTime / (1000 * 60 * 60 * 24)));
+    const elapsedMonths = Math.max(0, Math.floor(elapsedDays / 30));
+
+    const product = this.dataStore.products.find((p) => p.id === account.productId);
+    const penaltyRate = body.penaltyRateOverride !== undefined ? Number(body.penaltyRateOverride) : (product?.prematurePenaltyRate || 2.0);
+    const originalRate = account.interestRate || 8.0;
+    const revisedRate = Math.max(0, originalRate - penaltyRate);
+
+    const principal = account.principalAmount || (account as any).principal || account.currentBalance || 0;
+    const grossAccruedInterest = Math.round(principal * (originalRate / 100) * (elapsedDays / 365));
+    const penaltyAmount = Math.round(principal * (penaltyRate / 100) * (elapsedDays / 365));
+    const netAccruedInterest = Math.max(0, Math.round(principal * (revisedRate / 100) * (elapsedDays / 365)));
+    const totalPayout = principal + netAccruedInterest;
+
+    return {
+      accountNumber: account.accountNumber,
+      customerName: account.customerName,
+      productType: account.productType,
+      principal,
+      openDate: openDate.toISOString().split('T')[0],
+      closureDate: closeDate.toISOString().split('T')[0],
+      elapsedDays,
+      elapsedMonths,
+      originalRate,
+      penaltyRate,
+      revisedRate,
+      grossAccruedInterest,
+      penaltyAmount,
+      netAccruedInterest,
+      totalPayout,
+    };
+  }
+
+  @Post(':id/execute-premature')
+  async executePrematureClosure(
+    @Param('id') id: string,
+    @Body()
+    body: {
+      closureDate?: string;
+      penaltyRateOverride?: number;
+      paymentMode?: 'CASH' | 'BANK_TRANSFER';
+      remarks?: string;
+    },
+    @CurrentUser() user: IUser,
+  ) {
+    await this.dataStore.refreshIfStale();
+    const account = this.dataStore.accounts.find((a) => a.id === id || a.accountNumber === id);
+    if (!account) throw new NotFoundException(`Account not found: ${id}`);
+    if (account.status === AccountStatus.CLOSED) {
+      throw new BadRequestException('Account is already closed.');
+    }
+
+    const calc = await this.calculatePrematureClosure(id, body);
+    const paymentMode = body.paymentMode || 'CASH';
+
+    // Update account
+    account.status = AccountStatus.CLOSED;
+    const prevBalance = account.currentBalance;
+    account.currentBalance = 0;
+    account.remarks = `${account.remarks ? account.remarks + ' | ' : ''}Premature closure executed on ${calc.closureDate}. Principal: ₹${calc.principal}, Net Interest: ₹${calc.netAccruedInterest}, Penalty: ₹${calc.penaltyAmount}, Payout: ₹${calc.totalPayout} via ${paymentMode}. ${body.remarks || ''}`.trim();
+    account.updatedAt = new Date().toISOString();
+
+    await this.dataStore.persistAccount(account);
+
+    // Cancel remaining RD installments if any
+    this.dataStore.rdInstallments.forEach((inst) => {
+      if ((inst.rdAccountId === account.id || inst.rdAccountId === account.accountNumber) && (inst.status === InstallmentStatus.DUE || inst.status === InstallmentStatus.UPCOMING)) {
+        inst.status = InstallmentStatus.WAIVED;
+      }
+    });
+
+    // Post to Chart of Accounts
+    const isCash = paymentMode === 'CASH';
+    const cashOrBankCoa = this.dataStore.chartOfAccounts.find(
+      (c) => c.accountCode === (isCash ? '1010' : '1020') || c.id === (isCash ? 'COA-1010' : 'COA-1020'),
+    );
+    if (cashOrBankCoa) {
+      cashOrBankCoa.currentBalance = Math.max(0, (cashOrBankCoa.currentBalance || 0) - calc.totalPayout);
+      await this.dataStore.persistChartOfAccount(cashOrBankCoa);
+    }
+
+    const liabilityCoa = this.dataStore.chartOfAccounts.find(
+      (c) => c.accountCode === '2010' || c.id === 'COA-2010',
+    );
+    if (liabilityCoa) {
+      liabilityCoa.currentBalance = Math.max(0, (liabilityCoa.currentBalance || 0) - calc.principal);
+      await this.dataStore.persistChartOfAccount(liabilityCoa);
+    }
+
+    if (calc.netAccruedInterest > 0) {
+      const expenseCoa = this.dataStore.chartOfAccounts.find(
+        (c) => c.accountCode === '5010' || c.id === 'COA-5010',
+      );
+      if (expenseCoa) {
+        expenseCoa.currentBalance = (expenseCoa.currentBalance || 0) + calc.netAccruedInterest;
+        await this.dataStore.persistChartOfAccount(expenseCoa);
+      }
+    }
+
+    this.dataStore.logAudit(
+      user.id || 'USR-001',
+      user.employeeName || 'Staff',
+      'ACCOUNT_PREMATURE_CLOSURE',
+      'Account',
+      account.id,
+      { status: AccountStatus.ACTIVE, currentBalance: prevBalance },
+      account,
+      `Premature closure of ${account.accountNumber}: Payout ₹${calc.totalPayout} (Penalty ₹${calc.penaltyAmount} deducted)`,
+    );
+
+    return {
+      message: `Account ${account.accountNumber} successfully closed prematurely.`,
+      calculation: calc,
+      account,
+    };
+  }
 }

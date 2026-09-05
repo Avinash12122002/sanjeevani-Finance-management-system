@@ -20,6 +20,11 @@ import {
   Popconfirm,
   message,
   Divider,
+  Upload,
+  Image,
+  Alert,
+  Progress,
+  Tooltip,
 } from 'antd';
 import {
   UserAddOutlined,
@@ -33,6 +38,14 @@ import {
   CheckCircleOutlined,
   ClockCircleOutlined,
   ShareAltOutlined,
+  UploadOutlined,
+  DownloadOutlined,
+  FileExcelOutlined,
+  InboxOutlined,
+  FilePdfOutlined,
+  PaperClipOutlined,
+  CloudUploadOutlined,
+  FileTextOutlined,
 } from '@ant-design/icons';
 import { fetchApi, postApi, patchApi, deleteApi } from '@/lib/api-client';
 import { FinancialEngine } from '@sanjeevani/financial-engine';
@@ -48,6 +61,18 @@ export default function CustomersPage() {
   const [drawerVisible, setDrawerVisible] = useState(false);
   const [selectedCustomer360, setSelectedCustomer360] = useState<any>(null);
   const [submitting, setSubmitting] = useState(false);
+
+  // Bulk Register Importer State (§50)
+  const [bulkModalVisible, setBulkModalVisible] = useState(false);
+  const [bulkRows, setBulkRows] = useState<any[]>([]);
+  const [bulkLoading, setBulkLoading] = useState(false);
+  const [bulkResult, setBulkResult] = useState<any>(null);
+
+  // KYC Document Scans State (§6, §47)
+  const [customerDocs, setCustomerDocs] = useState<any[]>([]);
+  const [docsLoading, setDocsLoading] = useState(false);
+  const [uploadingDoc, setUploadingDoc] = useState(false);
+  const [selectedDocType, setSelectedDocType] = useState<string>('AADHAAR_FRONT');
 
   const [form] = Form.useForm();
   const [editForm] = Form.useForm();
@@ -65,11 +90,162 @@ export default function CustomersPage() {
     setLoading(false);
   };
 
+  const loadCustomerDocs = async (customerId: string) => {
+    setDocsLoading(true);
+    const res = await fetchApi(`/documents/customer/${customerId}`);
+    if (res.success && res.data) {
+      setCustomerDocs(res.data);
+    } else {
+      setCustomerDocs([]);
+    }
+    setDocsLoading(false);
+  };
+
   const handleOpen360 = async (customerId: string) => {
     const res = await fetchApi(`/customers/${customerId}/360`);
     if (res.success && res.data) {
       setSelectedCustomer360(res.data);
       setDrawerVisible(true);
+      loadCustomerDocs(customerId);
+    }
+  };
+
+  const handleUploadDoc = async (file: File) => {
+    if (!selectedCustomer360?.profile?.id) return;
+    setUploadingDoc(true);
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('documentType', selectedDocType);
+    try {
+      const res = await fetchApi(`/documents/upload/${selectedCustomer360.profile.id}`, {
+        method: 'POST',
+        body: formData,
+      });
+      if (res.success) {
+        message.success('Document uploaded and linked successfully!');
+        loadCustomerDocs(selectedCustomer360.profile.id);
+      } else {
+        message.error(res.message || 'Failed to upload document');
+      }
+    } catch (err) {
+      message.error('Upload error');
+    } finally {
+      setUploadingDoc(false);
+    }
+  };
+
+  const handleDeleteDoc = async (docId: string) => {
+    const res = await deleteApi(`/documents/${docId}`);
+    if (res.success) {
+      message.success('Document removed');
+      if (selectedCustomer360?.profile?.id) {
+        loadCustomerDocs(selectedCustomer360.profile.id);
+      }
+    } else {
+      message.error(res.message || 'Failed to delete document');
+    }
+  };
+
+  const downloadSampleCsv = () => {
+    const headers = 'fullName,mobile,address,openingBalance,productType,joiningDate,nomineeName,nomineeRelation\n';
+    const sampleRows = [
+      'Ramesh Kumar,9876543210,"Sector 14 Rohini Delhi",5000,SAVINGS,2026-01-10,Sunita Devi,SPOUSE',
+      'Pooja Sharma,9811223344,"Pitampura Village Delhi",10000,RD,2026-02-01,Amit Sharma,BROTHER',
+      'Satish Verma,9899001122,"Narela Mandi Delhi",25000,TERM_DEPOSIT,2026-01-15,Rekha Verma,SPOUSE'
+    ].join('\n');
+    const blob = new Blob([headers + sampleRows], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', 'sanjeevani_members_import_template.csv');
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const handleCsvFileChange = (file: File) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const text = e.target?.result as string;
+      if (!text) return;
+      const lines = text.split(/\r?\n/).filter(line => line.trim().length > 0);
+      if (lines.length <= 1) {
+        message.warning('CSV file is empty or contains only header row.');
+        return;
+      }
+      const parsed = lines.slice(1).map((line, idx) => {
+        const regex = /(?:^|,)(\"(?:[^\"]+|\"\")*\"|[^,]*)/g;
+        const cols: string[] = [];
+        let match;
+        while ((match = regex.exec(line)) !== null) {
+          let val = match[1];
+          if (val.startsWith(',')) val = val.substring(1);
+          val = val.trim().replace(/^["']|["']$/g, '').replace(/""/g, '"');
+          cols.push(val);
+          if (regex.lastIndex === line.length) break;
+        }
+        return {
+          key: idx,
+          fullName: cols[0] || '',
+          mobile: cols[1] || '',
+          address: cols[2] || '',
+          openingBalance: Number(cols[3]) || 0,
+          productType: cols[4] || 'SAVINGS',
+          joiningDate: cols[5] || new Date().toISOString().split('T')[0],
+          nomineeName: cols[6] || '',
+          nomineeRelation: cols[7] || 'SPOUSE',
+          isValid: Boolean(cols[0] && cols[1] && cols[1].length >= 10 && cols[2])
+        };
+      });
+      setBulkRows(parsed);
+      setBulkResult(null);
+      message.success(`Parsed ${parsed.length} rows from CSV`);
+    };
+    reader.readAsText(file);
+    return false;
+  };
+
+  const handleExecuteBulkImport = async () => {
+    if (bulkRows.length === 0) {
+      message.warning('Please select a CSV file first.');
+      return;
+    }
+    const validRows = bulkRows.filter(r => r.isValid);
+    if (validRows.length === 0) {
+      message.error('None of the rows in the CSV have valid name, mobile, and address.');
+      return;
+    }
+    setBulkLoading(true);
+    try {
+      const res = await postApi('/customers/bulk-import', {
+      rows: validRows.map(r => {
+          const nameParts = (r.fullName || '').trim().split(' ');
+          const firstName = nameParts[0] || r.fullName;
+          const lastName = nameParts.slice(1).join(' ') || '';
+          return {
+            firstName,
+            lastName,
+            mobile: r.mobile,
+            addressLine1: r.address,
+            openingBalance: r.openingBalance,
+            openingProductType: r.productType,
+            joiningDate: r.joiningDate,
+            nomineeName: r.nomineeName,
+            nomineeRelationship: r.nomineeRelation
+          };
+        })
+      });
+      if (res.success) {
+        setBulkResult(res.data);
+        message.success(`Bulk migration successful! Imported ${res.data.importedCount} members.`);
+        loadCustomers();
+      } else {
+        message.error(res.message || 'Bulk migration failed.');
+      }
+    } catch (err: any) {
+      message.error('An error occurred during bulk migration.');
+    } finally {
+      setBulkLoading(false);
     }
   };
 
@@ -178,8 +354,21 @@ export default function CustomersPage() {
       title: 'Contact',
       dataIndex: 'mobile',
       key: 'mobile',
-      render: (m: string) => (
-        <span className="font-mono text-slate-700 font-medium">{m}</span>
+      render: (m: string, r: ICustomer) => (
+        <div className="flex flex-col">
+          <div className="flex items-center gap-1.5 font-mono text-slate-700 font-medium text-xs">
+            <PhoneOutlined className="text-emerald-600 text-xs" />
+            <span>{m}</span>
+          </div>
+          {r.addressLine1 && (
+            <Tooltip title={`${r.addressLine1}, ${r.city || ''} ${r.postalCode || ''}`}>
+              <div className="flex items-center gap-1 text-[11px] text-slate-400 truncate max-w-[160px]">
+                <HomeOutlined className="text-slate-400 text-[10px]" />
+                <span className="truncate">{r.addressLine1}</span>
+              </div>
+            </Tooltip>
+          )}
+        </div>
       ),
     },
     {
@@ -187,7 +376,10 @@ export default function CustomersPage() {
       dataIndex: 'kycStatus',
       key: 'kycStatus',
       render: (status: string) => (
-        <Tag color={status === 'VERIFIED' ? 'success' : status === 'PENDING' ? 'warning' : 'error'}>
+        <Tag
+          icon={status === 'VERIFIED' ? <CheckCircleOutlined /> : status === 'PENDING' ? <ClockCircleOutlined /> : undefined}
+          color={status === 'VERIFIED' ? 'success' : status === 'PENDING' ? 'warning' : 'error'}
+        >
           {status}
         </Tag>
       ),
@@ -254,14 +446,23 @@ export default function CustomersPage() {
             Centralized member database, KYC status records, and linked financial portfolios (SRS §9, §69).
           </p>
         </div>
-        <Button
-          type="primary"
-          icon={<UserAddOutlined />}
-          onClick={() => setCreateModalVisible(true)}
-          style={{ background: '#059669', borderColor: '#059669', height: 40 }}
-        >
-          Register New Member
-        </Button>
+        <Space>
+          <Button
+            icon={<UploadOutlined />}
+            onClick={() => setBulkModalVisible(true)}
+            style={{ height: 40 }}
+          >
+            Import Legacy Registers (§50)
+          </Button>
+          <Button
+            type="primary"
+            icon={<UserAddOutlined />}
+            onClick={() => setCreateModalVisible(true)}
+            style={{ background: '#059669', borderColor: '#059669', height: 40 }}
+          >
+            Register New Member
+          </Button>
+        </Space>
       </div>
 
       {/* Table Card */}
@@ -675,7 +876,10 @@ export default function CustomersPage() {
                 </Tag>
               </div>
               <Space>
-                <Tag color={selectedCustomer360.profile.kycStatus === 'VERIFIED' ? 'success' : 'warning'}>
+                <Tag
+                  icon={selectedCustomer360.profile.kycStatus === 'VERIFIED' ? <CheckCircleOutlined /> : <ClockCircleOutlined />}
+                  color={selectedCustomer360.profile.kycStatus === 'VERIFIED' ? 'success' : 'warning'}
+                >
                   KYC: {selectedCustomer360.profile.kycStatus}
                 </Tag>
                 <Button
@@ -763,6 +967,30 @@ export default function CustomersPage() {
                   label: 'Profile & KYC',
                   children: (
                     <div className="space-y-4">
+                      {(() => {
+                        let score = 30;
+                        if (selectedCustomer360.profile.mobile) score += 15;
+                        if (selectedCustomer360.profile.aadhaar) score += 20;
+                        if (selectedCustomer360.profile.pan) score += 15;
+                        if (customerDocs.length > 0) score += 20;
+                        return (
+                          <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-xl space-y-1.5">
+                            <div className="flex items-center justify-between text-xs font-semibold text-slate-700">
+                              <span className="flex items-center gap-1.5">
+                                <SafetyCertificateOutlined className="text-emerald-600 text-sm" />
+                                KYC Profile Completion
+                              </span>
+                              <span className="font-mono text-emerald-700 font-bold">{score}% Complete</span>
+                            </div>
+                            <Progress
+                              percent={score}
+                              strokeColor={{ '0%': '#10b981', '100%': '#059669' }}
+                              size="small"
+                              status={score === 100 ? 'success' : 'active'}
+                            />
+                          </div>
+                        );
+                      })()}
                       <Descriptions bordered column={2} size="small">
                         <Descriptions.Item label="Member ID">
                           <span className="font-mono font-bold text-emerald-800">{selectedCustomer360.profile.customerNumber}</span>
@@ -774,7 +1002,10 @@ export default function CustomersPage() {
                           {selectedCustomer360.profile.fatherOrSpouseName || 'Not Specified'}
                         </Descriptions.Item>
                         <Descriptions.Item label="Mobile">
-                          <span className="font-mono font-semibold">{selectedCustomer360.profile.mobile}</span>
+                          <span className="font-mono font-semibold flex items-center gap-1 text-slate-800">
+                            <PhoneOutlined className="text-emerald-600 text-xs" />
+                            {selectedCustomer360.profile.mobile}
+                          </span>
                         </Descriptions.Item>
                         <Descriptions.Item label="Email Address">
                           {selectedCustomer360.profile.email || 'Not Provided'}
@@ -807,7 +1038,12 @@ export default function CustomersPage() {
                           {selectedCustomer360.profile.createdAt ? new Date(selectedCustomer360.profile.createdAt).toLocaleString('en-IN') : selectedCustomer360.profile.joiningDate || 'N/A'}
                         </Descriptions.Item>
                         <Descriptions.Item label="Address" span={2}>
-                          {selectedCustomer360.profile.addressLine1 || selectedCustomer360.profile.address}, {selectedCustomer360.profile.city || 'Delhi'} - {selectedCustomer360.profile.postalCode || '110086'} ({selectedCustomer360.profile.state || 'Delhi'})
+                          <span className="flex items-start gap-1.5 text-slate-700">
+                            <HomeOutlined className="text-slate-400 mt-0.5 text-xs shrink-0" />
+                            <span>
+                              {selectedCustomer360.profile.addressLine1 || selectedCustomer360.profile.address}, {selectedCustomer360.profile.city || 'Delhi'} - {selectedCustomer360.profile.postalCode || '110086'} ({selectedCustomer360.profile.state || 'Delhi'})
+                            </span>
+                          </span>
                         </Descriptions.Item>
                       </Descriptions>
 
@@ -868,11 +1104,267 @@ export default function CustomersPage() {
                     />
                   ),
                 },
+                {
+                  key: 'documents',
+                  label: `KYC Scans & Files (${customerDocs.length})`,
+                  children: (
+                    <div className="space-y-4">
+                      {/* Document Upload Card */}
+                      <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl space-y-3">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-bold text-slate-700 uppercase tracking-wide">Upload Physical KYC Scan / Photo (§6, §47)</span>
+                          <Select
+                            value={selectedDocType}
+                            onChange={(val) => setSelectedDocType(val)}
+                            size="small"
+                            style={{ width: 180 }}
+                            options={[
+                              { label: 'Customer Photo', value: 'PHOTO' },
+                              { label: 'Aadhaar Card (Front)', value: 'AADHAAR_FRONT' },
+                              { label: 'Aadhaar Card (Back)', value: 'AADHAAR_BACK' },
+                              { label: 'PAN Card Scan', value: 'PAN' },
+                              { label: 'Member Signature', value: 'SIGNATURE' },
+                              { label: 'Bank Passbook / Cheque', value: 'PASSBOOK' },
+                            ]}
+                          />
+                        </div>
+
+                        <Upload.Dragger
+                          multiple={false}
+                          accept="image/*,application/pdf"
+                          beforeUpload={(file) => {
+                            handleUploadDoc(file);
+                            return false;
+                          }}
+                          showUploadList={false}
+                          disabled={uploadingDoc}
+                          className="bg-white border-dashed border-emerald-300 rounded-lg p-3"
+                        >
+                          <p className="ant-upload-drag-icon text-emerald-600 mb-1">
+                            <CloudUploadOutlined style={{ fontSize: 28 }} />
+                          </p>
+                          <p className="text-xs text-slate-700 font-medium">Click or drag file to upload {selectedDocType.replace('_', ' ')}</p>
+                          <p className="text-[11px] text-slate-400">Supports JPG, PNG, PDF up to 5MB</p>
+                        </Upload.Dragger>
+                      </div>
+
+                      {/* Documents List */}
+                      <div>
+                        <div className="text-xs font-semibold text-slate-500 uppercase mb-2 flex items-center gap-1.5">
+                          <PaperClipOutlined className="text-slate-600" />
+                          <span>Attached Scans & Files ({customerDocs.length})</span>
+                        </div>
+                        {docsLoading ? (
+                          <div className="text-center py-6 text-slate-400 text-xs">Loading documents...</div>
+                        ) : customerDocs.length === 0 ? (
+                          <div className="p-6 text-center bg-slate-50 rounded-lg border border-dashed border-slate-200 text-xs text-slate-400">
+                            No physical KYC documents or scans uploaded for this member yet.
+                          </div>
+                        ) : (
+                          <div className="space-y-2">
+                            {customerDocs.map((doc: any) => {
+                              const isImg = doc.mimeType?.startsWith('image/') || doc.fileName?.match(/\.(jpg|jpeg|png|webp)$/i);
+                              const isPdf = doc.fileName?.toLowerCase().endsWith('.pdf');
+                              const fullUrl = doc.fileUrl?.startsWith('http') ? doc.fileUrl : `http://127.0.0.1:4000${doc.fileUrl}`;
+                              return (
+                                <div key={doc.id} className="flex items-center justify-between p-3 bg-white border border-slate-200 rounded-lg hover:border-emerald-300 transition-colors">
+                                  <div className="flex items-center gap-3">
+                                    {isImg ? (
+                                      <Image
+                                        src={fullUrl}
+                                        alt={doc.documentType}
+                                        width={48}
+                                        height={48}
+                                        className="rounded object-cover border border-slate-200"
+                                        fallback="https://via.placeholder.com/48?text=DOC"
+                                      />
+                                    ) : isPdf ? (
+                                      <div className="w-12 h-12 bg-red-50 text-red-600 rounded flex flex-col items-center justify-center font-bold text-[10px] border border-red-200">
+                                        <FilePdfOutlined className="text-base mb-0.5" />
+                                        <span>PDF</span>
+                                      </div>
+                                    ) : (
+                                      <div className="w-12 h-12 bg-slate-50 text-slate-600 rounded flex flex-col items-center justify-center font-bold text-[10px] border border-slate-200">
+                                        <FileTextOutlined className="text-base mb-0.5" />
+                                        <span>DOC</span>
+                                      </div>
+                                    )}
+                                    <div>
+                                      <div className="flex items-center gap-2">
+                                        <span className="font-semibold text-xs text-slate-800">{doc.fileName}</span>
+                                        <Tag color="cyan" className="text-[10px]">{doc.documentType}</Tag>
+                                      </div>
+                                      <div className="text-[11px] text-slate-400 mt-0.5">
+                                        {(doc.fileSize / 1024).toFixed(1)} KB • Uploaded {new Date(doc.uploadedAt).toLocaleDateString('en-IN')} by {doc.uploadedBy}
+                                      </div>
+                                    </div>
+                                  </div>
+                                  <Space size="small">
+                                    <Button
+                                      size="small"
+                                      icon={<EyeOutlined />}
+                                      href={fullUrl}
+                                      target="_blank"
+                                    >
+                                      View
+                                    </Button>
+                                    <Popconfirm
+                                      title="Delete document"
+                                      description="Are you sure you want to permanently delete this document?"
+                                      onConfirm={() => handleDeleteDoc(doc.id)}
+                                      okText="Delete"
+                                      cancelText="Cancel"
+                                      okButtonProps={{ danger: true }}
+                                    >
+                                      <Button size="small" danger icon={<DeleteOutlined />} />
+                                    </Popconfirm>
+                                  </Space>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ),
+                },
               ]}
             />
           </div>
         )}
       </Drawer>
+
+      {/* BULK REGISTER IMPORTER MODAL (§50) */}
+      <Modal
+        title={
+          <div className="flex items-center gap-2">
+            <FileExcelOutlined className="text-emerald-600 text-lg" />
+            <span className="font-bold text-slate-800">Legacy Paper-Register Bulk Importer (SRS §50)</span>
+          </div>
+        }
+        open={bulkModalVisible}
+        onCancel={() => {
+          setBulkModalVisible(false);
+          setBulkRows([]);
+          setBulkResult(null);
+        }}
+        width={850}
+        footer={[
+          <Button key="close" onClick={() => setBulkModalVisible(false)}>
+            Close
+          </Button>,
+          <Button
+            key="import"
+            type="primary"
+            loading={bulkLoading}
+            disabled={bulkRows.length === 0}
+            onClick={handleExecuteBulkImport}
+            style={{ background: '#059669', borderColor: '#059669' }}
+          >
+            Execute Bulk Migration ({bulkRows.filter((r) => r.isValid).length} Members)
+          </Button>,
+        ]}
+      >
+        <div className="space-y-4 py-2">
+          <Alert
+            type="info"
+            showIcon
+            message="Zero-Friction Paper Register Migration"
+            description="Upload existing physical register records via CSV. The engine will sequentially assign permanent SJF-XXXXXX member numbers, initialize member KYC, open initial deposit accounts, and balance the opening ledger."
+          />
+
+          <div className="flex items-center justify-between p-3 bg-slate-50 border border-slate-200 rounded-lg">
+            <div>
+              <div className="text-xs font-bold text-slate-800">Step 1: Download Standard Template</div>
+              <div className="text-[11px] text-slate-500">Includes correct headers: Name, Mobile, Address, Opening Balance, Product, Nominee.</div>
+            </div>
+            <Button icon={<DownloadOutlined />} onClick={downloadSampleCsv} size="small">
+              Download Template (.CSV)
+            </Button>
+          </div>
+
+          <div>
+            <div className="text-xs font-bold text-slate-800 mb-1.5">Step 2: Upload Filled Register CSV File</div>
+            <Upload.Dragger
+              accept=".csv,text/csv"
+              beforeUpload={(file) => handleCsvFileChange(file)}
+              showUploadList={false}
+              className="bg-slate-50 border-dashed border-emerald-300 p-4"
+            >
+              <p className="ant-upload-drag-icon text-emerald-600 mb-1">
+                <InboxOutlined style={{ fontSize: 32 }} />
+              </p>
+              <p className="text-xs text-slate-700 font-semibold">Click or drag CSV register here to inspect and preview</p>
+              <p className="text-[11px] text-slate-400">File will be validated in memory before any data is written to the database</p>
+            </Upload.Dragger>
+          </div>
+
+          {bulkResult && (
+            <Alert
+              type="success"
+              showIcon
+              message="Migration Complete!"
+              description={`Successfully imported ${bulkResult.importedCount} members. Assigned Member IDs: ${bulkResult.createdCustomerNumbers?.slice(0, 5).join(', ')}${bulkResult.createdCustomerNumbers?.length > 5 ? '...' : ''}. Total opening balance posted: ₹${bulkResult.totalOpeningBalance?.toLocaleString('en-IN') || 0}.`}
+            />
+          )}
+
+          {bulkRows.length > 0 && !bulkResult && (
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs font-bold text-slate-800">
+                  Step 3: Pre-flight Verification Table ({bulkRows.length} Rows Parsed)
+                </span>
+                <span className="text-xs text-emerald-700 font-medium">
+                  {bulkRows.filter((r) => r.isValid).length} Valid • {bulkRows.filter((r) => !r.isValid).length} Incomplete
+                </span>
+              </div>
+              <Table
+                dataSource={bulkRows}
+                rowKey="key"
+                size="small"
+                pagination={{ pageSize: 5 }}
+                columns={[
+                  {
+                    title: 'Full Name',
+                    dataIndex: 'fullName',
+                    render: (t, r) => (
+                      <span className={r.isValid ? 'font-semibold' : 'text-red-500 font-semibold'}>
+                        {t || '(Missing)'}
+                      </span>
+                    ),
+                  },
+                  {
+                    title: 'Mobile',
+                    dataIndex: 'mobile',
+                    render: (m, r) => (
+                      <span className="font-mono text-xs">
+                        {m && m.length >= 10 ? m : <Tag color="error">Invalid Mobile</Tag>}
+                      </span>
+                    ),
+                  },
+                  { title: 'Address', dataIndex: 'address', ellipsis: true },
+                  {
+                    title: 'Opening Bal',
+                    dataIndex: 'openingBalance',
+                    render: (b) => `₹${Number(b || 0).toLocaleString('en-IN')}`,
+                  },
+                  { title: 'Product', dataIndex: 'productType', render: (p) => <Tag color="blue">{p}</Tag> },
+                  { title: 'Nominee', dataIndex: 'nomineeName' },
+                  {
+                    title: 'Status',
+                    render: (_, r) =>
+                      r.isValid ? (
+                        <Tag color="success">READY</Tag>
+                      ) : (
+                        <Tag color="error">INCOMPLETE</Tag>
+                      ),
+                  },
+                ]}
+              />
+            </div>
+          )}
+        </div>
+      </Modal>
     </div>
   );
 }

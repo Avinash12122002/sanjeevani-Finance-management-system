@@ -18,8 +18,9 @@ export async function fetchApi<T = any>(
   const isMutating = options.method && ['POST', 'PUT', 'PATCH', 'DELETE'].includes(options.method.toUpperCase());
   const requestId = `REQ-${Date.now()}-${Math.random().toString(36).substring(2, 8)}`;
 
+  const isFormData = typeof FormData !== 'undefined' && options.body instanceof FormData;
   const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
+    ...(isFormData ? {} : { 'Content-Type': 'application/json' }),
     'X-Request-ID': requestId,
     ...(isMutating ? { 'Idempotency-Key': `IDEM-${Date.now()}-${Math.random().toString(36).substring(2, 9)}` } : {}),
     ...(options.headers as any),

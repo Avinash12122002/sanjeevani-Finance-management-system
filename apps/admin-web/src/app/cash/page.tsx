@@ -173,7 +173,10 @@ export default function CashDrawerPage() {
       dataIndex: 'status',
       key: 'status',
       render: (st: string) => (
-        <Tag color={st === 'MATCHED' ? 'success' : st === 'OPEN' ? 'blue' : 'error'}>
+        <Tag
+          icon={st === 'MATCHED' ? <CheckCircleOutlined /> : st === 'OPEN' ? undefined : <WarningOutlined />}
+          color={st === 'MATCHED' ? 'success' : st === 'OPEN' ? 'blue' : 'error'}
+        >
           {st}
         </Tag>
       ),

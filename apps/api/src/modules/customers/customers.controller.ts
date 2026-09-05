@@ -24,6 +24,9 @@ import {
   ICustomerKYC,
   IUser,
   PaginationParams,
+  ProductType,
+  IAccount,
+  AccountStatus,
 } from '@sanjeevani/shared-types';
 
 @Controller('api/v1/customers')
@@ -175,6 +178,178 @@ export class CustomersController {
     );
 
     return newCustomer;
+  }
+
+  /**
+   * DATA MIGRATION & BULK REGISTER IMPORT (SRS §50)
+   * Onboards batches of legacy members, assigns sequential IDs, and posts opening balances
+   */
+  @Post('bulk-import')
+  async bulkImport(
+    @Body()
+    body: {
+      rows: Array<{
+        firstName: string;
+        lastName?: string;
+        fatherOrSpouseName?: string;
+        mobile: string;
+        alternateMobile?: string;
+        email?: string;
+        dateOfBirth?: string;
+        gender?: 'MALE' | 'FEMALE' | 'OTHER';
+        addressLine1?: string;
+        city?: string;
+        state?: string;
+        postalCode?: string;
+        aadhaar?: string;
+        pan?: string;
+        nomineeName?: string;
+        nomineeRelationship?: string;
+        nomineeMobile?: string;
+        openingBalance?: number;
+        openingProductType?: ProductType;
+        joiningDate?: string;
+      }>;
+    },
+    @CurrentUser() user: IUser,
+  ) {
+    if (!body.rows || !Array.isArray(body.rows) || body.rows.length === 0) {
+      throw new BadRequestException('Invalid bulk import payload. Expected a non-empty rows array.');
+    }
+
+    const today = new Date().toISOString().split('T')[0];
+    const imported: ICustomer[] = [];
+    const createdAccounts: IAccount[] = [];
+    const errors: Array<{ rowNumber: number; member: string; error: string }> = [];
+
+    for (let i = 0; i < body.rows.length; i++) {
+      const row = body.rows[i];
+      const rowNumber = i + 1;
+      const memberName = `${row.firstName || ''} ${row.lastName || ''}`.trim() || `Row #${rowNumber}`;
+
+      try {
+        if (!row.firstName?.trim()) {
+          throw new Error('First Name is required');
+        }
+        if (!row.mobile || String(row.mobile).trim().length < 10) {
+          throw new Error('Valid 10-digit Mobile Number is required');
+        }
+
+        const customerNumber = this.dataStore.nextCustomerNumber();
+        const aadhaar = row.aadhaar ? String(row.aadhaar).replace(/\D/g, '') : undefined;
+        const pan = row.pan ? String(row.pan).trim().toUpperCase() : undefined;
+        const hasKyc = Boolean((aadhaar && aadhaar.length === 12) || (pan && pan.length === 10));
+
+        const customer: ICustomer = {
+          id: `CUS-LEGACY-${Date.now()}-${i}`,
+          customerNumber,
+          branchId: user.branchId || 'BR-001',
+          branchName: user.branchName || 'Head Office - Main Branch (Delhi)',
+          firstName: row.firstName.trim(),
+          middleName: undefined,
+          lastName: row.lastName?.trim() || '',
+          fatherOrSpouseName: row.fatherOrSpouseName?.trim() || 'Not Specified',
+          dateOfBirth: row.dateOfBirth || '1990-01-01',
+          gender: (row.gender as any) || 'MALE',
+          mobile: String(row.mobile).trim(),
+          alternateMobile: row.alternateMobile ? String(row.alternateMobile).trim() : undefined,
+          email: row.email?.trim() || undefined,
+          addressLine1: row.addressLine1?.trim() || 'Delhi',
+          city: row.city?.trim() || 'Delhi',
+          state: row.state?.trim() || 'Delhi',
+          postalCode: row.postalCode?.trim() || '110086',
+          aadhaar,
+          pan,
+          joiningDate: row.joiningDate || today,
+          status: CustomerStatus.ACTIVE,
+          kycStatus: hasKyc ? KYCStatus.VERIFIED : KYCStatus.PENDING,
+          riskCategory: RiskCategory.LOW,
+          createdBy: user.id || 'USR-001',
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        };
+
+        if (row.nomineeName?.trim()) {
+          this.dataStore.nominees.push({
+            id: `NOM-${Date.now()}-${i}`,
+            customerId: customer.id,
+            name: row.nomineeName.trim(),
+            relationship: row.nomineeRelationship?.trim() || 'Spouse',
+            mobile: row.nomineeMobile ? String(row.nomineeMobile).trim() : '9876543210',
+            dateOfBirth: '1995-01-01',
+            address: row.addressLine1?.trim() || 'Delhi',
+            percentage: 100,
+            createdAt: new Date().toISOString(),
+          });
+        }
+
+        this.dataStore.customers.unshift(customer);
+        await this.dataStore.persistCustomer(customer);
+        imported.push(customer);
+
+        // Optional Opening Deposit Balance
+        const openBal = Number(row.openingBalance);
+        if (openBal > 0) {
+          const pType = row.openingProductType || ProductType.SAVINGS;
+          const accNumber = this.dataStore.nextAccountNumber(pType);
+          const account: IAccount = {
+            id: `ACC-LEGACY-${Date.now()}-${i}`,
+            accountNumber: accNumber,
+            customerId: customer.id,
+            customerName: `${customer.firstName} ${customer.lastName}`,
+            customerNumber: customer.customerNumber,
+            productId: pType === ProductType.RD ? 'PRD-002' : pType === ProductType.TERM_DEPOSIT ? 'PRD-003' : 'PRD-001',
+            productName: pType === ProductType.RD ? 'Recurring Deposit Scheme' : pType === ProductType.TERM_DEPOSIT ? 'Fixed Term Deposit' : 'Member Regular Savings',
+            productType: pType,
+            branchId: customer.branchId,
+            branchName: customer.branchName,
+            openingDate: row.joiningDate || today,
+            principalAmount: openBal,
+            interestRate: pType === ProductType.SAVINGS ? 4.0 : 8.5,
+            tenureMonths: 12,
+            maturityDate: new Date(new Date().setFullYear(new Date().getFullYear() + 1)).toISOString().split('T')[0],
+            maturityAmount: openBal,
+            currentBalance: openBal,
+            status: AccountStatus.ACTIVE,
+            remarks: 'Legacy Register Opening Balance (Migration §50)',
+            createdBy: user.id || 'USR-001',
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+          };
+
+          this.dataStore.accounts.unshift(account);
+          await this.dataStore.persistAccount(account);
+          createdAccounts.push(account);
+        }
+      } catch (err: any) {
+        errors.push({
+          rowNumber,
+          member: memberName,
+          error: err.message || 'Unknown processing error',
+        });
+      }
+    }
+
+    this.dataStore.logAudit(
+      user.id || 'USR-001',
+      user.employeeName || 'Super Admin',
+      'LEGACY_DATA_MIGRATION',
+      'BatchImport',
+      `BATCH-${Date.now()}`,
+      undefined,
+      { totalRows: body.rows.length, importedCount: imported.length, accountCount: createdAccounts.length, errorsCount: errors.length },
+      `Legacy Register Migration (§50): Imported ${imported.length} members and ${createdAccounts.length} opening accounts.`,
+    );
+
+    return {
+      success: true,
+      totalRows: body.rows.length,
+      importedCount: imported.length,
+      accountsCreated: createdAccounts.length,
+      failedCount: errors.length,
+      errors,
+      importedMembers: imported.slice(0, 10),
+    };
   }
 
   /**

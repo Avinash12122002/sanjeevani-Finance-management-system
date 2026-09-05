@@ -19,6 +19,7 @@ import {
   IChartOfAccount,
   IJournalEntry,
   IUser,
+  TransactionType,
 } from '@sanjeevani/shared-types';
 
 @Controller('api/v1/accounting')
@@ -385,6 +386,199 @@ export class AccountingController {
       assets,
       liabilities,
       equity,
+    };
+  }
+
+  /**
+   * Bank Statement Reconciliation Matching Engine (SRS §28, §29)
+   */
+  @Post('bank-reconciliation/match')
+  async matchBankStatement(
+    @Body()
+    body: {
+      statementRows: Array<{
+        id?: string;
+        date: string;
+        narration: string;
+        referenceNo?: string;
+        withdrawal?: number;
+        deposit?: number;
+        balance?: number;
+      }>;
+    },
+  ) {
+    await this.dataStore.refreshIfStale();
+
+    const bankCoa = this.dataStore.chartOfAccounts.find(
+      (c) => c.accountCode === '1020' || c.id === 'COA-1020',
+    );
+    const softwareBalance = bankCoa?.currentBalance || 0;
+
+    const softwareBankTxns = this.dataStore.transactions
+      .filter((t) => t.paymentMode !== 'CASH' || (t as any).debitAccountId === 'COA-1020' || (t as any).creditAccountId === 'COA-1020')
+      .map((t) => ({
+        id: t.id,
+        date: (t.transactionDate || t.createdAt || '').split('T')[0],
+        narration: t.remarks || (t as any).description || `Transaction ${t.transactionNumber || t.id}`,
+        referenceNo: t.transactionNumber || t.referenceNumber || '',
+        amount: t.amount,
+        type: (t as any).debitAccountId === 'COA-1020' || t.transactionType === TransactionType.DEPOSIT || t.transactionType === TransactionType.EMI_PAYMENT || t.transactionType === TransactionType.INSTALLMENT ? 'DEPOSIT' : 'WITHDRAWAL',
+        isMatched: false,
+      }));
+
+    const rows = body.statementRows || [];
+    let matchedCount = 0;
+    let unrecordedTotal = 0;
+
+    const processedStatementRows = rows.map((row, idx) => {
+      const withdrawal = Number(row.withdrawal) || 0;
+      const deposit = Number(row.deposit) || 0;
+      const amount = deposit > 0 ? deposit : withdrawal;
+      const type = deposit > 0 ? 'DEPOSIT' : 'WITHDRAWAL';
+
+      // Find matching transaction by reference or exact amount & close date
+      const match = softwareBankTxns.find((st) => {
+        if (st.isMatched) return false;
+        if (st.type !== type) return false;
+
+        if (row.referenceNo && st.referenceNo && st.referenceNo.toLowerCase().includes(row.referenceNo.toLowerCase())) {
+          return true;
+        }
+
+        // Check amount match
+        if (Math.abs(st.amount - amount) < 0.01) {
+          if (!row.date || !st.date) return true;
+          const diffDays = Math.abs(new Date(row.date).getTime() - new Date(st.date).getTime()) / (1000 * 60 * 60 * 24);
+          return diffDays <= 7;
+        }
+        return false;
+      });
+
+      if (match) {
+        match.isMatched = true;
+        matchedCount++;
+        return {
+          ...row,
+          id: row.id || `STMT-${idx + 1}`,
+          amount,
+          type,
+          status: 'MATCHED',
+          matchedSoftwareTxnId: match.id,
+          matchedReference: match.referenceNo,
+        };
+      } else {
+        unrecordedTotal += amount;
+        return {
+          ...row,
+          id: row.id || `STMT-${idx + 1}`,
+          amount,
+          type,
+          status: 'UNRECORDED_IN_BOOKS',
+        };
+      }
+    });
+
+    const unpresentedSoftwareTxns = softwareBankTxns
+      .filter((st) => !st.isMatched)
+      .map((st) => ({
+        id: st.id,
+        date: st.date,
+        narration: st.narration,
+        referenceNo: st.referenceNo,
+        amount: st.amount,
+        type: st.type,
+        status: 'UNPRESENTED_IN_BANK',
+      }));
+
+    const unpresentedTotal = unpresentedSoftwareTxns.reduce((acc, curr) => acc + curr.amount, 0);
+    const lastRow = rows[rows.length - 1];
+    const statementEndingBalance = lastRow?.balance !== undefined ? Number(lastRow.balance) : softwareBalance;
+    const variance = Math.round((softwareBalance - statementEndingBalance) * 100) / 100;
+
+    return {
+      softwareBalance,
+      statementEndingBalance,
+      variance,
+      matchedCount,
+      unrecordedCount: processedStatementRows.filter((r) => r.status === 'UNRECORDED_IN_BOOKS').length,
+      unpresentedCount: unpresentedSoftwareTxns.length,
+      unrecordedTotal,
+      unpresentedTotal,
+      statementRows: processedStatementRows,
+      unpresentedSoftwareTxns,
+    };
+  }
+
+  /**
+   * Book missing bank entry (e.g. Bank SMS Charge / Interest) into software ledger
+   */
+  @Post('bank-reconciliation/create-adjustment')
+  async createBankAdjustment(
+    @Body()
+    body: {
+      type: 'BANK_CHARGE' | 'INTEREST_CREDIT' | 'DIRECT_DEPOSIT' | 'DIRECT_DEBIT';
+      amount: number;
+      narration: string;
+      referenceNo?: string;
+    },
+    @CurrentUser() user: IUser,
+  ) {
+    const amount = Number(body.amount);
+    if (!amount || amount <= 0) {
+      throw new BadRequestException('Valid adjustment amount is required.');
+    }
+
+    const bankCoa = this.dataStore.chartOfAccounts.find(
+      (c) => c.accountCode === '1020' || c.id === 'COA-1020',
+    );
+    if (!bankCoa) throw new NotFoundException('Bank account COA-1020 not found.');
+
+    let offsetCoaCode = '5030';
+    let isBankDebit = false;
+
+    if (body.type === 'INTEREST_CREDIT') {
+      offsetCoaCode = '4010';
+      isBankDebit = true;
+    } else if (body.type === 'BANK_CHARGE') {
+      offsetCoaCode = '5030';
+      isBankDebit = false;
+    } else if (body.type === 'DIRECT_DEPOSIT') {
+      offsetCoaCode = '2010';
+      isBankDebit = true;
+    } else {
+      offsetCoaCode = '5030';
+      isBankDebit = false;
+    }
+
+    const offsetCoa = this.dataStore.chartOfAccounts.find(
+      (c) => c.accountCode === offsetCoaCode || c.id === `COA-${offsetCoaCode}`,
+    );
+
+    if (isBankDebit) {
+      bankCoa.currentBalance = (bankCoa.currentBalance || 0) + amount;
+      if (offsetCoa) offsetCoa.currentBalance = (offsetCoa.currentBalance || 0) + amount;
+    } else {
+      bankCoa.currentBalance = Math.max(0, (bankCoa.currentBalance || 0) - amount);
+      if (offsetCoa) offsetCoa.currentBalance = (offsetCoa.currentBalance || 0) + amount;
+    }
+
+    await this.dataStore.persistChartOfAccount(bankCoa);
+    if (offsetCoa) await this.dataStore.persistChartOfAccount(offsetCoa);
+
+    this.dataStore.logAudit(
+      user.id || 'USR-001',
+      user.employeeName || 'Staff',
+      'BANK_RECONCILIATION_ADJUSTMENT',
+      'ChartOfAccount',
+      bankCoa.id,
+      undefined,
+      { type: body.type, amount, narration: body.narration },
+      `Bank adjustment booked: ${body.type} of ₹${amount} (${body.narration})`,
+    );
+
+    return {
+      message: `Adjustment of ₹${amount} posted successfully.`,
+      updatedBankBalance: bankCoa.currentBalance,
     };
   }
 }

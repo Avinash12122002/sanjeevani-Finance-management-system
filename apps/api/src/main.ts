@@ -3,6 +3,8 @@ import { ValidationPipe, Logger } from '@nestjs/common';
 import helmet from 'helmet';
 import compression from 'compression';
 import cors from 'cors';
+import * as express from 'express';
+import { join } from 'path';
 
 import { AppModule } from './app.module';
 import { AllExceptionsFilter } from './common/filters/http-exception.filter';
@@ -24,8 +26,9 @@ async function bootstrap() {
     }),
   );
 
-  // 2. Performance Compression
+  // 2. Performance Compression & Static Asset Serving
   app.use(compression());
+  app.use('/uploads', express.static(join(process.cwd(), 'uploads')));
 
   // 3. CORS Configuration — explicit allowlist (never wildcard with credentials)
   const ALLOWED_ORIGINS = (process.env.CORS_ORIGIN || '')

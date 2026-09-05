@@ -134,4 +134,57 @@ export class DashboardsController {
     await this.dataStore.refreshIfStale();
     return this.dataStore.recoveryCases;
   }
+
+  /**
+   * SURPRISE AUDIT RANDOM CUSTOMER SAMPLER (SRS §36)
+   */
+  @Get('reports/surprise-audit-sample')
+  async getSurpriseAuditSample(@Query('count') countParam?: string) {
+    await this.dataStore.refreshIfStale();
+    const count = Math.min(100, Math.max(5, Number(countParam) || 20));
+
+    // Shuffle customers array randomly
+    const shuffled = [...this.dataStore.customers].sort(() => 0.5 - Math.random());
+    const sampledCustomers = shuffled.slice(0, count);
+
+    const sample = sampledCustomers.map((cust) => {
+      const custAccounts = this.dataStore.accounts.filter(
+        (a) => a.customerId === cust.id || a.customerNumber === cust.customerNumber,
+      );
+      const totalDeposits = custAccounts.reduce((sum, a) => sum + (a.currentBalance || 0), 0);
+
+      const custLoans = this.dataStore.loans.filter(
+        (l) => l.customerId === cust.id || l.customerNumber === cust.customerNumber,
+      );
+      const totalLoanOutstanding = custLoans.reduce((sum, l) => sum + (l.outstandingPrincipal || 0), 0);
+      const totalOverdue = custLoans.reduce((sum, l) => sum + (l.overdueAmount || 0), 0);
+
+      const lastTxn = this.dataStore.transactions
+        .filter((t) => t.customerId === cust.id || t.customerNumber === cust.customerNumber)
+        .sort((a, b) => new Date(b.createdAt || '').getTime() - new Date(a.createdAt || '').getTime())[0];
+
+      return {
+        customerId: cust.id,
+        customerNumber: cust.customerNumber,
+        customerName: `${cust.firstName} ${cust.lastName || ''}`.trim(),
+        mobile: cust.mobile,
+        address: cust.addressLine1 || (cust as any).address || 'Delhi',
+        totalDeposits,
+        accountsCount: custAccounts.length,
+        totalLoanOutstanding,
+        totalOverdue,
+        lastTransactionDate: lastTxn ? (lastTxn.transactionDate || lastTxn.createdAt || '').split('T')[0] : 'None',
+        lastReceiptNumber: lastTxn?.transactionNumber || 'N/A',
+        assignedCollectorId: (cust as any).assignedCollectorId || 'USR-006',
+        branchName: (cust as any).branchName || 'Delhi HO',
+      };
+    });
+
+    return {
+      generatedAt: new Date().toISOString(),
+      sampleSize: sample.length,
+      totalActivePool: this.dataStore.customers.length,
+      sample,
+    };
+  }
 }

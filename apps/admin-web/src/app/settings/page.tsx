@@ -609,12 +609,13 @@ export default function SettingsPage() {
     );
   }
 
-  const renderTabHeader = (title: string, count?: number, fullTitle?: string) => (
+  const renderTabHeader = (title: string, count?: number, fullTitle?: string, icon?: React.ReactNode) => (
     <span
-      className="text-xs font-medium max-w-[110px] md:max-w-[135px] truncate inline-block align-middle"
+      className="text-xs font-medium max-w-[125px] md:max-w-[155px] truncate inline-flex items-center gap-1.5 align-middle"
       title={fullTitle || `${title}${count !== undefined ? ` (${count})` : ''}`}
     >
-      {title}{count !== undefined ? ` (${count})` : ''}
+      {icon}
+      <span>{title}{count !== undefined ? ` (${count})` : ''}</span>
     </span>
   );
 
@@ -676,7 +677,7 @@ export default function SettingsPage() {
         items={[
           {
             key: 'staff',
-            label: renderTabHeader('Staff', employees.length, 'Staff Members'),
+            label: renderTabHeader('Staff', employees.length, 'Staff Members', <TeamOutlined className="text-emerald-600 text-xs" />),
             children: (
               <Card
                 className="glass-card"
@@ -781,7 +782,7 @@ export default function SettingsPage() {
           },
           {
             key: 'users',
-            label: renderTabHeader('Users', users.length, 'User Accounts & Logins'),
+            label: renderTabHeader('Users', users.length, 'User Accounts & Logins', <KeyOutlined className="text-blue-600 text-xs" />),
             children: (
               <Card
                 className="glass-card"
@@ -905,7 +906,7 @@ export default function SettingsPage() {
           },
           {
             key: 'products',
-            label: renderTabHeader('Products', products.length, 'Financial Products Master'),
+            label: renderTabHeader('Products', products.length, 'Financial Products Master', <AppstoreAddOutlined className="text-indigo-600 text-xs" />),
             children: (
               <Card
                 className="glass-card"
@@ -995,7 +996,7 @@ export default function SettingsPage() {
           },
           {
             key: 'branches',
-            label: renderTabHeader('Branches', branches.length, 'Operating Branches'),
+            label: renderTabHeader('Branches', branches.length, 'Operating Branches', <BranchesOutlined className="text-amber-600 text-xs" />),
             children: (
               <Card
                 className="glass-card"
@@ -1081,7 +1082,7 @@ export default function SettingsPage() {
           },
           {
             key: 'complaints',
-            label: renderTabHeader('Complaints', complaints.length, 'Complaints & Grievances'),
+            label: renderTabHeader('Complaints', complaints.length, 'Complaints & Grievances', <AlertOutlined className="text-rose-600 text-xs" />),
             children: (
               <Card
                 className="glass-card"
@@ -1140,10 +1141,10 @@ export default function SettingsPage() {
                       width: 110,
                       render: (p: string) => {
                         let color = 'default';
-                        if (p === 'CRITICAL' || p === 'HIGH') color = 'red';
-                        else if (p === 'MEDIUM') color = 'orange';
-                        else if (p === 'LOW') color = 'green';
-                        return <Tag color={color}>{p || 'MEDIUM'}</Tag>;
+                        if (p === PriorityLevel.CRITICAL || p === PriorityLevel.HIGH) color = 'red';
+                        else if (p === PriorityLevel.MEDIUM) color = 'orange';
+                        else if (p === PriorityLevel.LOW) color = 'green';
+                        return <Tag color={color}>{p || PriorityLevel.MEDIUM}</Tag>;
                       },
                     },
                     {
@@ -1153,10 +1154,11 @@ export default function SettingsPage() {
                       width: 120,
                       render: (s: string) => {
                         let color = 'default';
-                        if (s === 'OPEN') color = 'gold';
-                        else if (s === 'IN_PROGRESS') color = 'blue';
-                        else if (s === 'RESOLVED') color = 'green';
-                        return <Tag color={color}>{s || 'OPEN'}</Tag>;
+                        if (s === ComplaintStatus.OPEN) color = 'gold';
+                        else if (s === ComplaintStatus.IN_PROGRESS) color = 'blue';
+                        else if (s === ComplaintStatus.RESOLVED) color = 'green';
+                        else if (s === ComplaintStatus.CLOSED) color = 'default';
+                        return <Tag color={color}>{s || ComplaintStatus.OPEN}</Tag>;
                       },
                     },
                     {
@@ -1283,7 +1285,7 @@ export default function SettingsPage() {
           },
           {
             key: 'db_explorer',
-            label: renderTabHeader('Database', dbTables.length || 16, 'PostgreSQL Database Explorer'),
+            label: renderTabHeader('Database', dbTables.length || 16, 'PostgreSQL Database Explorer', <TableOutlined className="text-teal-600 text-xs" />),
             children: (
               <Card
                 className="glass-card"
@@ -1485,7 +1487,7 @@ export default function SettingsPage() {
               <Form.Item
                 label="Full Staff Name"
                 name="name"
-                rules={[{ required: true, message: 'Please enter full name' }]}
+                rules={[{ required: true, message: 'Please enter full name' }, noEmojiRule]}
               >
                 <Input placeholder="e.g. Ramesh Sharma" />
               </Form.Item>
@@ -2256,7 +2258,7 @@ export default function SettingsPage() {
       <Modal
         title={
           <div className="flex items-center gap-2 text-slate-800">
-            <CustomerServiceOutlined className="text-emerald-600" />
+            <AlertOutlined className="text-amber-500 text-base" />
             <span>Log Member Complaint / Service Request</span>
           </div>
         }
@@ -2307,15 +2309,15 @@ export default function SettingsPage() {
               <Form.Item
                 label="Priority"
                 name="priority"
-                initialValue="MEDIUM"
+                initialValue={PriorityLevel.MEDIUM}
                 rules={[{ required: true }]}
               >
                 <Select
                   options={[
-                    { value: 'LOW', label: 'Low Priority' },
-                    { value: 'MEDIUM', label: 'Medium Priority' },
-                    { value: 'HIGH', label: 'High Priority' },
-                    { value: 'CRITICAL', label: 'Critical / Urgent' },
+                    { value: PriorityLevel.LOW, label: 'Low Priority' },
+                    { value: PriorityLevel.MEDIUM, label: 'Medium Priority' },
+                    { value: PriorityLevel.HIGH, label: 'High Priority' },
+                    { value: PriorityLevel.CRITICAL, label: 'Critical / Urgent' },
                   ]}
                 />
               </Form.Item>

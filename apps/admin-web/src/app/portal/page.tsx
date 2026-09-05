@@ -1272,6 +1272,14 @@ export default function CustomerPortalPage() {
                     </button>
                     <button
                       type="button"
+                      onClick={() => message.success('Member portal security, OTP verification, and notification settings are active')}
+                      className="flex-1 md:flex-initial bg-slate-800/80 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs px-3.5 py-2 rounded-xl flex items-center justify-center gap-1.5 transition-all cursor-pointer"
+                    >
+                      <SettingOutlined />
+                      <span>Settings</span>
+                    </button>
+                    <button
+                      type="button"
                       onClick={() => window.print()}
                       className="flex-1 md:flex-initial bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-600 font-bold text-xs px-4 py-2 rounded-xl flex items-center justify-center gap-2 transition-all cursor-pointer"
                     >
