@@ -88,6 +88,10 @@ export class AccountsController {
       principalAmount: number;
       tenureMonths?: number;
       branchId?: string;
+      nomineeName?: string;
+      nomineeRelationship?: string;
+      nomineeMobile?: string;
+      remarks?: string;
     },
     @CurrentUser() user: IUser,
   ) {
@@ -160,6 +164,10 @@ export class AccountsController {
       maturityAmount,
       currentBalance: product.productType === ProductType.TERM_DEPOSIT ? principal : principal,
       status: AccountStatus.ACTIVE,
+      nomineeName: body.nomineeName?.trim() || undefined,
+      nomineeRelationship: body.nomineeRelationship?.trim() || undefined,
+      nomineeMobile: body.nomineeMobile?.trim() || undefined,
+      remarks: body.remarks?.trim() || undefined,
       createdBy: user.id || 'USR-001',
       approvedBy: user.id || 'USR-001',
       createdAt: new Date().toISOString(),
@@ -220,6 +228,12 @@ export class AccountsController {
 
     if (body.status) currentAcc.status = body.status;
     if (body.currentBalance !== undefined) currentAcc.currentBalance = Number(body.currentBalance);
+    if (body.nomineeName !== undefined) currentAcc.nomineeName = body.nomineeName ? body.nomineeName.trim() : undefined;
+    if (body.nomineeRelationship !== undefined) currentAcc.nomineeRelationship = body.nomineeRelationship ? body.nomineeRelationship.trim() : undefined;
+    if (body.nomineeMobile !== undefined) currentAcc.nomineeMobile = body.nomineeMobile ? body.nomineeMobile.trim() : undefined;
+    if (body.tenureMonths !== undefined) currentAcc.tenureMonths = Number(body.tenureMonths);
+    if (body.maturityDate !== undefined) currentAcc.maturityDate = body.maturityDate;
+    if (body.remarks !== undefined) currentAcc.remarks = body.remarks;
     currentAcc.updatedAt = new Date().toISOString();
 
     await this.dataStore.persistAccount(currentAcc);

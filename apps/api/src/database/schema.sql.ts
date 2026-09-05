@@ -7,6 +7,8 @@ CREATE TABLE IF NOT EXISTS branches (
     address TEXT,
     city VARCHAR(100),
     state VARCHAR(100),
+    pin_code VARCHAR(20) DEFAULT '110086',
+    email VARCHAR(150),
     phone VARCHAR(20),
     status VARCHAR(20) DEFAULT 'ACTIVE',
     opened_at DATE DEFAULT CURRENT_DATE,
@@ -45,6 +47,9 @@ CREATE TABLE IF NOT EXISTS employees (
     joining_date DATE DEFAULT CURRENT_DATE,
     salary NUMERIC(15, 2) DEFAULT 0,
     employment_status VARCHAR(20) DEFAULT 'ACTIVE',
+    address TEXT,
+    aadhaar_or_pan VARCHAR(50),
+    emergency_contact VARCHAR(20),
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -54,7 +59,9 @@ CREATE TABLE IF NOT EXISTS customers (
     customer_number VARCHAR(50) UNIQUE NOT NULL,
     full_name VARCHAR(150) NOT NULL,
     mobile VARCHAR(20) NOT NULL,
+    alternate_mobile VARCHAR(20),
     email VARCHAR(150),
+    father_or_spouse_name VARCHAR(150),
     aadhaar VARCHAR(20),
     pan VARCHAR(20),
     address TEXT,
@@ -107,6 +114,10 @@ CREATE TABLE IF NOT EXISTS accounts (
     maturity_amount NUMERIC(15, 2) DEFAULT 0,
     maturity_date DATE,
     status VARCHAR(20) DEFAULT 'ACTIVE',
+    nominee_name VARCHAR(150),
+    nominee_relationship VARCHAR(50),
+    nominee_mobile VARCHAR(20),
+    remarks TEXT,
     opened_at DATE DEFAULT CURRENT_DATE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
@@ -133,6 +144,11 @@ CREATE TABLE IF NOT EXISTS loans (
     total_paid NUMERIC(15, 2) DEFAULT 0,
     principal_outstanding NUMERIC(15, 2) NOT NULL,
     status VARCHAR(50) DEFAULT 'ACTIVE',
+    guarantor_name VARCHAR(150),
+    guarantor_mobile VARCHAR(20),
+    purpose TEXT,
+    remarks TEXT,
+    recovery_bucket VARCHAR(20) DEFAULT 'CURRENT',
     disbursed_at DATE,
     mature_at DATE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP

@@ -27,10 +27,11 @@ import {
   FileProtectOutlined,
   CheckCircleOutlined,
   EyeOutlined,
+  EditOutlined,
   SendOutlined,
   DeleteOutlined,
 } from '@ant-design/icons';
-import { fetchApi, postApi, deleteApi } from '@/lib/api-client';
+import { fetchApi, postApi, patchApi, deleteApi } from '@/lib/api-client';
 import { FinancialEngine } from '@sanjeevani/financial-engine';
 import { ILoan, ILoanApplication, InterestMethod } from '@sanjeevani/shared-types';
 
@@ -48,6 +49,43 @@ export default function LoansPage() {
   const [viewLoanDrawerOpen, setViewLoanDrawerOpen] = useState(false);
   const [viewApp, setViewApp] = useState<ILoanApplication | null>(null);
   const [viewAppDrawerOpen, setViewAppDrawerOpen] = useState(false);
+
+  // Edit Loan Modal State
+  const [editLoanModalVisible, setEditLoanModalVisible] = useState(false);
+  const [selectedLoanToEdit, setSelectedLoanToEdit] = useState<ILoan | null>(null);
+  const [editLoanForm] = Form.useForm();
+
+  const handleOpenEditLoan = (loan: ILoan) => {
+    setSelectedLoanToEdit(loan);
+    editLoanForm.setFieldsValue({
+      status: loan.status,
+      recoveryBucket: loan.recoveryBucket || 'CURRENT',
+      guarantorName: loan.guarantorName || '',
+      guarantorMobile: loan.guarantorMobile || '',
+      purpose: loan.purpose || '',
+      remarks: loan.remarks || '',
+    });
+    setEditLoanModalVisible(true);
+  };
+
+  const handleUpdateLoan = async (values: any) => {
+    if (!selectedLoanToEdit) return;
+    setSubmitting(true);
+    try {
+      const res = await patchApi(`/loans/${selectedLoanToEdit.id}`, values);
+      if (res.success) {
+        message.success(`Loan [${selectedLoanToEdit.loanNumber}] updated successfully.`);
+        setEditLoanModalVisible(false);
+        loadLoanData();
+      } else {
+        message.error(res.message || 'Failed to update loan.');
+      }
+    } catch {
+      message.error('An error occurred while updating loan.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   const handleOpenViewLoan = (loan: ILoan) => {
     setViewLoan(loan);
@@ -240,6 +278,9 @@ export default function LoansPage() {
         <Space size="small">
           <Button size="small" icon={<EyeOutlined />} onClick={() => handleOpenViewLoan(r)}>
             View
+          </Button>
+          <Button size="small" icon={<EditOutlined />} onClick={() => handleOpenEditLoan(r)}>
+            Edit
           </Button>
           <Popconfirm
             title="Delete Loan Account"
@@ -667,6 +708,32 @@ export default function LoansPage() {
             </Col>
           </Row>
 
+          <Row gutter={16}>
+            <Col span={12}>
+              <Form.Item name="guarantorName" label="Guarantor / Co-Applicant Name">
+                <Input placeholder="Full name of guarantor" />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item name="guarantorMobile" label="Guarantor Mobile">
+                <Input placeholder="10-digit mobile" maxLength={10} />
+              </Form.Item>
+            </Col>
+          </Row>
+
+          <Row gutter={16}>
+            <Col span={12}>
+              <Form.Item name="disbursementBankAc" label="Disbursement Bank A/c No.">
+                <Input placeholder="Borrower Bank Account" />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item name="disbursementIfsc" label="Bank IFSC Code">
+                <Input placeholder="e.g. HDFC0001234" style={{ textTransform: 'uppercase' }} />
+              </Form.Item>
+            </Col>
+          </Row>
+
           <div className="flex justify-end gap-2 mt-4 pt-4 border-t border-slate-100">
             <Button onClick={() => { setAppModalVisible(false); form.resetFields(); }}>Cancel</Button>
             <Button type="primary" htmlType="submit" loading={submitting} style={{ background: '#059669', borderColor: '#059669' }}>
@@ -802,10 +869,96 @@ export default function LoansPage() {
               </Descriptions.Item>
               <Descriptions.Item label="Disbursement Date">{viewLoan.disbursementDate || 'N/A'}</Descriptions.Item>
               <Descriptions.Item label="Final Maturity Due Date">{viewLoan.finalDueDate || 'N/A'}</Descriptions.Item>
+              <Descriptions.Item label="Guarantor Details">
+                {viewLoan.guarantorName ? (
+                  <span>
+                    <strong>{viewLoan.guarantorName}</strong>
+                    {viewLoan.guarantorMobile ? ` • +91 ${viewLoan.guarantorMobile}` : ''}
+                  </span>
+                ) : (
+                  <Tag color="default">No Guarantor Recorded</Tag>
+                )}
+              </Descriptions.Item>
+              <Descriptions.Item label="Loan Purpose">{viewLoan.purpose || 'Business Expansion'}</Descriptions.Item>
+              <Descriptions.Item label="Remarks">{viewLoan.remarks || 'Standard Loan Portfolio'}</Descriptions.Item>
             </Descriptions>
           </div>
         )}
       </Drawer>
+
+      {/* EDIT LOAN MODAL */}
+      <Modal
+        title={`Edit Loan Account: ${selectedLoanToEdit?.loanNumber}`}
+        open={editLoanModalVisible}
+        onCancel={() => {
+          setEditLoanModalVisible(false);
+          editLoanForm.resetFields();
+          setSelectedLoanToEdit(null);
+        }}
+        footer={null}
+        width={550}
+      >
+        <Form form={editLoanForm} layout="vertical" onFinish={handleUpdateLoan}>
+          <Row gutter={16}>
+            <Col span={12}>
+              <Form.Item name="status" label="Loan Status" rules={[{ required: true }]}>
+                <Select
+                  options={[
+                    { label: 'ACTIVE', value: 'ACTIVE' },
+                    { label: 'OVERDUE', value: 'OVERDUE' },
+                    { label: 'CLOSED', value: 'CLOSED' },
+                    { label: 'NPA', value: 'NPA' },
+                    { label: 'WRITTEN_OFF', value: 'WRITTEN_OFF' },
+                  ]}
+                />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item name="recoveryBucket" label="Recovery Bucket (DPD)">
+                <Select
+                  options={[
+                    { label: 'CURRENT (0 DPD)', value: 'CURRENT' },
+                    { label: '1-30 DPD', value: '1-30' },
+                    { label: '31-60 DPD', value: '31-60' },
+                    { label: '61-90 DPD', value: '61-90' },
+                    { label: '90+ DPD (NPA)', value: '90+' },
+                  ]}
+                />
+              </Form.Item>
+            </Col>
+          </Row>
+
+          <Row gutter={16}>
+            <Col span={12}>
+              <Form.Item name="guarantorName" label="Guarantor Name">
+                <Input placeholder="Guarantor full name" />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item name="guarantorMobile" label="Guarantor Mobile">
+                <Input placeholder="10-digit mobile" maxLength={10} />
+              </Form.Item>
+            </Col>
+          </Row>
+
+          <Form.Item name="purpose" label="Loan Purpose">
+            <Input placeholder="e.g. Working Capital" />
+          </Form.Item>
+
+          <Form.Item name="remarks" label="Internal Notes / Officer Remarks">
+            <Input.TextArea rows={2} placeholder="Underwriting notes, follow-up remarks" />
+          </Form.Item>
+
+          <div className="flex justify-end gap-2 mt-4 pt-4 border-t border-slate-100">
+            <Button onClick={() => { setEditLoanModalVisible(false); editLoanForm.resetFields(); setSelectedLoanToEdit(null); }}>
+              Cancel
+            </Button>
+            <Button type="primary" htmlType="submit" loading={submitting} style={{ background: '#059669', borderColor: '#059669' }}>
+              Save Loan Changes
+            </Button>
+          </div>
+        </Form>
+      </Modal>
 
       {/* LOAN APPLICATION DETAILS DRAWER */}
       <Drawer
@@ -858,6 +1011,23 @@ export default function LoansPage() {
               </Descriptions.Item>
               <Descriptions.Item label="Application Submission Date">
                 {(viewApp as any).applicationDate || (viewApp.createdAt ? new Date(viewApp.createdAt).toLocaleDateString('en-IN') : 'N/A')}
+              </Descriptions.Item>
+              <Descriptions.Item label="Guarantor">
+                {viewApp.guarantorName ? (
+                  <span>
+                    <strong>{viewApp.guarantorName}</strong>
+                    {viewApp.guarantorMobile ? ` • +91 ${viewApp.guarantorMobile}` : ''}
+                  </span>
+                ) : (
+                  <Tag color="default">None Stated</Tag>
+                )}
+              </Descriptions.Item>
+              <Descriptions.Item label="Disbursement Bank">
+                {viewApp.disbursementBankAc ? (
+                  <span>A/c: <strong>{viewApp.disbursementBankAc}</strong> (IFSC: {viewApp.disbursementIfsc || 'N/A'})</span>
+                ) : (
+                  <Tag color="default">Cash / Counter</Tag>
+                )}
               </Descriptions.Item>
             </Descriptions>
           </div>

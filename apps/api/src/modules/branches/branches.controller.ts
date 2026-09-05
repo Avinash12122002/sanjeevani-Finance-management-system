@@ -42,6 +42,8 @@ export class BranchesController {
       address: body.address || 'Address',
       city: body.city || 'Delhi',
       state: body.state || 'Delhi',
+      pinCode: body.pinCode || '110086',
+      email: body.email || '',
       phone: body.phone || '+91 11 00000000',
       status: 'ACTIVE',
       openedAt: new Date().toISOString().split('T')[0],
@@ -83,6 +85,8 @@ export class BranchesController {
     if (body.address) currentBranch.address = body.address;
     if (body.city) currentBranch.city = body.city;
     if (body.state) currentBranch.state = body.state;
+    if (body.pinCode !== undefined) currentBranch.pinCode = body.pinCode;
+    if (body.email !== undefined) currentBranch.email = body.email;
     if (body.phone) currentBranch.phone = body.phone;
     if (body.status) currentBranch.status = body.status;
 

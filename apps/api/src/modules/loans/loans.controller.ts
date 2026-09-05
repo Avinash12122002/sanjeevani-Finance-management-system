@@ -103,6 +103,10 @@ export class LoansController {
       declaredIncome: Number(body.declaredIncome) || 35000,
       existingLiabilities: Number(body.existingLiabilities) || 0,
       status: LoanApplicationStatus.SUBMITTED,
+      guarantorName: body.guarantorName?.trim() || (body.guarantors?.[0]?.name) || undefined,
+      guarantorMobile: body.guarantorMobile?.trim() || (body.guarantors?.[0]?.mobile) || undefined,
+      disbursementBankAc: body.disbursementBankAc?.trim() || undefined,
+      disbursementIfsc: body.disbursementIfsc?.trim()?.toUpperCase() || undefined,
       guarantors: body.guarantors || [],
       createdBy: user.id || 'USR-004',
       createdAt: new Date().toISOString(),
@@ -327,6 +331,9 @@ export class LoansController {
       daysPastDue: 0,
       recoveryBucket: RecoveryBucket.CURRENT,
       status: 'ACTIVE',
+      guarantorName: app.guarantorName,
+      guarantorMobile: app.guarantorMobile,
+      purpose: app.purpose,
       createdAt: new Date().toISOString(),
     };
 
@@ -492,7 +499,6 @@ export class LoansController {
     };
   }
 
-  @Delete('loan-applications/:id')
   @Patch('loan-applications/:id')
   updateLoanApplication(
     @Param('id') id: string,
@@ -545,6 +551,10 @@ export class LoansController {
     if (body.outstandingPrincipal !== undefined) currentLoan.outstandingPrincipal = Number(body.outstandingPrincipal);
     if (body.overdueAmount !== undefined) currentLoan.overdueAmount = Number(body.overdueAmount);
     if (body.daysPastDue !== undefined) currentLoan.daysPastDue = Number(body.daysPastDue);
+    if (body.guarantorName !== undefined) currentLoan.guarantorName = body.guarantorName;
+    if (body.guarantorMobile !== undefined) currentLoan.guarantorMobile = body.guarantorMobile;
+    if (body.purpose !== undefined) currentLoan.purpose = body.purpose;
+    if (body.remarks !== undefined) currentLoan.remarks = body.remarks;
 
     await this.dataStore.persistLoan(currentLoan);
 

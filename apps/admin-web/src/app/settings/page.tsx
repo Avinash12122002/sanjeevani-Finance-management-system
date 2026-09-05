@@ -277,6 +277,9 @@ export default function SettingsPage() {
       branchId: record.branchId,
       salary: record.salary,
       employmentStatus: record.employmentStatus || 'ACTIVE',
+      address: record.address || '',
+      aadhaarOrPan: record.aadhaarOrPan || '',
+      emergencyContact: record.emergencyContact || '',
     });
     setEditStaffModal(true);
   };
@@ -342,6 +345,8 @@ export default function SettingsPage() {
       address: record.address,
       city: record.city,
       state: record.state,
+      pinCode: record.pinCode || '110086',
+      email: record.email || '',
       phone: record.phone,
       status: record.status || 'ACTIVE',
     });
@@ -1557,6 +1562,21 @@ export default function SettingsPage() {
               </Form.Item>
             </Col>
             <Col span={12}>
+              <Form.Item label="Aadhaar / PAN Number" name="aadhaarOrPan">
+                <Input placeholder="e.g. ABCDE1234F or 12-digit UID" style={{ textTransform: 'uppercase' }} />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item label="Emergency Contact Mobile" name="emergencyContact">
+                <Input placeholder="10-digit emergency number" />
+              </Form.Item>
+            </Col>
+            <Col span={24}>
+              <Form.Item label="Residential Address" name="address">
+                <Input placeholder="Current residential address of staff" />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
               <Form.Item
                 label="Initial Password"
                 name="password"
@@ -1671,6 +1691,21 @@ export default function SettingsPage() {
                 />
               </Form.Item>
             </Col>
+            <Col span={12}>
+              <Form.Item label="Aadhaar / PAN Number" name="aadhaarOrPan">
+                <Input placeholder="e.g. ABCDE1234F or 12-digit UID" style={{ textTransform: 'uppercase' }} />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item label="Emergency Contact Mobile" name="emergencyContact">
+                <Input placeholder="10-digit emergency number" />
+              </Form.Item>
+            </Col>
+            <Col span={24}>
+              <Form.Item label="Residential Address" name="address">
+                <Input placeholder="Current residential address of staff" />
+              </Form.Item>
+            </Col>
           </Row>
 
           <div className="flex justify-end gap-3 pt-4 border-t border-slate-100">
@@ -1738,6 +1773,16 @@ export default function SettingsPage() {
                 initialValue="Delhi"
               >
                 <Input placeholder="State" />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item label="PIN Code" name="pinCode" initialValue="110086" rules={[{ required: true, message: 'Enter PIN code' }]}>
+                <Input placeholder="e.g. 110086" />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item label="Branch Email" name="email">
+                <Input placeholder="e.g. branch.cp@sanjeevanifinance.com" />
               </Form.Item>
             </Col>
             <Col span={24}>
@@ -1810,6 +1855,16 @@ export default function SettingsPage() {
                 rules={[{ required: true, message: 'Enter state' }]}
               >
                 <Input />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item label="PIN Code" name="pinCode">
+                <Input placeholder="e.g. 110086" />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item label="Branch Email" name="email">
+                <Input placeholder="e.g. branch.cp@sanjeevanifinance.com" />
               </Form.Item>
             </Col>
             <Col span={12}>
@@ -2380,6 +2435,8 @@ export default function SettingsPage() {
               <Descriptions.Item label="Official Address">{viewRecord.address || 'N/A'}</Descriptions.Item>
               <Descriptions.Item label="City">{viewRecord.city || 'N/A'}</Descriptions.Item>
               <Descriptions.Item label="State">{viewRecord.state || 'N/A'}</Descriptions.Item>
+              <Descriptions.Item label="PIN / Postal Code">{viewRecord.pinCode || '110086'}</Descriptions.Item>
+              <Descriptions.Item label="Branch Email">{viewRecord.email || 'head.office@sanjeevanifinance.com'}</Descriptions.Item>
               <Descriptions.Item label="Official Contact Phone">{viewRecord.phone || 'N/A'}</Descriptions.Item>
               <Descriptions.Item label="System ID"><span className="font-mono text-xs">{viewRecord.id}</span></Descriptions.Item>
               <Descriptions.Item label="Opening Date">{viewRecord.openedAt || 'N/A'}</Descriptions.Item>
@@ -2403,8 +2460,13 @@ export default function SettingsPage() {
               <Descriptions.Item label="Full Name">{viewRecord.name}</Descriptions.Item>
               <Descriptions.Item label="Employee ID / Number"><span className="font-mono font-bold text-emerald-800">{viewRecord.employeeNumber}</span></Descriptions.Item>
               <Descriptions.Item label="Designation / Role"><Tag color="purple">{viewRecord.designation || 'STAFF'}</Tag></Descriptions.Item>
+              <Descriptions.Item label="Statutory ID (Aadhaar / PAN)">
+                <span className="font-mono font-bold text-emerald-700">{viewRecord.aadhaarOrPan || 'Not Specified'}</span>
+              </Descriptions.Item>
               <Descriptions.Item label="Mobile (Login Username)">{viewRecord.mobile}</Descriptions.Item>
+              <Descriptions.Item label="Emergency Contact Mobile">{viewRecord.emergencyContact || 'Not Specified'}</Descriptions.Item>
               <Descriptions.Item label="Email Address">{viewRecord.email || 'N/A'}</Descriptions.Item>
+              <Descriptions.Item label="Residential Address">{viewRecord.address || 'Not Specified'}</Descriptions.Item>
               <Descriptions.Item label="Assigned Branch">{viewRecord.branchName || 'Head Office'}</Descriptions.Item>
               <Descriptions.Item label="Branch Code"><span className="font-mono text-xs">{viewRecord.branchCode || 'SJF-BR001'}</span></Descriptions.Item>
               <Descriptions.Item label="Base Monthly Salary (₹)"><span className="font-bold text-emerald-700">{FinancialEngine.formatINR(viewRecord.salary || 35000)}</span></Descriptions.Item>

@@ -4,6 +4,7 @@ import {
   UserRole,
   CustomerStatus,
   KYCStatus,
+  RiskCategory,
   ProductType,
   RegulatoryStatus,
   AccountStatus,
@@ -134,10 +135,31 @@ export class DataStoreService implements OnModuleInit {
       // Execute auto table provisioning (if permitted)
       try {
         await this.pool.query(CREATE_TABLES_SQL);
-        try {
-          await this.pool.query('ALTER TABLE customers ADD COLUMN IF NOT EXISTS portal_password TEXT');
-        } catch (colErr: any) {
-          this.logger.debug(`Column verification notice: ${colErr?.message}`);
+        const alterStatements = [
+          'ALTER TABLE customers ADD COLUMN IF NOT EXISTS portal_password TEXT',
+          'ALTER TABLE customers ADD COLUMN IF NOT EXISTS alternate_mobile VARCHAR(20)',
+          'ALTER TABLE customers ADD COLUMN IF NOT EXISTS father_or_spouse_name VARCHAR(150)',
+          'ALTER TABLE accounts ADD COLUMN IF NOT EXISTS nominee_name VARCHAR(150)',
+          'ALTER TABLE accounts ADD COLUMN IF NOT EXISTS nominee_relationship VARCHAR(50)',
+          'ALTER TABLE accounts ADD COLUMN IF NOT EXISTS nominee_mobile VARCHAR(20)',
+          'ALTER TABLE accounts ADD COLUMN IF NOT EXISTS remarks TEXT',
+          'ALTER TABLE loans ADD COLUMN IF NOT EXISTS guarantor_name VARCHAR(150)',
+          'ALTER TABLE loans ADD COLUMN IF NOT EXISTS guarantor_mobile VARCHAR(20)',
+          'ALTER TABLE loans ADD COLUMN IF NOT EXISTS purpose TEXT',
+          'ALTER TABLE loans ADD COLUMN IF NOT EXISTS remarks TEXT',
+          'ALTER TABLE loans ADD COLUMN IF NOT EXISTS recovery_bucket VARCHAR(20)',
+          'ALTER TABLE employees ADD COLUMN IF NOT EXISTS address TEXT',
+          'ALTER TABLE employees ADD COLUMN IF NOT EXISTS aadhaar_or_pan VARCHAR(50)',
+          'ALTER TABLE employees ADD COLUMN IF NOT EXISTS emergency_contact VARCHAR(20)',
+          'ALTER TABLE branches ADD COLUMN IF NOT EXISTS pin_code VARCHAR(20)',
+          'ALTER TABLE branches ADD COLUMN IF NOT EXISTS email VARCHAR(150)',
+        ];
+        for (const stmt of alterStatements) {
+          try {
+            await this.pool.query(stmt);
+          } catch (colErr: any) {
+            this.logger.debug(`Column verification notice: ${colErr?.message}`);
+          }
         }
         this.logger.log('✅ All PostgreSQL database tables & columns verified successfully.');
       } catch (ddlErr: any) {
@@ -208,6 +230,8 @@ export class DataStoreService implements OnModuleInit {
           address: r.address,
           city: r.city,
           state: r.state,
+          pinCode: r.pin_code || '110086',
+          email: r.email || undefined,
           phone: r.phone,
           status: r.status,
           openedAt: r.opened_at ? new Date(r.opened_at).toISOString().split('T')[0] : '',
@@ -244,10 +268,11 @@ export class DataStoreService implements OnModuleInit {
           firstName: r.full_name?.split(' ')[0] || r.full_name || 'Member',
           middleName: undefined,
           lastName: r.full_name?.split(' ').slice(1).join(' ') || '',
-          fatherOrSpouseName: 'Not Specified',
+          fatherOrSpouseName: r.father_or_spouse_name || 'Not Specified',
           dateOfBirth: '1990-01-01',
           gender: 'MALE',
           mobile: r.mobile,
+          alternateMobile: r.alternate_mobile || undefined,
           email: r.email || undefined,
           aadhaar: r.aadhaar || undefined,
           pan: r.pan || undefined,
@@ -258,6 +283,7 @@ export class DataStoreService implements OnModuleInit {
           joiningDate: r.created_at ? new Date(r.created_at).toISOString().split('T')[0] : '',
           status: CustomerStatus.ACTIVE,
           kycStatus: r.kyc_status === 'VERIFIED' ? KYCStatus.VERIFIED : KYCStatus.PENDING,
+          riskCategory: (r.risk_category as any) || RiskCategory.LOW,
           createdBy: 'USR-001',
           createdAt: r.created_at ? new Date(r.created_at).toISOString() : '',
           updatedAt: r.created_at ? new Date(r.created_at).toISOString() : '',
@@ -291,6 +317,10 @@ export class DataStoreService implements OnModuleInit {
           maturityDate: r.maturity_date ? new Date(r.maturity_date).toISOString().split('T')[0] : '',
           currentBalance: Number(r.balance || 0),
           status: r.status === 'ACTIVE' ? AccountStatus.ACTIVE : AccountStatus.CLOSED,
+          nomineeName: r.nominee_name || undefined,
+          nomineeRelationship: r.nominee_relationship || undefined,
+          nomineeMobile: r.nominee_mobile || undefined,
+          remarks: r.remarks || undefined,
           createdBy: 'USR-001',
           createdAt: r.created_at ? new Date(r.created_at).toISOString() : '',
           updatedAt: r.created_at ? new Date(r.created_at).toISOString() : '',
@@ -321,8 +351,12 @@ export class DataStoreService implements OnModuleInit {
           totalPaid: Number(r.total_paid || 0),
           overdueAmount: 0,
           daysPastDue: 0,
-          recoveryBucket: RecoveryBucket.CURRENT,
+          recoveryBucket: (r.recovery_bucket as any) || RecoveryBucket.CURRENT,
           status: (r.status as any) || 'ACTIVE',
+          guarantorName: r.guarantor_name || undefined,
+          guarantorMobile: r.guarantor_mobile || undefined,
+          purpose: r.purpose || undefined,
+          remarks: r.remarks || undefined,
           createdAt: r.created_at ? new Date(r.created_at).toISOString() : '',
         }));
         this.counters.loan = this.loans.length;
@@ -431,6 +465,9 @@ export class DataStoreService implements OnModuleInit {
           joiningDate: r.joining_date ? new Date(r.joining_date).toISOString().split('T')[0] : '',
           employmentStatus: r.employment_status || 'ACTIVE',
           salary: Number(r.salary || 0),
+          address: r.address || undefined,
+          aadhaarOrPan: r.aadhaar_or_pan || undefined,
+          emergencyContact: r.emergency_contact || undefined,
           createdAt: r.created_at ? new Date(r.created_at).toISOString() : '',
         }));
         this.counters.employee = this.employees.length;
@@ -1008,8 +1045,8 @@ export class DataStoreService implements OnModuleInit {
     try {
       const fullName = `${c.firstName || ''} ${c.lastName || ''}`.trim() || 'Member';
       await this.pool.query(
-        `INSERT INTO customers (id, customer_number, full_name, mobile, email, aadhaar, pan, address, city, state, kyc_status, risk_category, branch_id)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+        `INSERT INTO customers (id, customer_number, full_name, mobile, email, aadhaar, pan, address, city, state, kyc_status, risk_category, branch_id, alternate_mobile, father_or_spouse_name)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
          ON CONFLICT (id) DO UPDATE SET
            full_name = EXCLUDED.full_name,
            mobile = EXCLUDED.mobile,
@@ -1017,9 +1054,12 @@ export class DataStoreService implements OnModuleInit {
            aadhaar = EXCLUDED.aadhaar,
            pan = EXCLUDED.pan,
            kyc_status = EXCLUDED.kyc_status,
+           risk_category = EXCLUDED.risk_category,
            address = EXCLUDED.address,
            city = EXCLUDED.city,
-           state = EXCLUDED.state`,
+           state = EXCLUDED.state,
+           alternate_mobile = EXCLUDED.alternate_mobile,
+           father_or_spouse_name = EXCLUDED.father_or_spouse_name`,
         [
           c.id,
           c.customerNumber,
@@ -1032,8 +1072,10 @@ export class DataStoreService implements OnModuleInit {
           c.city || null,
           c.state || null,
           c.kycStatus || 'VERIFIED',
-          'LOW',
+          c.riskCategory || 'LOW',
           c.branchId || null,
+          c.alternateMobile || null,
+          c.fatherOrSpouseName || null,
         ],
       );
     } catch (e: any) {
@@ -1045,11 +1087,15 @@ export class DataStoreService implements OnModuleInit {
     if (!this.pool) return;
     try {
       await this.pool.query(
-        `INSERT INTO accounts (id, account_number, customer_id, customer_name, product_id, product_name, product_type, branch_id, branch_name, balance, interest_rate, tenure_months, monthly_deposit, maturity_amount, maturity_date, status)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
+        `INSERT INTO accounts (id, account_number, customer_id, customer_name, product_id, product_name, product_type, branch_id, branch_name, balance, interest_rate, tenure_months, monthly_deposit, maturity_amount, maturity_date, status, nominee_name, nominee_relationship, nominee_mobile, remarks)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20)
          ON CONFLICT (id) DO UPDATE SET
            balance = EXCLUDED.balance,
-           status = EXCLUDED.status`,
+           status = EXCLUDED.status,
+           nominee_name = EXCLUDED.nominee_name,
+           nominee_relationship = EXCLUDED.nominee_relationship,
+           nominee_mobile = EXCLUDED.nominee_mobile,
+           remarks = EXCLUDED.remarks`,
         [
           a.id,
           a.accountNumber,
@@ -1067,6 +1113,10 @@ export class DataStoreService implements OnModuleInit {
           a.maturityAmount || 0,
           a.maturityDate ? new Date(a.maturityDate) : null,
           a.status || 'ACTIVE',
+          a.nomineeName || null,
+          a.nomineeRelationship || null,
+          a.nomineeMobile || null,
+          a.remarks || null,
         ],
       );
     } catch (e: any) {
@@ -1078,12 +1128,17 @@ export class DataStoreService implements OnModuleInit {
     if (!this.pool) return;
     try {
       await this.pool.query(
-        `INSERT INTO loans (id, loan_number, customer_id, customer_name, branch_id, principal_amount, sanctioned_amount, disbursed_amount, interest_rate, interest_method, tenure_months, emi_amount, total_payable, total_paid, principal_outstanding, status, disbursed_at, mature_at)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)
+        `INSERT INTO loans (id, loan_number, customer_id, customer_name, branch_id, principal_amount, sanctioned_amount, disbursed_amount, interest_rate, interest_method, tenure_months, emi_amount, total_payable, total_paid, principal_outstanding, status, disbursed_at, mature_at, guarantor_name, guarantor_mobile, purpose, remarks, recovery_bucket)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23)
          ON CONFLICT (id) DO UPDATE SET
            principal_outstanding = EXCLUDED.principal_outstanding,
            total_paid = EXCLUDED.total_paid,
-           status = EXCLUDED.status`,
+           status = EXCLUDED.status,
+           guarantor_name = EXCLUDED.guarantor_name,
+           guarantor_mobile = EXCLUDED.guarantor_mobile,
+           purpose = EXCLUDED.purpose,
+           remarks = EXCLUDED.remarks,
+           recovery_bucket = EXCLUDED.recovery_bucket`,
         [
           l.id,
           l.loanNumber,
@@ -1103,6 +1158,11 @@ export class DataStoreService implements OnModuleInit {
           l.status || 'ACTIVE',
           l.disbursementDate ? new Date(l.disbursementDate) : null,
           l.finalDueDate ? new Date(l.finalDueDate) : null,
+          l.guarantorName || null,
+          l.guarantorMobile || null,
+          l.purpose || null,
+          l.remarks || null,
+          l.recoveryBucket || 'CURRENT',
         ],
       );
     } catch (e: any) {
@@ -1324,15 +1384,17 @@ export class DataStoreService implements OnModuleInit {
     if (!this.pool) return;
     try {
       await this.pool.query(
-        `INSERT INTO branches (id, branch_code, name, address, city, state, phone, status)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+        `INSERT INTO branches (id, branch_code, name, address, city, state, phone, status, pin_code, email)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
          ON CONFLICT (id) DO UPDATE SET
            name = EXCLUDED.name,
            address = EXCLUDED.address,
            city = EXCLUDED.city,
            state = EXCLUDED.state,
            phone = EXCLUDED.phone,
-           status = EXCLUDED.status`,
+           status = EXCLUDED.status,
+           pin_code = EXCLUDED.pin_code,
+           email = EXCLUDED.email`,
         [
           b.id,
           b.branchCode,
@@ -1342,6 +1404,8 @@ export class DataStoreService implements OnModuleInit {
           b.state || null,
           b.phone || null,
           b.status || 'ACTIVE',
+          b.pinCode || '110086',
+          b.email || null,
         ],
       );
     } catch (e: any) {
@@ -1363,15 +1427,18 @@ export class DataStoreService implements OnModuleInit {
     if (!this.pool) return;
     try {
       await this.pool.query(
-        `INSERT INTO employees (id, employee_number, branch_id, name, mobile, email, designation, joining_date, salary, employment_status)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+        `INSERT INTO employees (id, employee_number, branch_id, name, mobile, email, designation, joining_date, salary, employment_status, address, aadhaar_or_pan, emergency_contact)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
          ON CONFLICT (id) DO UPDATE SET
            name = EXCLUDED.name,
            mobile = EXCLUDED.mobile,
            email = EXCLUDED.email,
            designation = EXCLUDED.designation,
            salary = EXCLUDED.salary,
-           employment_status = EXCLUDED.employment_status`,
+           employment_status = EXCLUDED.employment_status,
+           address = EXCLUDED.address,
+           aadhaar_or_pan = EXCLUDED.aadhaar_or_pan,
+           emergency_contact = EXCLUDED.emergency_contact`,
         [
           e.id,
           e.employeeNumber,
@@ -1383,6 +1450,9 @@ export class DataStoreService implements OnModuleInit {
           e.joiningDate ? new Date(e.joiningDate) : new Date(),
           e.salary || 0,
           e.employmentStatus || 'ACTIVE',
+          e.address || null,
+          e.aadhaarOrPan || null,
+          e.emergencyContact || null,
         ],
       );
     } catch (err: any) {

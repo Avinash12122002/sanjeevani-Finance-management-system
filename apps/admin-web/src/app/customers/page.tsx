@@ -101,15 +101,19 @@ export default function CustomersPage() {
       lastName: record.lastName,
       fatherOrSpouseName: record.fatherOrSpouseName,
       mobile: record.mobile,
+      alternateMobile: record.alternateMobile || '',
       email: record.email,
       dateOfBirth: record.dateOfBirth,
       gender: record.gender || 'MALE',
+      aadhaar: record.aadhaar || '',
+      pan: record.pan || '',
       addressLine1: record.addressLine1,
-      city: record.city,
-      state: record.state,
-      postalCode: record.postalCode,
+      city: record.city || 'Delhi',
+      state: record.state || 'Delhi',
+      postalCode: record.postalCode || '110086',
       status: record.status || 'ACTIVE',
       kycStatus: record.kycStatus || 'VERIFIED',
+      riskCategory: record.riskCategory || 'LOW',
     });
     setEditModalVisible(true);
   };
@@ -124,6 +128,9 @@ export default function CustomersPage() {
         setEditModalVisible(false);
         editForm.resetFields();
         loadCustomers();
+        if (selectedCustomer360 && selectedCustomer360.profile.id === selectedCustomer.id) {
+          handleOpen360(selectedCustomer.id);
+        }
       } else {
         message.error(res.message || 'Failed to update member.');
       }
@@ -174,18 +181,40 @@ export default function CustomersPage() {
       title: 'Contact',
       dataIndex: 'mobile',
       key: 'mobile',
-      render: (m: string) => (
+      render: (m: string, r: ICustomer) => (
         <div>
-          <div className="font-medium text-slate-700">{m}</div>
-          <span className="text-xs text-slate-400">Mobile Verified</span>
+          <div className="font-medium text-slate-700 font-mono">{m}</div>
+          {r.alternateMobile && (
+            <div className="text-[11px] text-slate-400 font-mono">Alt: {r.alternateMobile}</div>
+          )}
         </div>
       ),
     },
     {
-      title: 'Branch',
-      dataIndex: 'branchName',
+      title: 'Statutory IDs',
+      key: 'ids',
+      render: (_: any, r: ICustomer) => (
+        <div className="space-y-0.5">
+          <div className="text-xs font-mono">
+            <span className="font-semibold text-slate-400">PAN:</span>{' '}
+            {r.pan ? <Tag color="blue" className="font-mono m-0 px-1 py-0">{r.pan}</Tag> : <span className="text-slate-400">-</span>}
+          </div>
+          <div className="text-xs font-mono">
+            <span className="font-semibold text-slate-400">UID:</span>{' '}
+            {r.aadhaar ? <Tag color="purple" className="font-mono m-0 px-1 py-0">{r.aadhaar}</Tag> : <span className="text-slate-400">-</span>}
+          </div>
+        </div>
+      ),
+    },
+    {
+      title: 'Branch / City',
       key: 'branch',
-      ellipsis: true,
+      render: (_: any, r: ICustomer) => (
+        <div>
+          <div className="text-xs text-slate-800">{r.branchName || 'Delhi HO'}</div>
+          <div className="text-[11px] text-slate-400">{r.city || 'Delhi'} ({r.state || 'Delhi'})</div>
+        </div>
+      ),
     },
     {
       title: 'KYC Status',
@@ -241,10 +270,12 @@ export default function CustomersPage() {
 
   const filtered = customers.filter(
     (c) =>
-      c.customerNumber.toLowerCase().includes(search.toLowerCase()) ||
-      c.firstName.toLowerCase().includes(search.toLowerCase()) ||
-      c.lastName.toLowerCase().includes(search.toLowerCase()) ||
-      c.mobile.includes(search),
+      c.customerNumber?.toLowerCase().includes(search.toLowerCase()) ||
+      c.firstName?.toLowerCase().includes(search.toLowerCase()) ||
+      c.lastName?.toLowerCase().includes(search.toLowerCase()) ||
+      c.mobile?.includes(search) ||
+      c.pan?.toLowerCase().includes(search.toLowerCase()) ||
+      c.aadhaar?.includes(search),
   );
 
   return (
@@ -373,32 +404,95 @@ export default function CustomersPage() {
               </Form.Item>
             </Col>
             <Col span={12}>
+              <Form.Item name="state" label="State" initialValue="Delhi">
+                <Select
+                  options={[
+                    { label: 'Delhi', value: 'Delhi' },
+                    { label: 'Uttar Pradesh', value: 'Uttar Pradesh' },
+                    { label: 'Haryana', value: 'Haryana' },
+                    { label: 'Rajasthan', value: 'Rajasthan' },
+                    { label: 'Punjab', value: 'Punjab' },
+                    { label: 'Other', value: 'Other' },
+                  ]}
+                />
+              </Form.Item>
+            </Col>
+          </Row>
+
+          <Row gutter={16}>
+            <Col span={12}>
               <Form.Item name="postalCode" label="PIN Code" initialValue="110086">
                 <Input />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item name="alternateMobile" label="Alternate Mobile (Optional)">
+                <Input placeholder="Secondary contact" maxLength={10} />
               </Form.Item>
             </Col>
           </Row>
 
           <Divider orientation="left" className="text-xs text-slate-500 font-semibold m-0 mb-3">
-            KYC Identity Document (Optional)
+            Statutory KYC Identification (PAN & Aadhaar)
           </Divider>
           <Row gutter={16}>
-            <Col span={10}>
-              <Form.Item name="kycDocumentType" label="Document Type" initialValue="AADHAAR">
+            <Col span={12}>
+              <Form.Item
+                name="pan"
+                label="Income Tax PAN"
+                rules={[
+                  {
+                    pattern: /^[A-Z]{5}[0-9]{4}[A-Z]{1}$/,
+                    message: 'Format: ABCDE1234F',
+                  },
+                ]}
+              >
+                <Input
+                  placeholder="e.g. ABCDE1234F"
+                  maxLength={10}
+                  style={{ textTransform: 'uppercase' }}
+                  onChange={(e) => {
+                    form.setFieldValue('pan', e.target.value.toUpperCase());
+                  }}
+                />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item
+                name="aadhaar"
+                label="Aadhaar Card UID"
+                rules={[
+                  {
+                    pattern: /^[0-9]{12}$/,
+                    message: '12-digit Aadhaar required',
+                  },
+                ]}
+              >
+                <Input placeholder="12-digit UID Number" maxLength={12} />
+              </Form.Item>
+            </Col>
+          </Row>
+
+          <Row gutter={16}>
+            <Col span={12}>
+              <Form.Item name="riskCategory" label="Risk Classification" initialValue="LOW">
                 <Select
                   options={[
-                    { label: 'Aadhaar Card (UIDAI)', value: 'AADHAAR' },
-                    { label: 'PAN Card (Income Tax)', value: 'PAN' },
-                    { label: 'Voter ID Card', value: 'VOTER_ID' },
-                    { label: 'Driving License', value: 'DRIVING_LICENSE' },
-                    { label: 'Passport', value: 'PASSPORT' },
+                    { label: 'LOW RISK', value: 'LOW' },
+                    { label: 'MEDIUM RISK', value: 'MEDIUM' },
+                    { label: 'HIGH RISK', value: 'HIGH' },
                   ]}
                 />
               </Form.Item>
             </Col>
-            <Col span={14}>
-              <Form.Item name="kycDocumentNumber" label="Document / Card Number">
-                <Input placeholder="e.g. 12-digit Aadhaar / 10-char PAN" />
+            <Col span={12}>
+              <Form.Item name="kycStatus" label="Initial KYC Status" initialValue="VERIFIED">
+                <Select
+                  options={[
+                    { label: 'VERIFIED', value: 'VERIFIED' },
+                    { label: 'PENDING', value: 'PENDING' },
+                  ]}
+                />
               </Form.Item>
             </Col>
           </Row>
@@ -486,8 +580,82 @@ export default function CustomersPage() {
               </Form.Item>
             </Col>
             <Col span={8}>
+              <Form.Item name="state" label="State">
+                <Select
+                  options={[
+                    { label: 'Delhi', value: 'Delhi' },
+                    { label: 'Uttar Pradesh', value: 'Uttar Pradesh' },
+                    { label: 'Haryana', value: 'Haryana' },
+                    { label: 'Rajasthan', value: 'Rajasthan' },
+                    { label: 'Punjab', value: 'Punjab' },
+                    { label: 'Other', value: 'Other' },
+                  ]}
+                />
+              </Form.Item>
+            </Col>
+            <Col span={8}>
               <Form.Item name="postalCode" label="PIN Code">
                 <Input />
+              </Form.Item>
+            </Col>
+          </Row>
+
+          <Divider orientation="left" className="text-xs text-slate-500 font-semibold m-0 mb-3">
+            Statutory KYC Identification (PAN & Aadhaar)
+          </Divider>
+          <Row gutter={16}>
+            <Col span={12}>
+              <Form.Item
+                name="pan"
+                label="Income Tax PAN"
+                rules={[
+                  {
+                    pattern: /^[A-Z]{5}[0-9]{4}[A-Z]{1}$/,
+                    message: 'Format: ABCDE1234F',
+                  },
+                ]}
+              >
+                <Input
+                  placeholder="e.g. ABCDE1234F"
+                  maxLength={10}
+                  style={{ textTransform: 'uppercase' }}
+                  onChange={(e) => {
+                    editForm.setFieldValue('pan', e.target.value.toUpperCase());
+                  }}
+                />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item
+                name="aadhaar"
+                label="Aadhaar Card UID"
+                rules={[
+                  {
+                    pattern: /^[0-9]{12}$/,
+                    message: '12-digit Aadhaar required',
+                  },
+                ]}
+              >
+                <Input placeholder="12-digit UID Number" maxLength={12} />
+              </Form.Item>
+            </Col>
+          </Row>
+
+          <Row gutter={16}>
+            <Col span={8}>
+              <Form.Item name="alternateMobile" label="Alternate Mobile">
+                <Input placeholder="Secondary phone" maxLength={10} />
+              </Form.Item>
+            </Col>
+            <Col span={8}>
+              <Form.Item name="riskCategory" label="Risk Classification">
+                <Select
+                  options={[
+                    { label: 'LOW RISK', value: 'LOW' },
+                    { label: 'MEDIUM RISK', value: 'MEDIUM' },
+                    { label: 'HIGH RISK', value: 'HIGH' },
+                  ]}
+                />
               </Form.Item>
             </Col>
             <Col span={8}>
@@ -497,6 +665,21 @@ export default function CustomersPage() {
                     { label: 'VERIFIED', value: 'VERIFIED' },
                     { label: 'PENDING', value: 'PENDING' },
                     { label: 'REJECTED', value: 'REJECTED' },
+                  ]}
+                />
+              </Form.Item>
+            </Col>
+          </Row>
+
+          <Row gutter={16}>
+            <Col span={24}>
+              <Form.Item name="status" label="Membership Status">
+                <Select
+                  options={[
+                    { label: 'ACTIVE', value: 'ACTIVE' },
+                    { label: 'INACTIVE', value: 'INACTIVE' },
+                    { label: 'SUSPENDED', value: 'SUSPENDED' },
+                    { label: 'BLOCKED', value: 'BLOCKED' },
                   ]}
                 />
               </Form.Item>
@@ -516,7 +699,7 @@ export default function CustomersPage() {
       <Drawer
         title={
           selectedCustomer360 ? (
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between w-full pr-4">
               <div>
                 <span className="font-bold text-slate-800 text-lg">
                   {selectedCustomer360.profile.firstName} {selectedCustomer360.profile.lastName}
@@ -525,9 +708,20 @@ export default function CustomersPage() {
                   {selectedCustomer360.profile.customerNumber}
                 </Tag>
               </div>
-              <Tag color={selectedCustomer360.profile.kycStatus === 'VERIFIED' ? 'success' : 'warning'}>
-                KYC: {selectedCustomer360.profile.kycStatus}
-              </Tag>
+              <Space>
+                <Tag color={selectedCustomer360.profile.kycStatus === 'VERIFIED' ? 'success' : 'warning'}>
+                  KYC: {selectedCustomer360.profile.kycStatus}
+                </Tag>
+                <Button
+                  size="small"
+                  icon={<EditOutlined />}
+                  onClick={() => {
+                    handleOpenEditCustomer(selectedCustomer360.profile);
+                  }}
+                >
+                  Edit Profile
+                </Button>
+              </Space>
             </div>
           ) : (
             'Customer 360° View'
@@ -623,10 +817,14 @@ export default function CustomersPage() {
                           {selectedCustomer360.profile.dateOfBirth || 'N/A'} ({selectedCustomer360.profile.gender || 'MALE'})
                         </Descriptions.Item>
                         <Descriptions.Item label="Aadhaar UID">
-                          <span className="font-mono text-xs">{selectedCustomer360.profile.aadhaar || 'XXXX-XXXX-1234'}</span>
+                          <span className="font-mono text-xs font-semibold">
+                            {selectedCustomer360.profile.aadhaar || <Tag color="default">Not Provided</Tag>}
+                          </span>
                         </Descriptions.Item>
                         <Descriptions.Item label="Income Tax PAN">
-                          <span className="font-mono text-xs">{selectedCustomer360.profile.pan || 'ABCDE1234F'}</span>
+                          <span className="font-mono text-xs font-bold text-slate-800">
+                            {selectedCustomer360.profile.pan || <Tag color="default">Not Provided</Tag>}
+                          </span>
                         </Descriptions.Item>
                         <Descriptions.Item label="Risk Category">
                           <Tag color={selectedCustomer360.profile.riskCategory === 'HIGH' ? 'red' : 'green'}>

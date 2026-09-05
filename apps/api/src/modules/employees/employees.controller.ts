@@ -52,6 +52,9 @@ export class EmployeesController {
       joiningDate: body.joiningDate || new Date().toISOString().split('T')[0],
       salary: Number(body.salary) || 25000,
       employmentStatus: 'ACTIVE',
+      address: body.address || '',
+      aadhaarOrPan: body.aadhaarOrPan || '',
+      emergencyContact: body.emergencyContact || '',
       createdAt: new Date().toISOString(),
     };
 
@@ -130,6 +133,9 @@ export class EmployeesController {
     if (body.designation) currentEmp.designation = body.designation;
     if (body.salary !== undefined) currentEmp.salary = Number(body.salary);
     if (body.employmentStatus) currentEmp.employmentStatus = body.employmentStatus;
+    if (body.address !== undefined) currentEmp.address = body.address;
+    if (body.aadhaarOrPan !== undefined) currentEmp.aadhaarOrPan = body.aadhaarOrPan;
+    if (body.emergencyContact !== undefined) currentEmp.emergencyContact = body.emergencyContact;
 
     // Update corresponding user record
     const associatedUser = this.dataStore.users.find(

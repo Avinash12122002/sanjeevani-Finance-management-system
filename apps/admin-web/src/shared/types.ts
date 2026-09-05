@@ -329,6 +329,8 @@ export interface IBranch {
   address: string;
   city: string;
   state: string;
+  pinCode?: string;
+  email?: string;
   managerId?: string;
   managerName?: string;
   phone: string;
@@ -369,6 +371,9 @@ export interface IEmployee {
   salary: number;
   reportingManagerId?: string;
   employmentStatus: 'ACTIVE' | 'PROBATION' | 'RESIGNED' | 'TERMINATED';
+  address?: string;
+  aadhaarOrPan?: string;
+  emergencyContact?: string;
   createdAt: string;
 }
 
@@ -387,6 +392,8 @@ export interface ICustomer {
   mobile: string;
   alternateMobile?: string;
   email?: string;
+  aadhaar?: string;
+  pan?: string;
   addressLine1: string;
   addressLine2?: string;
   city: string;
@@ -396,6 +403,7 @@ export interface ICustomer {
   joiningDate: string;
   status: CustomerStatus;
   kycStatus: KYCStatus;
+  riskCategory?: RiskCategory;
   createdBy: string;
   createdAt: string;
   updatedAt: string;
@@ -468,6 +476,10 @@ export interface IAccount {
   maturityAmount?: number;
   currentBalance: number;
   status: AccountStatus;
+  nomineeName?: string;
+  nomineeRelationship?: string;
+  nomineeMobile?: string;
+  remarks?: string;
   createdBy: string;
   approvedBy?: string;
   createdAt: string;
@@ -507,6 +519,10 @@ export interface ILoanApplication {
   internalCreditScore?: number;
   riskCategory?: RiskCategory;
   status: LoanApplicationStatus;
+  guarantorName?: string;
+  guarantorMobile?: string;
+  disbursementBankAc?: string;
+  disbursementIfsc?: string;
   guarantors?: {
     name: string;
     mobile: string;
@@ -565,6 +581,10 @@ export interface ILoan {
   daysPastDue: number;
   recoveryBucket: RecoveryBucket;
   status: 'ACTIVE' | 'CLOSED' | 'OVERDUE' | 'NPA' | 'WRITTEN_OFF';
+  guarantorName?: string;
+  guarantorMobile?: string;
+  purpose?: string;
+  remarks?: string;
   createdAt: string;
 }
 

@@ -8,6 +8,7 @@ import {
   Space,
   Modal,
   Form,
+  Input,
   InputNumber,
   Select,
   Card,
@@ -90,6 +91,11 @@ export default function AccountsPage() {
     editForm.setFieldsValue({
       status: record.status,
       currentBalance: record.currentBalance,
+      nomineeName: record.nomineeName || '',
+      nomineeRelationship: record.nomineeRelationship || 'Spouse',
+      nomineeMobile: record.nomineeMobile || '',
+      tenureMonths: record.tenureMonths || 12,
+      remarks: record.remarks || '',
     });
     setEditModalVisible(true);
   };
@@ -329,6 +335,43 @@ export default function AccountsPage() {
             </Col>
           </Row>
 
+          <Row gutter={16}>
+            <Col span={12}>
+              <Form.Item name="nomineeName" label="Nominee Full Name">
+                <Input placeholder="e.g. Rekha Bachchan" />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item name="nomineeRelationship" label="Nominee Relationship" initialValue="Spouse">
+                <Select
+                  options={[
+                    { label: 'Spouse', value: 'Spouse' },
+                    { label: 'Father', value: 'Father' },
+                    { label: 'Mother', value: 'Mother' },
+                    { label: 'Son', value: 'Son' },
+                    { label: 'Daughter', value: 'Daughter' },
+                    { label: 'Brother', value: 'Brother' },
+                    { label: 'Sister', value: 'Sister' },
+                    { label: 'Other', value: 'Other' },
+                  ]}
+                />
+              </Form.Item>
+            </Col>
+          </Row>
+
+          <Row gutter={16}>
+            <Col span={12}>
+              <Form.Item name="nomineeMobile" label="Nominee Contact Mobile">
+                <Input placeholder="10-digit mobile" maxLength={10} />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item name="remarks" label="Account Remarks / Purpose">
+                <Input placeholder="Optional special notes" />
+              </Form.Item>
+            </Col>
+          </Row>
+
           <div className="flex justify-end gap-2 mt-4 pt-4 border-t border-slate-100">
             <Button
               onClick={() => {
@@ -358,19 +401,62 @@ export default function AccountsPage() {
         width={500}
       >
         <Form form={editForm} layout="vertical" onFinish={handleUpdateAccount}>
-          <Form.Item name="status" label="Account Status" rules={[{ required: true }]}>
-            <Select
-              options={[
-                { label: 'ACTIVE', value: 'ACTIVE' },
-                { label: 'MATURED', value: 'MATURED' },
-                { label: 'CLOSED', value: 'CLOSED' },
-                { label: 'FROZEN', value: 'FROZEN' },
-              ]}
-            />
-          </Form.Item>
-          <Form.Item name="currentBalance" label="Current Balance (₹)">
-            <InputNumber min={0} className="w-full" />
-          </Form.Item>
+          <Row gutter={16}>
+            <Col span={12}>
+              <Form.Item name="status" label="Account Status" rules={[{ required: true }]}>
+                <Select
+                  options={[
+                    { label: 'ACTIVE', value: 'ACTIVE' },
+                    { label: 'MATURED', value: 'MATURED' },
+                    { label: 'CLOSED', value: 'CLOSED' },
+                    { label: 'FROZEN', value: 'FROZEN' },
+                  ]}
+                />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item name="currentBalance" label="Current Balance (₹)">
+                <InputNumber min={0} className="w-full" />
+              </Form.Item>
+            </Col>
+          </Row>
+
+          <Row gutter={16}>
+            <Col span={12}>
+              <Form.Item name="nomineeName" label="Nominee Name">
+                <Input placeholder="Nominee full name" />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item name="nomineeRelationship" label="Nominee Relationship">
+                <Select
+                  options={[
+                    { label: 'Spouse', value: 'Spouse' },
+                    { label: 'Father', value: 'Father' },
+                    { label: 'Mother', value: 'Mother' },
+                    { label: 'Son', value: 'Son' },
+                    { label: 'Daughter', value: 'Daughter' },
+                    { label: 'Brother', value: 'Brother' },
+                    { label: 'Sister', value: 'Sister' },
+                    { label: 'Other', value: 'Other' },
+                  ]}
+                />
+              </Form.Item>
+            </Col>
+          </Row>
+
+          <Row gutter={16}>
+            <Col span={12}>
+              <Form.Item name="nomineeMobile" label="Nominee Mobile">
+                <Input placeholder="10-digit mobile" maxLength={10} />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item name="remarks" label="Remarks / Special Notes">
+                <Input placeholder="Internal notes" />
+              </Form.Item>
+            </Col>
+          </Row>
 
           <div className="flex justify-end gap-2 mt-4 pt-4 border-t border-slate-100">
             <Button
@@ -445,6 +531,19 @@ export default function AccountsPage() {
                 <span className="font-bold text-emerald-700">
                   {FinancialEngine.formatINR(viewAccount.maturityAmount || viewAccount.currentBalance)}
                 </span>
+              </Descriptions.Item>
+              <Descriptions.Item label="Nominee Details">
+                {viewAccount.nomineeName ? (
+                  <span>
+                    <strong>{viewAccount.nomineeName}</strong> ({viewAccount.nomineeRelationship || 'Nominee'})
+                    {viewAccount.nomineeMobile ? ` • +91 ${viewAccount.nomineeMobile}` : ''}
+                  </span>
+                ) : (
+                  <Tag color="default">No Nominee Registered</Tag>
+                )}
+              </Descriptions.Item>
+              <Descriptions.Item label="Remarks / Notes">
+                {viewAccount.remarks || 'Standard Account'}
               </Descriptions.Item>
               <Descriptions.Item label="Branch ID">
                 <span className="font-mono text-xs">{viewAccount.branchId}</span>

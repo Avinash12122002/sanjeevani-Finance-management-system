@@ -19,6 +19,7 @@ import {
   CustomerStatus,
   KYCStatus,
   KYCDocumentType,
+  RiskCategory,
   ICustomer,
   ICustomerKYC,
   IUser,
@@ -95,7 +96,10 @@ export class CustomersController {
     const customerNumber = this.dataStore.nextCustomerNumber();
     const branch = this.dataStore.branches.find((b) => b.id === (body.branchId || user.branchId || 'BR-001'));
 
-    const hasKyc = !!(body as any).kycDocumentNumber;
+    const aadhaar = body.aadhaar?.trim() || ((body as any).kycDocumentType === 'AADHAAR' ? (body as any).kycDocumentNumber?.trim() : undefined);
+    const pan = body.pan?.trim()?.toUpperCase() || ((body as any).kycDocumentType === 'PAN' ? (body as any).kycDocumentNumber?.trim()?.toUpperCase() : undefined);
+    const hasKyc = !!(aadhaar || pan || (body as any).kycDocumentNumber);
+
     const newCustomer: ICustomer = {
       id: `CUS-${Date.now()}`,
       customerNumber,
@@ -111,6 +115,8 @@ export class CustomersController {
       mobile: body.mobile.trim(),
       alternateMobile: body.alternateMobile?.trim() || undefined,
       email: body.email?.trim() || undefined,
+      aadhaar: aadhaar || undefined,
+      pan: pan || undefined,
       addressLine1: body.addressLine1?.trim() || 'Address not specified',
       city: body.city?.trim() || 'Delhi',
       state: body.state?.trim() || 'Delhi',
@@ -119,6 +125,7 @@ export class CustomersController {
       joiningDate: today,
       status: CustomerStatus.ACTIVE,
       kycStatus: hasKyc ? KYCStatus.VERIFIED : KYCStatus.PENDING,
+      riskCategory: body.riskCategory || RiskCategory.LOW,
       createdBy: user.id || 'USR-001',
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
@@ -128,17 +135,32 @@ export class CustomersController {
     await this.dataStore.persistCustomer(newCustomer);
 
     if (hasKyc) {
-      this.dataStore.kycDocuments.push({
-        id: `KYC-${Date.now()}`,
-        customerId: newCustomer.id,
-        documentType: (body as any).kycDocumentType || KYCDocumentType.AADHAAR,
-        documentNumber: (body as any).kycDocumentNumber,
-        documentUrl: 'https://storage.sanjeevanifinance.com/kyc/doc.pdf',
-        verificationStatus: KYCStatus.VERIFIED,
-        verifiedBy: user.id || 'USR-001',
-        verifiedAt: new Date().toISOString(),
-        createdAt: new Date().toISOString(),
-      });
+      if (aadhaar) {
+        this.dataStore.kycDocuments.push({
+          id: `KYC-${Date.now()}-1`,
+          customerId: newCustomer.id,
+          documentType: KYCDocumentType.AADHAAR,
+          documentNumber: aadhaar,
+          documentUrl: 'https://storage.sanjeevanifinance.com/kyc/doc.pdf',
+          verificationStatus: KYCStatus.VERIFIED,
+          verifiedBy: user.id || 'USR-001',
+          verifiedAt: new Date().toISOString(),
+          createdAt: new Date().toISOString(),
+        });
+      }
+      if (pan) {
+        this.dataStore.kycDocuments.push({
+          id: `KYC-${Date.now()}-2`,
+          customerId: newCustomer.id,
+          documentType: KYCDocumentType.PAN,
+          documentNumber: pan,
+          documentUrl: 'https://storage.sanjeevanifinance.com/kyc/doc.pdf',
+          verificationStatus: KYCStatus.VERIFIED,
+          verifiedBy: user.id || 'USR-001',
+          verifiedAt: new Date().toISOString(),
+          createdAt: new Date().toISOString(),
+        });
+      }
     }
 
     this.dataStore.logAudit(
@@ -237,9 +259,15 @@ export class CustomersController {
     }
 
     const oldVal = { ...this.dataStore.customers[index] };
-    const updated = {
+    const updated: ICustomer = {
       ...oldVal,
       ...body,
+      aadhaar: body.aadhaar !== undefined ? (body.aadhaar ? String(body.aadhaar).trim() : undefined) : oldVal.aadhaar,
+      pan: body.pan !== undefined ? (body.pan ? String(body.pan).trim().toUpperCase() : undefined) : oldVal.pan,
+      state: body.state !== undefined ? String(body.state).trim() : oldVal.state,
+      city: body.city !== undefined ? String(body.city).trim() : oldVal.city,
+      alternateMobile: body.alternateMobile !== undefined ? (body.alternateMobile ? String(body.alternateMobile).trim() : undefined) : oldVal.alternateMobile,
+      riskCategory: body.riskCategory || oldVal.riskCategory || RiskCategory.LOW,
       updatedAt: new Date().toISOString(),
     };
 
