@@ -1002,9 +1002,18 @@ export class DataStoreService implements OnModuleInit {
       }
     }
 
-    const bankBalance = 0;
-    const monthlyIncome = 0;
-    const monthlyExpense = 0;
+    const bankBalance = this.chartOfAccounts
+      .filter((a) => a.accountCode?.startsWith('102') || a.id === 'COA-1020')
+      .reduce((sum, a) => FinancialEngine.add(sum, a.currentBalance || 0), 0);
+
+    const monthlyIncome = this.chartOfAccounts
+      .filter((a) => a.accountType === 'INCOME' || a.accountCode?.startsWith('4'))
+      .reduce((sum, a) => FinancialEngine.add(sum, a.currentBalance || 0), 0);
+
+    const monthlyExpense = this.chartOfAccounts
+      .filter((a) => a.accountType === 'EXPENSE' || a.accountCode?.startsWith('5'))
+      .reduce((sum, a) => FinancialEngine.add(sum, a.currentBalance || 0), 0);
+
     const netResult = FinancialEngine.subtract(monthlyIncome, monthlyExpense);
 
     return {
