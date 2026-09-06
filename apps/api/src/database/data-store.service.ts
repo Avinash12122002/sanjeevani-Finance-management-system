@@ -759,12 +759,28 @@ export class DataStoreService implements OnModuleInit {
     ];
 
     // 2. Initial System Super Admin (§3, §45)
+    const defaultAdminHash = '$2b$10$miTD.W53zHdXM2Ntt7.xW.BvuOB4FzPe4qkxw32TaIgVH32K2U1DW';
     this.users = [
       {
         id: 'USR-001',
+        username: 'admin',
+        email: 'admin@sanjeevanifinance.com',
+        mobile: '9876543210',
+        roles: [UserRole.SUPER_ADMIN],
+        branchId: 'BR-001',
+        branchName: 'Head Office - Main Branch',
+        employeeId: 'EMP-001',
+        employeeName: 'System Administrator',
+        isActive: true,
+        is2faEnabled: true,
+        passwordHash: defaultAdminHash,
+        createdAt: new Date().toISOString(),
+      } as any,
+      {
+        id: 'USR-002',
         username: 'owner_admin',
         email: 'owner@sanjeevanifinance.com',
-        mobile: '9876543210',
+        mobile: '9876543211',
         roles: [UserRole.SUPER_ADMIN],
         branchId: 'BR-001',
         branchName: 'Head Office - Main Branch',
@@ -772,8 +788,9 @@ export class DataStoreService implements OnModuleInit {
         employeeName: 'System Administrator (Owner)',
         isActive: true,
         is2faEnabled: true,
+        passwordHash: defaultAdminHash,
         createdAt: new Date().toISOString(),
-      },
+      } as any,
     ];
 
     this.employees = [

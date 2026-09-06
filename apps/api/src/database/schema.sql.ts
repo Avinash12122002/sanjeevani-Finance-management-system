@@ -324,9 +324,11 @@ ON CONFLICT (id) DO UPDATE SET
   state = EXCLUDED.state,
   phone = EXCLUDED.phone;
 
--- Seed Super Admin User
+-- Seed Super Admin Users
 INSERT INTO users (id, username, email, mobile, roles, branch_id, branch_name, employee_id, employee_name, is_active, password_hash)
-VALUES ('USR-001', 'owner_admin', 'owner@sanjeevanifinance.com', '9876543210', '{"SUPER_ADMIN"}', 'BR-001', 'Head Office - Main Branch (Delhi)', 'EMP-001', 'System Administrator (Owner)', TRUE, 'Password@123')
+VALUES 
+  ('USR-001', 'admin', 'admin@sanjeevanifinance.com', '9876543210', '{"SUPER_ADMIN"}', 'BR-001', 'Head Office - Main Branch (Delhi)', 'EMP-001', 'System Administrator', TRUE, '$2b$10$miTD.W53zHdXM2Ntt7.xW.BvuOB4FzPe4qkxw32TaIgVH32K2U1DW'),
+  ('USR-002', 'owner_admin', 'owner@sanjeevanifinance.com', '9876543211', '{"SUPER_ADMIN"}', 'BR-001', 'Head Office - Main Branch (Delhi)', 'EMP-001', 'System Administrator (Owner)', TRUE, '$2b$10$miTD.W53zHdXM2Ntt7.xW.BvuOB4FzPe4qkxw32TaIgVH32K2U1DW')
 ON CONFLICT (id) DO NOTHING;
 
 -- Seed Super Admin Employee
