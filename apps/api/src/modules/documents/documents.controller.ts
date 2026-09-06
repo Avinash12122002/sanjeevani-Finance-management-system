@@ -156,7 +156,14 @@ export class DocumentsController {
       throw new NotFoundException('Document file not found or has been removed.');
     }
 
-    return res.sendFile(filePath);
+    return res.sendFile(filePath, (err) => {
+      if (err && !res.headersSent) {
+        res.status(404).json({
+          success: false,
+          error: { code: 'FILE_NOT_FOUND', message: 'Document file could not be sent or found.' },
+        });
+      }
+    });
   }
 
   /**

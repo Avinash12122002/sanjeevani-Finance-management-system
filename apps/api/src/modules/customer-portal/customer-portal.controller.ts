@@ -401,6 +401,7 @@ export class CustomerPortalController {
       `Customer ${fullName} registered/set portal password`,
     );
     const payload = {
+      id: customer.id,
       sub: customer.id,
       customerId: customer.id,
       customerNumber: customer.customerNumber,
@@ -482,6 +483,7 @@ export class CustomerPortalController {
 
     const fullName = `${customer.firstName} ${customer.lastName || ''}`.trim();
     const payload = {
+      id: customer.id,
       sub: customer.id,
       customerId: customer.id,
       customerNumber: customer.customerNumber,
@@ -559,6 +561,7 @@ export class CustomerPortalController {
 
     const fullName = `${customer.firstName} ${customer.lastName || ''}`.trim();
     const payload = {
+      id: customer.id,
       sub: customer.id,
       customerId: customer.id,
       customerNumber: customer.customerNumber,
@@ -639,6 +642,7 @@ export class CustomerPortalController {
 
     const fullName = `${customer.firstName} ${customer.lastName || ''}`.trim();
     const payload = {
+      id: customer.id,
       sub: customer.id,
       customerId: customer.id,
       customerNumber: customer.customerNumber,

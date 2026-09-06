@@ -144,6 +144,7 @@ export class AuthController {
     loginAttemptsMap.delete(clientIp);
 
     const payload = {
+      id: user.id,
       sub: user.id,
       username: user.username,
       roles: user.roles,
@@ -207,6 +208,7 @@ export class AuthController {
     try {
       const payload = await this.jwtService.verifyAsync(body.refreshToken);
       const newAccessToken = await this.jwtService.signAsync({
+        id: payload.id || payload.sub,
         sub: payload.sub,
         username: payload.username,
         roles: payload.roles,

@@ -15,9 +15,9 @@ export class JwtAuthGuard implements CanActivate {
     let token = '';
     const authHeader = request.headers?.authorization;
     if (authHeader && authHeader.startsWith('Bearer ')) {
-      token = authHeader.split(' ')[1];
+      token = authHeader.split(' ')[1]?.trim() || '';
     } else if (request.query && typeof request.query.token === 'string') {
-      token = request.query.token;
+      token = request.query.token.trim();
     }
 
     if (!token) {
@@ -25,7 +25,10 @@ export class JwtAuthGuard implements CanActivate {
     }
     try {
       const payload = await this.jwtService.verifyAsync(token);
-      request.user = payload;
+      request.user = {
+        ...payload,
+        id: payload.id || payload.sub,
+      };
       return true;
     } catch {
       throw new UnauthorizedException('Invalid or expired authentication token. Please sign in again.');

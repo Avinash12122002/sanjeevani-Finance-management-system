@@ -1170,7 +1170,8 @@ export default function CustomersPage() {
                               if (fileEndpoint.includes('/uploads/customer-docs/')) {
                                 fileEndpoint = fileEndpoint.replace('/uploads/customer-docs/', '/api/v1/documents/file/');
                               }
-                              const baseDocUrl = fileEndpoint.startsWith('http') ? fileEndpoint : `http://127.0.0.1:4000${fileEndpoint}`;
+                              const apiOrigin = (process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:4000').replace(/\/api\/v1\/?$/, '');
+                              const baseDocUrl = fileEndpoint.startsWith('http') ? fileEndpoint : `${apiOrigin}${fileEndpoint.startsWith('/') ? '' : '/'}${fileEndpoint}`;
                               const fullUrl = baseDocUrl.includes('?') ? `${baseDocUrl}&token=${encodeURIComponent(token || '')}` : `${baseDocUrl}${authQuery}`;
                               const isPdf = doc.fileName?.toLowerCase().endsWith('.pdf');
                               return (
