@@ -22,7 +22,13 @@ import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { IUser } from '@sanjeevani/shared-types';
 
-const uploadDir = join(process.cwd(), 'uploads', 'customer-docs');
+const resolveUploadDir = (): string => {
+  const workspaceUpload = join(process.cwd(), 'apps', 'api', 'uploads', 'customer-docs');
+  const localUpload = join(process.cwd(), 'uploads', 'customer-docs');
+  return fs.existsSync(join(process.cwd(), 'apps', 'api')) ? workspaceUpload : localUpload;
+};
+
+const uploadDir = resolveUploadDir();
 if (!fs.existsSync(uploadDir)) {
   fs.mkdirSync(uploadDir, { recursive: true });
 }
@@ -150,7 +156,17 @@ export class DocumentsController {
     @Res() res: Response,
   ) {
     const safeFilename = basename(rawFilename);
-    const filePath = join(uploadDir, safeFilename);
+    let filePath = join(uploadDir, safeFilename);
+
+    if (!fs.existsSync(filePath)) {
+      const altDir = uploadDir.includes('apps')
+        ? join(process.cwd(), 'uploads', 'customer-docs')
+        : join(process.cwd(), 'apps', 'api', 'uploads', 'customer-docs');
+      const altFilePath = join(altDir, safeFilename);
+      if (fs.existsSync(altFilePath)) {
+        filePath = altFilePath;
+      }
+    }
 
     if (!fs.existsSync(filePath)) {
       throw new NotFoundException('Document file not found or has been removed.');

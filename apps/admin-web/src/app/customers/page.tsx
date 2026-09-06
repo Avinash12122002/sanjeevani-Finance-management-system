@@ -1164,7 +1164,9 @@ export default function CustomersPage() {
                           <div className="space-y-2">
                             {customerDocs.map((doc: any) => {
                               const isImg = doc.mimeType?.startsWith('image/') || doc.fileName?.match(/\.(jpg|jpeg|png|webp)$/i);
-                              const token = typeof window !== 'undefined' ? localStorage.getItem('token') : '';
+                              const token = typeof window !== 'undefined'
+                                ? (localStorage.getItem('sfms_access_token') || localStorage.getItem('sjf_auth_token') || localStorage.getItem('token') || '')
+                                : '';
                               const authQuery = token ? `?token=${encodeURIComponent(token)}` : '';
                               let fileEndpoint = doc.fileUrl || '';
                               if (fileEndpoint.includes('/uploads/customer-docs/')) {
