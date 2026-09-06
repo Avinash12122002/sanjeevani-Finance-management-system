@@ -14,6 +14,7 @@ import { DataStoreService } from '../../database/data-store.service';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { IEmployee, IUser, UserRole } from '@sanjeevani/shared-types';
+import * as bcrypt from 'bcryptjs';
 
 @Controller('api/v1/employees')
 @UseGuards(JwtAuthGuard)
@@ -76,7 +77,7 @@ export class EmployeesController {
       username: body.username || newEmp.email?.split('@')[0] || newEmp.mobile,
       email: newEmp.email,
       mobile: newEmp.mobile,
-      passwordHash: body.password || 'Password@123',
+      passwordHash: bcrypt.hashSync(body.password || 'Password@123', 10),
       roles: [assignedRole],
       branchId: newEmp.branchId,
       branchName: newEmp.branchName,
