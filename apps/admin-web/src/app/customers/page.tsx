@@ -1164,8 +1164,15 @@ export default function CustomersPage() {
                           <div className="space-y-2">
                             {customerDocs.map((doc: any) => {
                               const isImg = doc.mimeType?.startsWith('image/') || doc.fileName?.match(/\.(jpg|jpeg|png|webp)$/i);
+                              const token = typeof window !== 'undefined' ? localStorage.getItem('token') : '';
+                              const authQuery = token ? `?token=${encodeURIComponent(token)}` : '';
+                              let fileEndpoint = doc.fileUrl || '';
+                              if (fileEndpoint.includes('/uploads/customer-docs/')) {
+                                fileEndpoint = fileEndpoint.replace('/uploads/customer-docs/', '/api/v1/documents/file/');
+                              }
+                              const baseDocUrl = fileEndpoint.startsWith('http') ? fileEndpoint : `http://127.0.0.1:4000${fileEndpoint}`;
+                              const fullUrl = baseDocUrl.includes('?') ? `${baseDocUrl}&token=${encodeURIComponent(token || '')}` : `${baseDocUrl}${authQuery}`;
                               const isPdf = doc.fileName?.toLowerCase().endsWith('.pdf');
-                              const fullUrl = doc.fileUrl?.startsWith('http') ? doc.fileUrl : `http://127.0.0.1:4000${doc.fileUrl}`;
                               return (
                                 <div key={doc.id} className="flex items-center justify-between p-3 bg-white border border-slate-200 rounded-lg hover:border-emerald-300 transition-colors">
                                   <div className="flex items-center gap-3">

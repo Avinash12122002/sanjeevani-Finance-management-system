@@ -10,10 +10,12 @@ import {
   UseGuards,
   NotFoundException,
   BadRequestException,
+  Res,
 } from '@nestjs/common';
+import { Response } from 'express';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
-import { extname, join } from 'path';
+import { extname, join, basename } from 'path';
 import * as fs from 'fs';
 import { DataStoreService } from '../../database/data-store.service';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
@@ -56,6 +58,26 @@ export class DocumentsController {
           cb(null, `DOC-${uniqueSuffix}${ext}`);
         },
       }),
+      fileFilter: (req, file, cb) => {
+        const allowedMime = [
+          'image/jpeg',
+          'image/png',
+          'image/webp',
+          'application/pdf',
+        ];
+        const allowedExt = ['.jpg', '.jpeg', '.png', '.webp', '.pdf'];
+        const ext = extname(file.originalname).toLowerCase();
+        if (allowedMime.includes(file.mimetype) && allowedExt.includes(ext)) {
+          cb(null, true);
+        } else {
+          cb(
+            new BadRequestException(
+              'Unsupported file format. Only PDF, JPG, PNG, and WEBP documents are permitted.',
+            ),
+            false,
+          );
+        }
+      },
       limits: { fileSize: 10 * 1024 * 1024 }, // 10MB limit
     }),
   )
@@ -79,7 +101,7 @@ export class DocumentsController {
       customerId: customer.id,
       documentType: documentType || 'GENERAL_KYC',
       fileName: file.originalname,
-      fileUrl: `/uploads/customer-docs/${file.filename}`,
+      fileUrl: `/api/v1/documents/file/${file.filename}`,
       fileSize: file.size,
       mimeType: file.mimetype,
       uploadedBy: user.employeeName || 'Staff',
@@ -117,6 +139,24 @@ export class DocumentsController {
       (d) => d.customerId === customerId,
     );
     return docs;
+  }
+
+  /**
+   * Securely stream customer KYC document (requires staff authentication)
+   */
+  @Get('file/:filename')
+  async getDocumentFile(
+    @Param('filename') rawFilename: string,
+    @Res() res: Response,
+  ) {
+    const safeFilename = basename(rawFilename);
+    const filePath = join(uploadDir, safeFilename);
+
+    if (!fs.existsSync(filePath)) {
+      throw new NotFoundException('Document file not found or has been removed.');
+    }
+
+    return res.sendFile(filePath);
   }
 
   /**

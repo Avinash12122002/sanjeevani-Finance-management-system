@@ -21,6 +21,8 @@ import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { IUser, UserRole } from '@sanjeevani/shared-types';
 
+import * as bcrypt from 'bcryptjs';
+
 // In-Memory Brute-Force Rate Limiter Map
 const loginAttemptsMap = new Map<string, { attempts: number; lockUntil: number; firstAttempt: number }>();
 const MAX_ATTEMPTS = 5;
@@ -75,11 +77,29 @@ export class AuthController {
         (usernameOrMobile === 'owner@sanjeevanifinance.com' && u.roles?.includes(UserRole.SUPER_ADMIN)),
     );
 
-    // Support configured password or standard setup master password
-    const isValidPassword =
-      password === 'Password@123' ||
-      password === (user as any).passwordHash ||
-      password === (user as any).password;
+    // Secure password verification with bcrypt & transparent upgrade
+    const storedHash = user ? ((user as any).passwordHash || (user as any).password) : null;
+    let isValidPassword = false;
+
+    if (user && storedHash) {
+      if (/^\$2[aby]\$\d{2}\$/.test(storedHash)) {
+        isValidPassword = bcrypt.compareSync(password, storedHash);
+      } else {
+        // Transparent migration: verify plain seed, then immediately upgrade to bcrypt
+        isValidPassword = password === storedHash;
+        if (isValidPassword) {
+          const newHash = bcrypt.hashSync(password, 10);
+          (user as any).passwordHash = newHash;
+          await this.dataStore.persistUser(user);
+        }
+      }
+    } else if (user && password === 'Password@123' && (user.username === 'admin' || user.email === 'admin@sanjeevani.com')) {
+      // First-time bootstrap for default admin seed
+      isValidPassword = true;
+      const newHash = bcrypt.hashSync(password, 10);
+      (user as any).passwordHash = newHash;
+      await this.dataStore.persistUser(user);
+    }
 
     if (!user || !isValidPassword) {
       // Record Failed Attempt
@@ -234,7 +254,7 @@ export class AuthController {
       username: cleanUsername,
       email: body.email?.trim() || `${cleanUsername}@sanjeevanifinance.com`,
       mobile: body.mobile?.trim() || '9876500000',
-      passwordHash: body.password || 'Password@123',
+      passwordHash: bcrypt.hashSync(body.password || 'Password@123', 10),
       roles: Array.isArray(body.roles) && body.roles.length > 0 ? body.roles : [body.role || UserRole.LOAN_OFFICER],
       branchId: branch ? branch.id : 'BR-001',
       branchName: branch ? branch.name : 'Head Office - Main Branch',
@@ -288,7 +308,7 @@ export class AuthController {
       }
     }
     if (body.password && body.password.trim()) {
-      (targetUser as any).passwordHash = body.password.trim();
+      (targetUser as any).passwordHash = bcrypt.hashSync(body.password.trim(), 10);
     }
 
     await this.dataStore.persistUser(targetUser);

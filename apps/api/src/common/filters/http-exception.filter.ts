@@ -4,12 +4,15 @@ import {
   ArgumentsHost,
   HttpException,
   HttpStatus,
+  Logger,
 } from '@nestjs/common';
 import { Response } from 'express';
 import { ApiResponse } from '@sanjeevani/shared-types';
 
 @Catch()
 export class AllExceptionsFilter implements ExceptionFilter {
+  private readonly logger = new Logger(AllExceptionsFilter.name);
+
   catch(exception: unknown, host: ArgumentsHost) {
     const ctx = host.switchToHttp();
     const response = ctx.getResponse<Response>();
@@ -46,6 +49,16 @@ export class AllExceptionsFilter implements ExceptionFilter {
     const requestId =
       request.headers['x-request-id'] ||
       `REQ-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
+
+    if (status === HttpStatus.INTERNAL_SERVER_ERROR) {
+      this.logger.error(
+        `[${requestId}] ${request.method} ${request.url} - ${exception instanceof Error ? exception.stack || exception.message : exception}`,
+      );
+      if (process.env.NODE_ENV === 'production') {
+        message = `An internal financial processing error occurred. Please contact system support with request ID ${requestId}.`;
+        details = undefined;
+      }
+    }
 
     const errorPayload: ApiResponse = {
       success: false,

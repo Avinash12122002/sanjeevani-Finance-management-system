@@ -12,13 +12,17 @@ export class JwtAuthGuard implements CanActivate {
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const request = context.switchToHttp().getRequest();
-    const authHeader = request.headers.authorization;
-
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      throw new UnauthorizedException('Authentication session expired or token missing. Please sign in.');
+    let token = '';
+    const authHeader = request.headers?.authorization;
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      token = authHeader.split(' ')[1];
+    } else if (request.query && typeof request.query.token === 'string') {
+      token = request.query.token;
     }
 
-    const token = authHeader.split(' ')[1];
+    if (!token) {
+      throw new UnauthorizedException('Authentication session expired or token missing. Please sign in.');
+    }
     try {
       const payload = await this.jwtService.verifyAsync(token);
       request.user = payload;

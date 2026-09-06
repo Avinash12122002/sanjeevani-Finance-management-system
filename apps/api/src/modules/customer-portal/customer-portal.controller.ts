@@ -25,6 +25,7 @@ import {
   IAccount,
   AccountStatus,
 } from '@sanjeevani/shared-types';
+import * as bcrypt from 'bcryptjs';
 
 // Active OTP Store (cleanMobile -> { otp, customerId, expiresAt, attempts, verified?, reqId? })
 const otpStore = new Map<string, { otp: string; customerId: string; expiresAt: number; attempts: number; verified?: boolean; reqId?: string }>();
@@ -204,15 +205,15 @@ export class CustomerPortalController {
     // Dispatch via MSG91 SMS
     await this.dispatchMsg91Otp(cleanMobile, otp);
 
-    const hasAuthKey = Boolean(process.env.MSG91_AUTH_KEY);
+    const allowDevOtp = process.env.ALLOW_DEV_OTP === 'true' && process.env.NODE_ENV !== 'production';
 
     return {
       success: true,
       message: `OTP sent to +91 ${cleanMobile} via SMS. Valid for 5 minutes.`,
       data: {
         expiresInSeconds: 300,
-        // Include devOtp if live gateway credentials not yet added, ensuring frictionless instant testing
-        devOtp: !hasAuthKey || process.env.NODE_ENV !== 'production' ? otp : undefined,
+        // Only include devOtp in non-production local development if ALLOW_DEV_OTP is explicitly enabled
+        devOtp: allowDevOtp ? otp : undefined,
       },
     };
   }
@@ -382,8 +383,9 @@ export class CustomerPortalController {
       await this.dataStore.persistAccount(newSavingsAccount);
     }
 
-    // Store customer's new password in memory & PostgreSQL
-    await this.dataStore.saveCustomerPassword(customer.id, newPassword);
+    // Store customer's new password securely hashed with bcrypt in memory & PostgreSQL
+    const hashedPassword = bcrypt.hashSync(newPassword, 10);
+    await this.dataStore.saveCustomerPassword(customer.id, hashedPassword);
 
     // Issue JWT Token
     const fullName = `${customer.firstName} ${customer.lastName || ''}`.trim();
@@ -535,13 +537,21 @@ export class CustomerPortalController {
     }
 
     const customPass = this.dataStore.getCustomerPassword(customer.id);
-    const last4Mobile = customer.mobile ? customer.mobile.slice(-4) : '1234';
-    const isValidPass = customPass
-      ? customPass === password
-      : password === 'Pass@123' ||
-      password === 'Password@123' ||
-      password === last4Mobile ||
-      (customer.dateOfBirth && password === customer.dateOfBirth.replace(/-/g, ''));
+    if (!customPass) {
+      throw new UnauthorizedException('No password set for this account yet. Please log in with OTP first to create your secure password.');
+    }
+
+    let isValidPass = false;
+    if (/^\$2[aby]\$\d{2}\$/.test(customPass)) {
+      isValidPass = bcrypt.compareSync(password, customPass);
+    } else {
+      // Legacy plain text check with transparent upgrade
+      isValidPass = customPass === password;
+      if (isValidPass) {
+        const upgraded = bcrypt.hashSync(password, 10);
+        await this.dataStore.saveCustomerPassword(customer.id, upgraded);
+      }
+    }
 
     if (!isValidPass) {
       throw new UnauthorizedException('Incorrect password. Please try again or log in with OTP.');

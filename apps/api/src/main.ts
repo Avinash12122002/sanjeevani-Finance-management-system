@@ -26,9 +26,8 @@ async function bootstrap() {
     }),
   );
 
-  // 2. Performance Compression & Static Asset Serving
+  // 2. Performance Compression
   app.use(compression());
-  app.use('/uploads', express.static(join(process.cwd(), 'uploads')));
 
   // 3. CORS Configuration — explicit allowlist (never wildcard with credentials)
   const ALLOWED_ORIGINS = (process.env.CORS_ORIGIN || '')
@@ -41,9 +40,12 @@ async function bootstrap() {
       // Allow requests with no origin (server-to-server, curl, Postman, mobile apps)
       if (!origin) return callback(null, true);
       if (ALLOWED_ORIGINS.includes(origin)) return callback(null, true);
-      // Allow Vercel preview deployments and localhost ports
-      if (/^https:\/\/.*\.vercel\.app$/.test(origin)) return callback(null, true);
+      // Allow local development ports
       if (/^http:\/\/(localhost|127\.0\.0\.1):\d+$/.test(origin)) return callback(null, true);
+      // Allow specific Vercel preview deployments only when explicitly enabled in development
+      if (process.env.NODE_ENV !== 'production' && process.env.ALLOW_VERCEL_PREVIEWS === 'true' && /^https:\/\/.*\.vercel\.app$/.test(origin)) {
+        return callback(null, true);
+      }
       return callback(new Error(`CORS: origin '${origin}' not allowed`), false);
     },
     credentials: true,
