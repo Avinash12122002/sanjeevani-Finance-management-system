@@ -382,7 +382,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         )}
 
         {/* Nav Items */}
-        <div className="pb-16">
+        <div>
           <Menu
             theme="dark"
             selectedKeys={[activeNavKey || (pathname === '/' ? '/' : `/${pathname.split('/')[1]}`)]}
@@ -406,7 +406,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
         {/* Institutional Brand Taglines (SRS §46) */}
         {!collapsed && (
-          <div className="mx-3 my-4 p-3 rounded-xl bg-slate-900/80 border border-slate-800 text-center">
+          <div className="mx-3 mt-3 mb-2 p-3 rounded-xl bg-slate-900/90 border border-slate-800 text-center shadow-sm">
             <div className="text-[10px] text-slate-300 font-medium leading-tight">
               &ldquo;Your Money. Your Future. Our Responsibility.&rdquo;
             </div>
@@ -415,6 +415,9 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             </div>
           </div>
         )}
+
+        {/* Bottom clearance spacer so content is never hidden behind the bottom collapse trigger bar */}
+        <div className="h-16 w-full shrink-0 pointer-events-none" aria-hidden="true" />
       </Sider>
 
       {/* Top Instant Navigation Loader */}

@@ -40,7 +40,7 @@ html, body {
   background: #94a3b8;
 }
 
-/* Sider Scrollbar */
+/* Sider Scrollbar & Trigger */
 .ant-layout-sider-children::-webkit-scrollbar {
   width: 4px;
 }
@@ -52,6 +52,19 @@ html, body {
 .ant-layout-sider-children::-webkit-scrollbar-thumb {
   background: #334155;
   border-radius: 2px;
+}
+
+.ant-layout-sider-trigger {
+  background: #090d16 !important;
+  border-top: 1px solid #1e293b !important;
+  color: #94a3b8 !important;
+  transition: all 0.2s ease !important;
+  z-index: 1001 !important;
+}
+
+.ant-layout-sider-trigger:hover {
+  background: #1e293b !important;
+  color: #34d399 !important;
 }
 
 /* Glassmorphic & Modern Cards */
