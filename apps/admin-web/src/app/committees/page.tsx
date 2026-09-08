@@ -354,46 +354,54 @@ export default function CommitteesPage() {
       <Row gutter={[16, 16]} className="mb-6">
         <Col xs={24} sm={12} lg={6}>
           <Card className="rounded-xl shadow-sm border-slate-200" bodyStyle={{ padding: 18 }}>
-            <Statistic
-              title={<span className="text-xs font-semibold text-slate-500 uppercase">Active Groups</span>}
-              value={activeCommitteesCount}
-              suffix={<span className="text-xs text-slate-400">/ {totalCommitteesCount} total</span>}
-              valueStyle={{ color: '#0f172a', fontWeight: 700 }}
-              prefix={<TeamOutlined style={{ color: '#059669', marginRight: 6 }} />}
-            />
+            <Tooltip title="Total active rotating committee savings groups currently running">
+              <Statistic
+                title={<span className="text-xs font-semibold text-slate-500 uppercase">Active Groups</span>}
+                value={activeCommitteesCount}
+                suffix={<span className="text-xs text-slate-400">/ {totalCommitteesCount} total</span>}
+                valueStyle={{ color: '#0f172a', fontWeight: 700 }}
+                prefix={<TeamOutlined style={{ color: '#059669', marginRight: 6 }} />}
+              />
+            </Tooltip>
           </Card>
         </Col>
         <Col xs={24} sm={12} lg={6}>
           <Card className="rounded-xl shadow-sm border-slate-200" bodyStyle={{ padding: 18 }}>
-            <Statistic
-              title={<span className="text-xs font-semibold text-slate-500 uppercase">Total Pool Circulation</span>}
-              value={totalPoolCirculation}
-              prefix="₹"
-              formatter={(val) => Number(val).toLocaleString('en-IN')}
-              valueStyle={{ color: '#047857', fontWeight: 700 }}
-            />
+            <Tooltip title="Total pooled capital circulating across all committee circles">
+              <Statistic
+                title={<span className="text-xs font-semibold text-slate-500 uppercase">Total Pool Circulation</span>}
+                value={totalPoolCirculation}
+                prefix="₹"
+                formatter={(val) => Number(val).toLocaleString('en-IN')}
+                valueStyle={{ color: '#047857', fontWeight: 700 }}
+              />
+            </Tooltip>
           </Card>
         </Col>
         <Col xs={24} sm={12} lg={6}>
           <Card className="rounded-xl shadow-sm border-slate-200" bodyStyle={{ padding: 18 }}>
-            <Statistic
-              title={<span className="text-xs font-semibold text-slate-500 uppercase">Total Collected to Date</span>}
-              value={totalCollections}
-              prefix="₹"
-              formatter={(val) => Number(val).toLocaleString('en-IN')}
-              valueStyle={{ color: '#0284c7', fontWeight: 700 }}
-            />
+            <Tooltip title="Cumulative monthly contributions collected from all members">
+              <Statistic
+                title={<span className="text-xs font-semibold text-slate-500 uppercase">Total Collected to Date</span>}
+                value={totalCollections}
+                prefix="₹"
+                formatter={(val) => Number(val).toLocaleString('en-IN')}
+                valueStyle={{ color: '#0284c7', fontWeight: 700 }}
+              />
+            </Tooltip>
           </Card>
         </Col>
         <Col xs={24} sm={12} lg={6}>
           <Card className="rounded-xl shadow-sm border-slate-200" bodyStyle={{ padding: 18 }}>
-            <Statistic
-              title={<span className="text-xs font-semibold text-slate-500 uppercase">Total Disbursed Payouts</span>}
-              value={totalDisbursed}
-              prefix="₹"
-              formatter={(val) => Number(val).toLocaleString('en-IN')}
-              valueStyle={{ color: '#b45309', fontWeight: 700 }}
-            />
+            <Tooltip title="Total net payouts disbursed to round winners">
+              <Statistic
+                title={<span className="text-xs font-semibold text-slate-500 uppercase">Total Disbursed Payouts</span>}
+                value={totalDisbursed}
+                prefix="₹"
+                formatter={(val) => Number(val).toLocaleString('en-IN')}
+                valueStyle={{ color: '#b45309', fontWeight: 700 }}
+              />
+            </Tooltip>
           </Card>
         </Col>
       </Row>
@@ -425,7 +433,9 @@ export default function CommitteesPage() {
                 <div>
                   <div className="font-bold text-slate-800 text-sm">{record.name}</div>
                   <div className="text-xs text-emerald-700 font-mono font-semibold">{record.committeeNumber}</div>
-                  <div className="text-[11px] text-slate-400">{record.branchName}</div>
+                  <div className="text-[11px] text-slate-400 flex items-center gap-1 mt-0.5">
+                    <CalendarOutlined /> Started: {record.startDate} • {record.branchName}
+                  </div>
                 </div>
               ),
             },
@@ -469,10 +479,18 @@ export default function CommitteesPage() {
               render: (_, record) => {
                 const percent = Math.round((record.enrolledMembersCount / record.totalSlots) * 100) || 0;
                 return (
-                  <div className="w-36">
-                    <div className="flex justify-between text-xs font-semibold text-slate-600 mb-1">
+                  <div className="w-40">
+                    <div className="flex justify-between items-center text-xs font-semibold text-slate-600 mb-1">
                       <span>{record.enrolledMembersCount} / {record.totalSlots} Slots</span>
-                      <span>{percent}%</span>
+                      <Badge
+                        count={record.availableSlots > 0 ? `${record.availableSlots} open` : 'Full'}
+                        style={{
+                          backgroundColor: record.availableSlots > 0 ? '#0284c7' : '#059669',
+                          fontSize: 10,
+                          lineHeight: '16px',
+                          height: '16px',
+                        }}
+                      />
                     </div>
                     <Progress percent={percent} size="small" status={percent === 100 ? 'success' : 'active'} showInfo={false} />
                   </div>
@@ -497,9 +515,12 @@ export default function CommitteesPage() {
               title: 'Status',
               key: 'status',
               render: (_, record) => (
-                <Tag color={record.status === 'ACTIVE' ? 'green' : 'default'} className="font-bold">
-                  {record.status}
-                </Tag>
+                <div className="flex items-center gap-1.5">
+                  <Badge status={record.status === 'ACTIVE' ? 'processing' : 'default'} />
+                  <Tag color={record.status === 'ACTIVE' ? 'green' : 'default'} className="font-bold">
+                    {record.status}
+                  </Tag>
+                </div>
               ),
             },
             {
@@ -508,23 +529,27 @@ export default function CommitteesPage() {
               align: 'right',
               render: (_, record) => (
                 <Space>
-                  <Button
-                    type="primary"
-                    size="small"
-                    style={{ backgroundColor: '#059669', borderColor: '#059669' }}
-                    onClick={() => openDrawer(record)}
-                  >
-                    Open Workspace
-                  </Button>
-                  <Popconfirm
-                    title="Delete Committee Group?"
-                    description="Only committees with no paid installments can be deleted."
-                    onConfirm={() => handleDeleteCommittee(record.id)}
-                    okText="Delete"
-                    cancelText="Cancel"
-                  >
-                    <Button size="small" danger icon={<DeleteOutlined />} />
-                  </Popconfirm>
+                  <Tooltip title="Open detailed member roster, collections matrix & conduct round draw/auction">
+                    <Button
+                      type="primary"
+                      size="small"
+                      style={{ backgroundColor: '#059669', borderColor: '#059669' }}
+                      onClick={() => openDrawer(record)}
+                    >
+                      Open Workspace
+                    </Button>
+                  </Tooltip>
+                  <Tooltip title="Delete committee group (only permitted before installments are collected)">
+                    <Popconfirm
+                      title="Delete Committee Group?"
+                      description="Only committees with no paid installments can be deleted."
+                      onConfirm={() => handleDeleteCommittee(record.id)}
+                      okText="Delete"
+                      cancelText="Cancel"
+                    >
+                      <Button size="small" danger icon={<DeleteOutlined />} />
+                    </Popconfirm>
+                  </Tooltip>
                 </Space>
               ),
             },
@@ -650,6 +675,7 @@ export default function CommitteesPage() {
           </Row>
 
           {/* Real-time Math Summary Card */}
+          <Divider className="my-3" />
           <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 mb-4 text-emerald-950">
             <div className="font-bold text-sm mb-2 flex items-center gap-2">
               <InfoCircleOutlined className="text-emerald-700" />
@@ -691,9 +717,12 @@ export default function CommitteesPage() {
                   {selectedCommittee.committeeNumber}
                 </span>
               </div>
-              <Tag color={selectedCommittee.status === 'ACTIVE' ? 'green' : 'default'} className="font-bold">
-                {selectedCommittee.status}
-              </Tag>
+              <div className="flex items-center gap-2">
+                <Badge status={selectedCommittee.status === 'ACTIVE' ? 'processing' : 'default'} />
+                <Tag color={selectedCommittee.status === 'ACTIVE' ? 'green' : 'default'} className="font-bold">
+                  {selectedCommittee.status}
+                </Tag>
+              </div>
             </div>
           )
         }
@@ -705,7 +734,7 @@ export default function CommitteesPage() {
         {committeeDetail && (
           <div>
             {/* Top Stat Summary Banner */}
-            <div className="bg-slate-900 text-white rounded-xl p-5 mb-6 shadow-md">
+            <div className="bg-slate-900 text-white rounded-xl p-5 mb-4 shadow-md">
               <Row gutter={16}>
                 <Col span={6}>
                   <div className="text-xs text-slate-400 uppercase font-semibold">Monthly Contribution</div>
@@ -738,56 +767,64 @@ export default function CommitteesPage() {
               </Row>
             </div>
 
+            <Divider className="my-3" />
+
             {/* Quick Actions Bar */}
             <div className="flex flex-wrap gap-2 mb-6">
-              <Button
-                type="primary"
-                icon={<UserAddOutlined />}
-                style={{ backgroundColor: '#0284c7', borderColor: '#0284c7' }}
-                disabled={committeeDetail.members.length >= committeeDetail.group.memberCount}
-                onClick={() => {
-                  enrollForm.resetFields();
-                  setEnrollModalVisible(true);
-                }}
-              >
-                Enroll Member ({committeeDetail.metrics.availableSlots} slots left)
-              </Button>
+              <Tooltip title="Enroll a customer into an empty slot in this committee group">
+                <Button
+                  type="primary"
+                  icon={<UserAddOutlined />}
+                  style={{ backgroundColor: '#0284c7', borderColor: '#0284c7' }}
+                  disabled={committeeDetail.members.length >= committeeDetail.group.memberCount}
+                  onClick={() => {
+                    enrollForm.resetFields();
+                    setEnrollModalVisible(true);
+                  }}
+                >
+                  Enroll Member ({committeeDetail.metrics.availableSlots} slots left)
+                </Button>
+              </Tooltip>
 
-              <Button
-                type="primary"
-                icon={<DollarCircleOutlined />}
-                style={{ backgroundColor: '#059669', borderColor: '#059669' }}
-                onClick={() => {
-                  collectForm.resetFields();
-                  collectForm.setFieldsValue({
-                    roundNumber: committeeDetail.group.currentRound,
-                    amountPaid: committeeDetail.group.contributionAmount,
-                    paymentMode: 'CASH',
-                  });
-                  setCollectModalVisible(true);
-                }}
-              >
-                Collect Member Installment
-              </Button>
+              <Tooltip title="Collect current round installment from a member and issue an official receipt">
+                <Button
+                  type="primary"
+                  icon={<DollarCircleOutlined />}
+                  style={{ backgroundColor: '#059669', borderColor: '#059669' }}
+                  onClick={() => {
+                    collectForm.resetFields();
+                    collectForm.setFieldsValue({
+                      roundNumber: committeeDetail.group.currentRound,
+                      amountPaid: committeeDetail.group.contributionAmount,
+                      paymentMode: 'CASH',
+                    });
+                    setCollectModalVisible(true);
+                  }}
+                >
+                  Collect Member Installment
+                </Button>
+              </Tooltip>
 
-              <Button
-                type="primary"
-                icon={<TrophyOutlined />}
-                style={{ backgroundColor: '#b45309', borderColor: '#b45309' }}
-                disabled={committeeDetail.group.status === 'COMPLETED'}
-                onClick={() => {
-                  auctionForm.resetFields();
-                  auctionForm.setFieldsValue({
-                    roundNumber: committeeDetail.group.currentRound,
-                    paymentMode: 'CASH',
-                  });
-                  setWinningBidInput(committeeDetail.group.totalPool);
-                  setSelectedWinnerId('');
-                  setAuctionModalVisible(true);
-                }}
-              >
-                Conduct Round {committeeDetail.group.currentRound} Draw / Bidding
-              </Button>
+              <Tooltip title="Execute this round's draw or bidding auction to calculate dividend and disburse payout">
+                <Button
+                  type="primary"
+                  icon={<TrophyOutlined />}
+                  style={{ backgroundColor: '#b45309', borderColor: '#b45309' }}
+                  disabled={committeeDetail.group.status === 'COMPLETED'}
+                  onClick={() => {
+                    auctionForm.resetFields();
+                    auctionForm.setFieldsValue({
+                      roundNumber: committeeDetail.group.currentRound,
+                      paymentMode: 'CASH',
+                    });
+                    setWinningBidInput(committeeDetail.group.totalPool);
+                    setSelectedWinnerId('');
+                    setAuctionModalVisible(true);
+                  }}
+                >
+                  Conduct Round {committeeDetail.group.currentRound} Draw / Bidding
+                </Button>
+              </Tooltip>
             </div>
 
             {/* Sub-Tabs: 1. Members, 2. Installments, 3. Payouts History */}
@@ -796,7 +833,16 @@ export default function CommitteesPage() {
               items={[
                 {
                   key: 'members',
-                  label: `Members Roster (${committeeDetail.members.length} / ${committeeDetail.group.memberCount})`,
+                  label: (
+                    <span className="flex items-center gap-1.5">
+                      <span>Members Roster</span>
+                      <Badge
+                        count={committeeDetail.members.length}
+                        overflowCount={99}
+                        style={{ backgroundColor: '#0284c7', fontSize: 10, height: 16, lineHeight: '16px' }}
+                      />
+                    </span>
+                  ),
                   children: (
                     <Table
                       dataSource={committeeDetail.members}
@@ -828,9 +874,11 @@ export default function CommitteesPage() {
                           title: 'Total Contributed',
                           key: 'totalPaid',
                           render: (_, m) => (
-                            <div className="font-semibold text-slate-700">
-                              ₹{m.totalPaid.toLocaleString('en-IN')}
-                            </div>
+                            <Tooltip title="Cumulative amount deposited by this member across all completed rounds">
+                              <div className="font-semibold text-slate-700 cursor-help">
+                                ₹{m.totalPaid.toLocaleString('en-IN')}
+                              </div>
+                            </Tooltip>
                           ),
                         },
                         {
@@ -839,7 +887,7 @@ export default function CommitteesPage() {
                           render: (_, m) => (
                             <div>
                               {m.payoutStatus === 'RECEIVED' ? (
-                                <Tag color="gold" className="font-bold">
+                                <Tag color="gold" icon={<CheckCircleOutlined />} className="font-bold">
                                   Won Round {m.payoutRound} (₹{m.payoutAmount?.toLocaleString('en-IN')})
                                 </Tag>
                               ) : (
@@ -856,14 +904,23 @@ export default function CommitteesPage() {
                 },
                 {
                   key: 'installments',
-                  label: `Current Round Installments (${committeeDetail.installments.filter((i) => i.roundNumber === committeeDetail.group.currentRound).length})`,
+                  label: (
+                    <span className="flex items-center gap-1.5">
+                      <span>Current Round Installments</span>
+                      <Badge
+                        count={committeeDetail.installments.filter((i) => i.roundNumber === committeeDetail.group.currentRound).length}
+                        overflowCount={99}
+                        style={{ backgroundColor: '#059669', fontSize: 10, height: 16, lineHeight: '16px' }}
+                      />
+                    </span>
+                  ),
                   children: (
                     <div>
                       <div className="flex items-center justify-between mb-3">
                         <span className="text-xs font-bold text-slate-600 uppercase">
                           Round {committeeDetail.group.currentRound} Collections Matrix
                         </span>
-                        <Tag color="green" className="font-semibold">
+                        <Tag color="green" icon={<CheckCircleOutlined />} className="font-semibold">
                           Paid: {committeeDetail.installments.filter((i) => i.roundNumber === committeeDetail.group.currentRound && i.status === 'PAID').length} / {committeeDetail.members.length}
                         </Tag>
                       </div>
@@ -897,7 +954,11 @@ export default function CommitteesPage() {
                             title: 'Status',
                             key: 'status',
                             render: (_, inst) => (
-                              <Tag color={inst.status === 'PAID' ? 'green' : 'orange'} className="font-bold">
+                              <Tag
+                                color={inst.status === 'PAID' ? 'green' : 'orange'}
+                                icon={inst.status === 'PAID' ? <CheckCircleOutlined /> : undefined}
+                                className="font-bold"
+                              >
                                 {inst.status}
                               </Tag>
                             ),
@@ -910,10 +971,14 @@ export default function CommitteesPage() {
                                 {inst.status === 'PAID' ? (
                                   <div>
                                     <div className="text-xs font-mono font-bold text-emerald-700">{inst.receiptNumber}</div>
-                                    <div className="text-[11px] text-slate-500">{inst.paymentDate} • {inst.paymentMode}</div>
+                                    <div className="text-[11px] text-slate-500 flex items-center gap-1 mt-0.5">
+                                      <CalendarOutlined /> {inst.paymentDate} • {inst.paymentMode}
+                                    </div>
                                   </div>
                                 ) : (
-                                  <span className="text-xs text-slate-400">Due by {inst.dueDate}</span>
+                                  <span className="text-xs text-slate-400 flex items-center gap-1">
+                                    <CalendarOutlined /> Due by {inst.dueDate}
+                                  </span>
                                 )}
                               </div>
                             ),
@@ -925,46 +990,50 @@ export default function CommitteesPage() {
                               const member = committeeDetail.members.find((m) => m.id === inst.memberId);
                               if (inst.status === 'PAID') {
                                 return (
-                                  <Button
-                                    size="small"
-                                    icon={<PrinterOutlined />}
-                                    onClick={() => {
-                                      if (member) {
-                                        openReceiptPrintWindow({
-                                          receiptNumber: inst.receiptNumber || 'REC-XXXX',
-                                          customerName: member.customerName,
-                                          customerNumber: member.customerId,
-                                          amount: inst.amountPaid,
-                                          paymentMode: inst.paymentMode || 'CASH',
-                                          paymentFor: `Committee Installment - ${committeeDetail.group.name} (Round ${inst.roundNumber}, Slot #${member.slotNumber})`,
-                                          branchName: committeeDetail.group.branchName,
-                                          generatedAt: inst.paymentDate || new Date().toISOString(),
-                                        });
-                                      }
-                                    }}
-                                  >
-                                    Receipt
-                                  </Button>
+                                  <Tooltip title="Print official payment receipt">
+                                    <Button
+                                      size="small"
+                                      icon={<PrinterOutlined />}
+                                      onClick={() => {
+                                        if (member) {
+                                          openReceiptPrintWindow({
+                                            receiptNumber: inst.receiptNumber || 'REC-XXXX',
+                                            customerName: member.customerName,
+                                            customerNumber: member.customerId,
+                                            amount: inst.amountPaid,
+                                            paymentMode: inst.paymentMode || 'CASH',
+                                            paymentFor: `Committee Installment - ${committeeDetail.group.name} (Round ${inst.roundNumber}, Slot #${member.slotNumber})`,
+                                            branchName: committeeDetail.group.branchName,
+                                            generatedAt: inst.paymentDate || new Date().toISOString(),
+                                          });
+                                        }
+                                      }}
+                                    >
+                                      Receipt
+                                    </Button>
+                                  </Tooltip>
                                 );
                               }
                               return (
-                                <Button
-                                  size="small"
-                                  type="primary"
-                                  style={{ backgroundColor: '#059669', borderColor: '#059669' }}
-                                  onClick={() => {
-                                    collectForm.resetFields();
-                                    collectForm.setFieldsValue({
-                                      memberId: inst.memberId,
-                                      roundNumber: inst.roundNumber,
-                                      amountPaid: inst.amountDue,
-                                      paymentMode: 'CASH',
-                                    });
-                                    setCollectModalVisible(true);
-                                  }}
-                                >
-                                  Collect
-                                </Button>
+                                <Tooltip title="Record payment and generate receipt">
+                                  <Button
+                                    size="small"
+                                    type="primary"
+                                    style={{ backgroundColor: '#059669', borderColor: '#059669' }}
+                                    onClick={() => {
+                                      collectForm.resetFields();
+                                      collectForm.setFieldsValue({
+                                        memberId: inst.memberId,
+                                        roundNumber: inst.roundNumber,
+                                        amountPaid: inst.amountDue,
+                                        paymentMode: 'CASH',
+                                      });
+                                      setCollectModalVisible(true);
+                                    }}
+                                  >
+                                    Collect
+                                  </Button>
+                                </Tooltip>
                               );
                             },
                           },
@@ -975,7 +1044,16 @@ export default function CommitteesPage() {
                 },
                 {
                   key: 'payouts',
-                  label: `Disbursed Rounds History (${committeeDetail.payouts.length})`,
+                  label: (
+                    <span className="flex items-center gap-1.5">
+                      <span>Disbursed Rounds History</span>
+                      <Badge
+                        count={committeeDetail.payouts.length}
+                        overflowCount={99}
+                        style={{ backgroundColor: '#7c3aed', fontSize: 10, height: 16, lineHeight: '16px' }}
+                      />
+                    </span>
+                  ),
                   children: (
                     <Table
                       dataSource={committeeDetail.payouts}
@@ -987,7 +1065,11 @@ export default function CommitteesPage() {
                           title: 'Round',
                           dataIndex: 'roundNumber',
                           key: 'roundNumber',
-                          render: (r) => <Tag color="purple" className="font-bold">Round {r}</Tag>,
+                          render: (r) => (
+                            <Tag color="purple" icon={<CheckCircleOutlined />} className="font-bold">
+                              Round {r}
+                            </Tag>
+                          ),
                         },
                         {
                           title: 'Winner Member',
@@ -1024,9 +1106,14 @@ export default function CommitteesPage() {
                           render: (amt) => <span>₹{amt?.toLocaleString('en-IN')}</span>,
                         },
                         {
-                          title: 'Date',
+                          title: 'Disbursement Date',
                           dataIndex: 'payoutDate',
                           key: 'payoutDate',
+                          render: (date) => (
+                            <span className="text-xs text-slate-600 flex items-center gap-1">
+                              <CalendarOutlined /> {date}
+                            </span>
+                          ),
                         },
                       ]}
                     />
@@ -1257,6 +1344,7 @@ export default function CommitteesPage() {
           </Row>
 
           {/* Real-time Math Preview for Auction */}
+          <Divider className="my-3" />
           {selectedCommittee && (
             <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-4 text-amber-950">
               <div className="font-bold text-sm mb-2">Round Disbursement & Dividend Breakdown:</div>
