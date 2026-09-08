@@ -199,7 +199,9 @@ export class AuthController {
   @UseGuards(JwtAuthGuard)
   getProfile(@CurrentUser() user: IUser) {
     const fullUser = this.dataStore.users.find((u) => u.id === (user as any).sub || u.id === user.id);
-    return fullUser || user;
+    const target = fullUser || user;
+    const { passwordHash, ...safe } = target as any;
+    return safe;
   }
 
   @Post('refresh')

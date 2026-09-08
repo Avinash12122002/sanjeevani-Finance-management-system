@@ -155,8 +155,8 @@ export class EmployeesController {
         associatedUser.isActive = currentEmp.employmentStatus === 'ACTIVE';
       }
 
-      if (body.password) {
-        associatedUser.passwordHash = body.password;
+      if (body.password && typeof body.password === 'string' && body.password.trim()) {
+        associatedUser.passwordHash = bcrypt.hashSync(body.password.trim(), 10);
       }
 
       if (body.designation) {
