@@ -91,7 +91,7 @@ export default function LoginPage() {
           </div>
 
           <div className="mt-8 pt-6 border-t border-slate-800 text-xs" style={{ color: '#94a3b8' }}>
-            © 2026 Sanjeevani Finance Management System • Banking Grade Security
+            © {new Date().getFullYear()} Sanjeevani Finance Management System • Banking Grade Security
           </div>
         </div>
 

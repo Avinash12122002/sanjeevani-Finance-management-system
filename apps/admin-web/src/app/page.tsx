@@ -70,15 +70,19 @@ const initialMetrics: IDashboardMetrics = {
   cashMismatchAmount: 0,
 };
 
+const getInitialMonths = () => {
+  const list = [];
+  const now = new Date();
+  for (let i = 5; i >= 0; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const mStr = d.toLocaleString('en-US', { month: 'short' });
+    list.push({ month: `${mStr} ${d.getFullYear()}`, collection: 0, target: 0 });
+  }
+  return list;
+};
+
 const initialCharts = {
-  monthlyCollectionTrend: [
-    { month: 'Apr 2026', collection: 0, target: 0 },
-    { month: 'May 2026', collection: 0, target: 0 },
-    { month: 'Jun 2026', collection: 0, target: 0 },
-    { month: 'Jul 2026', collection: 0, target: 0 },
-    { month: 'Aug 2026', collection: 0, target: 0 },
-    { month: 'Sep 2026', collection: 0, target: 0 },
-  ],
+  monthlyCollectionTrend: getInitialMonths(),
   overdueAgingBuckets: [
     { bucket: 'Current (0 DPD)', count: 0, amount: 0 },
     { bucket: '1-30 DPD', count: 0, amount: 0 },
@@ -683,11 +687,16 @@ export default function OwnerDashboardPage() {
               {
                 title: 'Efficiency Rating',
                 key: 'eff',
-                render: (_, r) => (
-                  <Tag color={r.collectionMetrics?.collectionEfficiencyPercentage >= 90 ? 'green' : 'orange'}>
-                    {r.collectionMetrics?.collectionEfficiencyPercentage || 90}% Efficiency
-                  </Tag>
-                ),
+                render: (_, r) => {
+                  const eff = r.collectionMetrics?.collectionEfficiencyPercentage != null
+                    ? Math.round(r.collectionMetrics.collectionEfficiencyPercentage)
+                    : 0;
+                  return (
+                    <Tag color={eff >= 90 ? 'green' : eff >= 75 ? 'blue' : 'orange'}>
+                      {eff}% Efficiency
+                    </Tag>
+                  );
+                },
               },
             ]}
           />

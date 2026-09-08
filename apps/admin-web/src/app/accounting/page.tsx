@@ -755,7 +755,9 @@ export default function AccountingPage() {
                       <Button
                         icon={<DownloadOutlined />}
                         onClick={() => {
-                          const csv = 'date,narration,referenceNo,withdrawal,deposit,balance\n2026-09-01,Opening Balance,,0,0,500000\n2026-09-02,Cash Deposit Branch,TXN-001,0,25000,525000\n2026-09-03,Cheque Clearing,CHQ-1001,15000,0,510000\n2026-09-04,Bank Charges SMS Alert,BNK-001,118,0,509882\n';
+                          const y = new Date().getFullYear();
+                          const m = String(new Date().getMonth() + 1).padStart(2, '0');
+                          const csv = `date,narration,referenceNo,withdrawal,deposit,balance\n${y}-${m}-01,Opening Balance,,0,0,500000\n${y}-${m}-02,Cash Deposit Branch,TXN-001,0,25000,525000\n${y}-${m}-03,Cheque Clearing,CHQ-1001,15000,0,510000\n${y}-${m}-04,Bank Charges SMS Alert,BNK-001,118,0,509882\n`;
                           const blob = new Blob([csv], { type: 'text/csv' });
                           const url = URL.createObjectURL(blob);
                           const a = document.createElement('a');

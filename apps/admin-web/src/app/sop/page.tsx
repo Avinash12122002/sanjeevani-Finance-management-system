@@ -58,7 +58,7 @@ const sopSections: ISopSection[] = [
     roles: ['Customer Service', 'Cashier'],
     guidelines: [
       'Select eligible product with permitted interest rates (RD, Savings, FD).',
-      'Generate account number (format: RD-2026-XXXXX or FD-2026-XXXXX).',
+      `Generate account number (format: RD-${new Date().getFullYear()}-XXXXX or FD-${new Date().getFullYear()}-XXXXX).`,
       'Issue Term Deposit Certificate with certificate number, maturity date, and return amount.',
       'Explain premature withdrawal penalty rules (1% - 2% reduction) clearly.',
     ],
@@ -356,7 +356,7 @@ export default function SopPage() {
           </Col>
           <Col xs={24} md={8} className="text-left md:text-right">
             <Tag color="gold" className="px-3 py-1 font-bold text-xs rounded-full">
-              Sanjeevani SOP v2.4 (2026 Edition)
+              Sanjeevani SOP v2.4 ({new Date().getFullYear()} Edition)
             </Tag>
           </Col>
         </Row>

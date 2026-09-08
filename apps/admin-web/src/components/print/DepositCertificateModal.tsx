@@ -69,13 +69,13 @@ export default function DepositCertificateModal({
   };
 
   const principal = account.principalAmount || account.principal || account.currentBalance || 0;
-  const maturityAmount = account.maturityAmount || Math.round(principal * (1 + (account.interestRate || 8) / 100 * ((account.tenureMonths || 12) / 12)));
+  const rate = account.interestRate ?? account.product?.interestRate ?? 0;
+  const tenor = account.tenureMonths || account.tenorMonths || account.product?.minimumTenureMonths || 0;
+  const maturityAmount = account.maturityAmount || (rate > 0 && tenor > 0 ? Math.round(principal * (1 + (rate / 100) * (tenor / 12))) : principal);
   const memberName = customer?.fullName || customer?.firstName ? `${customer.firstName} ${customer.lastName || ''}`.trim() : (account.customerName || 'Valued Member');
-  const memberId = customer?.customerNumber || account.customerNumber || 'SJF-MEM-0001';
+  const memberId = customer?.customerNumber || account.customerNumber || customer?.id || 'N/A';
   const issueDate = account.openingDate || (account.createdAt ? new Date(account.createdAt).toLocaleDateString('en-IN') : new Date().toLocaleDateString('en-IN'));
-  const maturityDate = account.maturityDate || 'On Completion of Term';
-  const rate = account.interestRate || 8.5;
-  const tenor = account.tenureMonths || account.tenorMonths || 12;
+  const maturityDate = account.maturityDate || (tenor > 0 ? 'On Completion of Term' : 'On Demand');
   const nominee = account.nomineeName || customer?.nomineeName || 'As per Master Record';
   const nomineeRel = account.nomineeRelation || customer?.nomineeRelation || 'Nominee';
 

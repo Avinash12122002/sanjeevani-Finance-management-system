@@ -652,7 +652,7 @@ export default function CommitteesPage() {
             name="name"
             rules={[{ required: true, message: 'Please enter committee name' }]}
           >
-            <Input placeholder="e.g. Laxmi Vyapar Committee 2026 / 50K Monthly" />
+            <Input placeholder={`e.g. Laxmi Vyapar Committee ${new Date().getFullYear()} / 50K Monthly`} />
           </Form.Item>
 
           <Row gutter={16}>

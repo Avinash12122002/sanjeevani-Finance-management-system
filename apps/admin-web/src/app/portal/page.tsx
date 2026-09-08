@@ -589,7 +589,9 @@ export default function CustomerPortalPage() {
                   <div className="text-sm font-black text-emerald-400 mt-1 flex items-center justify-end gap-1">
                     <SafetyCertificateFilled /> {customer.kycStatus || 'VERIFIED'}
                   </div>
-                  <div className="text-xs text-slate-300 mt-1">Member since {customer.joiningDate || '2026'}</div>
+                  <div className="text-xs text-slate-300 mt-1">
+                    Member since {customer.joiningDate ? new Date(customer.joiningDate).getFullYear() : (customer.createdAt ? new Date(customer.createdAt).getFullYear() : new Date().getFullYear())}
+                  </div>
                 </div>
               </div>
             </div>
@@ -886,13 +888,13 @@ export default function CustomerPortalPage() {
                         <div className="bg-white p-3.5 rounded-xl border border-slate-200">
                           <div className="text-slate-500 font-medium">Monthly Installment</div>
                           <div className="font-black text-slate-900 text-sm mt-0.5">
-                            {maskAmount(rd.monthlyDeposit || 1000)}
+                            {maskAmount(rd.monthlyDeposit ?? rd.installmentAmount ?? 0)}
                           </div>
                         </div>
                         <div className="bg-white p-3.5 rounded-xl border border-slate-200">
                           <div className="text-slate-500 font-medium">Annual Return Rate</div>
                           <div className="font-black text-indigo-700 text-sm mt-0.5">
-                            {rd.interestRate || 8.5}% p.a.
+                            {rd.interestRate != null ? `${rd.interestRate}% p.a.` : 'N/A'}
                           </div>
                         </div>
                         <div className="bg-white p-3.5 rounded-xl border border-slate-200">
@@ -961,13 +963,13 @@ export default function CustomerPortalPage() {
                         <div className="bg-white p-3.5 rounded-xl border border-indigo-100">
                           <div className="text-slate-500 font-medium">Guaranteed Return Rate</div>
                           <div className="font-black text-indigo-700 text-sm mt-0.5">
-                            {fd.interestRate || 9.0}% p.a.
+                            {fd.interestRate != null ? `${fd.interestRate}% p.a.` : 'N/A'}
                           </div>
                         </div>
                         <div className="bg-white p-3.5 rounded-xl border border-indigo-100">
                           <div className="text-slate-500 font-medium">Tenure Duration</div>
                           <div className="font-black text-slate-900 text-sm mt-0.5">
-                            {fd.tenureMonths || 12} Months
+                            {fd.tenureMonths ? `${fd.tenureMonths} Months` : 'Standard'}
                           </div>
                         </div>
                         <div className="bg-white p-3.5 rounded-xl border border-indigo-100">
@@ -1058,7 +1060,7 @@ export default function CustomerPortalPage() {
                           <div className="bg-white p-3.5 rounded-xl border border-slate-200">
                             <div className="text-slate-500 font-medium">Annual Interest Rate</div>
                             <div className="font-black text-slate-800 text-sm mt-0.5">
-                              {loan.annualInterestRate || 12}% p.a.
+                              {(loan.annualInterestRate ?? loan.interestRate) != null ? `${loan.annualInterestRate ?? loan.interestRate}% p.a.` : 'N/A'}
                             </div>
                           </div>
                           <div className="bg-white p-3.5 rounded-xl border border-slate-200">
@@ -1256,7 +1258,7 @@ export default function CustomerPortalPage() {
                         </button>
                         <span className="text-slate-600">•</span>
                         <span className="text-xs text-slate-300">
-                          Member Since: <strong>{customer.joiningDate || '2026-01-01'}</strong>
+                          Member Since: <strong>{customer.joiningDate || (customer.createdAt ? new Date(customer.createdAt).toLocaleDateString('en-IN') : 'N/A')}</strong>
                         </span>
                       </div>
                     </div>
@@ -1397,11 +1399,11 @@ export default function CustomerPortalPage() {
                         <span className="font-mono text-xs text-slate-500">{customer.branchId || 'BR-001'}</span>
                       </Descriptions.Item>
                       <Descriptions.Item label="Membership Enrolment Date">
-                        <span className="font-mono text-slate-800 font-semibold">{customer.joiningDate || '2026-01-01'}</span>
+                        <span className="font-mono text-slate-800 font-semibold">{customer.joiningDate || (customer.createdAt ? new Date(customer.createdAt).toLocaleDateString('en-IN') : 'N/A')}</span>
                       </Descriptions.Item>
                       <Descriptions.Item label="Database Registration Date">
                         <span className="font-mono text-xs text-slate-600">
-                          {customer.createdAt ? new Date(customer.createdAt).toLocaleDateString('en-IN') : '2026-01-01'}
+                          {customer.createdAt ? new Date(customer.createdAt).toLocaleDateString('en-IN') : 'N/A'}
                         </span>
                       </Descriptions.Item>
                       <Descriptions.Item label="Membership Account Status">

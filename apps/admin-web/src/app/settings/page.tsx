@@ -1268,14 +1268,14 @@ export default function SettingsPage() {
                       ),
                     },
                     { title: 'Category', dataIndex: 'productType', key: 'type', render: (t) => <Tag color="blue">{t}</Tag> },
-                    { title: 'Interest Rate', dataIndex: 'interestRate', key: 'rate', render: (r) => <span className="font-bold text-indigo-700">{r}% p.a.</span> },
-                    { title: 'Tenure Limits', key: 'tenure', render: (_: any, r: any) => `${r.minimumTenureMonths || 1} - ${r.maximumTenureMonths || 60} Mo` },
+                    { title: 'Interest Rate', dataIndex: 'interestRate', key: 'rate', render: (r) => <span className="font-bold text-indigo-700">{r != null ? `${r}% p.a.` : 'N/A'}</span> },
+                    { title: 'Tenure Limits', key: 'tenure', render: (_: any, r: any) => `${r.minimumTenureMonths ?? r.minTenureMonths ?? 1} - ${r.maximumTenureMonths ?? r.maxTenureMonths ?? 60} Mo` },
                     {
                       title: 'Amount Bounds',
                       key: 'bounds',
                       render: (_: any, r: any) => (
                         <div className="text-xs">
-                          {FinancialEngine.formatINR(r.minimumAmount || 500)} - {FinancialEngine.formatINR(r.maximumAmount || 1000000)}
+                          {FinancialEngine.formatINR(r.minimumAmount ?? r.minAmount ?? 0)} - {FinancialEngine.formatINR(r.maximumAmount ?? r.maxAmount ?? 0)}
                         </div>
                       ),
                     },
@@ -1592,7 +1592,14 @@ export default function SettingsPage() {
               <Card className="glass-card" title="Global Operational Parameters">
                 <Descriptions bordered column={2} size="small">
                   <Descriptions.Item label="Company Name">Sanjeevani Finance Operations Ltd.</Descriptions.Item>
-                  <Descriptions.Item label="Financial Year">FY 2026-2027 (April - March)</Descriptions.Item>
+                  <Descriptions.Item label="Financial Year">
+                    {(() => {
+                      const now = new Date();
+                      const year = now.getFullYear();
+                      const startYear = now.getMonth() >= 3 ? year : year - 1;
+                      return `FY ${startYear}-${startYear + 1} (April - March)`;
+                    })()}
+                  </Descriptions.Item>
                   <Descriptions.Item label="Base Currency">INR (₹ - Indian Rupee)</Descriptions.Item>
                   <Descriptions.Item label="Timezone">Asia/Kolkata (IST +05:30)</Descriptions.Item>
                   <Descriptions.Item label="Customer ID Prefix">SJF-CUS-</Descriptions.Item>
@@ -3245,8 +3252,8 @@ export default function SettingsPage() {
               <Descriptions.Item label="Email Address">{viewRecord.email || 'N/A'}</Descriptions.Item>
               <Descriptions.Item label="Residential Address">{viewRecord.address || 'Not Specified'}</Descriptions.Item>
               <Descriptions.Item label="Assigned Branch">{viewRecord.branchName || 'Head Office'}</Descriptions.Item>
-              <Descriptions.Item label="Branch Code"><span className="font-mono text-xs">{viewRecord.branchCode || 'SJF-BR001'}</span></Descriptions.Item>
-              <Descriptions.Item label="Base Monthly Salary (₹)"><span className="font-bold text-emerald-700">{FinancialEngine.formatINR(viewRecord.salary || 35000)}</span></Descriptions.Item>
+              <Descriptions.Item label="Branch Code"><span className="font-mono text-xs">{viewRecord.branchCode || 'N/A'}</span></Descriptions.Item>
+              <Descriptions.Item label="Base Monthly Salary (₹)"><span className="font-bold text-emerald-700">{viewRecord.salary ? FinancialEngine.formatINR(viewRecord.salary) : 'Not Specified'}</span></Descriptions.Item>
               <Descriptions.Item label="Linked User Account ID"><span className="font-mono text-xs">{viewRecord.userId || 'N/A'}</span></Descriptions.Item>
               <Descriptions.Item label="Employment Status">
                 <Tag color={viewRecord.employmentStatus === 'ACTIVE' ? 'green' : 'default'}>{viewRecord.employmentStatus || 'ACTIVE'}</Tag>
@@ -3275,9 +3282,9 @@ export default function SettingsPage() {
               <Descriptions.Item label="Product Category"><Tag color="blue">{viewRecord.productType}</Tag></Descriptions.Item>
               <Descriptions.Item label="Annual Interest Rate"><span className="font-bold text-indigo-700">{viewRecord.interestRate}% p.a.</span></Descriptions.Item>
               <Descriptions.Item label="Interest Method"><Tag color="purple">{viewRecord.interestMethod || 'REDUCING_BALANCE'}</Tag></Descriptions.Item>
-              <Descriptions.Item label="Tenure Limits">{viewRecord.minimumTenureMonths || 1} to {viewRecord.maximumTenureMonths || 60} Months</Descriptions.Item>
-              <Descriptions.Item label="Minimum Amount">{FinancialEngine.formatINR(viewRecord.minimumAmount || 500)}</Descriptions.Item>
-              <Descriptions.Item label="Maximum Amount">{FinancialEngine.formatINR(viewRecord.maximumAmount || 1000000)}</Descriptions.Item>
+              <Descriptions.Item label="Tenure Limits">{(viewRecord.minimumTenureMonths ?? viewRecord.minTenureMonths ?? 1)} to {(viewRecord.maximumTenureMonths ?? viewRecord.maxTenureMonths ?? 60)} Months</Descriptions.Item>
+              <Descriptions.Item label="Minimum Amount">{FinancialEngine.formatINR(viewRecord.minimumAmount ?? viewRecord.minAmount ?? 0)}</Descriptions.Item>
+              <Descriptions.Item label="Maximum Amount">{FinancialEngine.formatINR(viewRecord.maximumAmount ?? viewRecord.maxAmount ?? 0)}</Descriptions.Item>
               <Descriptions.Item label="Late Payment Penalty Rate"><span className="text-red-600 font-semibold">{viewRecord.penaltyRate ?? 2.0}% p.a.</span></Descriptions.Item>
               <Descriptions.Item label="Premature Withdrawal Allowed"><Tag color={viewRecord.prematureAllowed !== false ? 'blue' : 'default'}>{viewRecord.prematureAllowed !== false ? 'ALLOWED' : 'PROHIBITED'}</Tag></Descriptions.Item>
               <Descriptions.Item label="Nominee Requirement"><Tag color={viewRecord.requiresNominee ? 'orange' : 'default'}>{viewRecord.requiresNominee ? 'MANDATORY' : 'OPTIONAL'}</Tag></Descriptions.Item>

@@ -40,6 +40,7 @@ export interface IDocumentCustomerContext {
   emiAmount?: number;
   nomineeName?: string;
   nomineeRelation?: string;
+  [key: string]: any;
 }
 
 export function openDocumentPrintWindow(
@@ -161,13 +162,18 @@ export function openDocumentPrintWindow(
         `;
 
       case 'DEPOSIT_APPLICATION':
+        const fdYear = new Date().getFullYear();
+        const fdPrincipal = ctx.balance || ctx.principalAmount || 0;
+        const fdRate = ctx.interestRate ?? 8.5;
+        const fdTenorMonths = ctx.tenureMonths || 12;
+        const fdMaturity = ctx.maturityAmount || Math.round(fdPrincipal * (1 + (fdRate / 100) * (fdTenorMonths / 12)));
         return `
           <div class="section-title">1. Term Deposit (FD) Application & Certificate (SRS §47 #5)</div>
           <table class="grid-table">
-            <tr><td class="lbl">Certificate / FD No:</td><td class="val">${ctx.accountNumber || 'TD-2026-001'}</td><td class="lbl">Deposit Date:</td><td class="val">${new Date().toLocaleDateString('en-IN')}</td></tr>
+            <tr><td class="lbl">Certificate / FD No:</td><td class="val">${ctx.accountNumber || `TD-${fdYear}-0001`}</td><td class="lbl">Deposit Date:</td><td class="val">${new Date().toLocaleDateString('en-IN')}</td></tr>
             <tr><td class="lbl">Depositor Name:</td><td class="val">${ctx.fullName}</td><td class="lbl">Member ID:</td><td class="val">${ctx.customerNumber}</td></tr>
-            <tr><td class="lbl">Principal Deposited:</td><td class="val">₹${(ctx.balance || 50000).toLocaleString('en-IN')}</td><td class="lbl">Interest Rate:</td><td class="val">8.50% p.a.</td></tr>
-            <tr><td class="lbl">Maturity Tenure:</td><td class="val">24 Months</td><td class="lbl">Maturity Payable:</td><td class="val">₹${Math.round((ctx.balance || 50000) * 1.17).toLocaleString('en-IN')}</td></tr>
+            <tr><td class="lbl">Principal Deposited:</td><td class="val">₹${Number(fdPrincipal).toLocaleString('en-IN')}</td><td class="lbl">Interest Rate:</td><td class="val">${fdRate}% p.a.</td></tr>
+            <tr><td class="lbl">Maturity Tenure:</td><td class="val">${fdTenorMonths} Months</td><td class="lbl">Maturity Payable:</td><td class="val">₹${Number(fdMaturity).toLocaleString('en-IN')}</td></tr>
           </table>
 
           <div class="section-title">2. Lien & Premature Encashment Policy</div>
@@ -191,8 +197,8 @@ export function openDocumentPrintWindow(
 
           <div class="section-title">2. Guarantors Undertaking (SRS §10 Mandate: 2 Guarantors)</div>
           <table class="grid-table">
-            <tr><td class="lbl">Guarantor 1 Name:</td><td class="val">Sh. Surendra Yadav</td><td class="lbl">Mobile / Member ID:</td><td class="val">9876543210 (SJF-000045)</td></tr>
-            <tr><td class="lbl">Guarantor 2 Name:</td><td class="val">Smt. Meena Devi</td><td class="lbl">Mobile / Member ID:</td><td class="val">9812345678 (SJF-000088)</td></tr>
+            <tr><td class="lbl">Guarantor 1 Name:</td><td class="val">${ctx.guarantor1Name || ctx.guarantors?.[0]?.name || 'To be specified'}</td><td class="lbl">Mobile / Member ID:</td><td class="val">${ctx.guarantor1Mobile || ctx.guarantors?.[0]?.mobile || ctx.guarantors?.[0]?.id || 'Pending documentation'}</td></tr>
+            <tr><td class="lbl">Guarantor 2 Name:</td><td class="val">${ctx.guarantor2Name || ctx.guarantors?.[1]?.name || 'To be specified'}</td><td class="lbl">Mobile / Member ID:</td><td class="val">${ctx.guarantor2Mobile || ctx.guarantors?.[1]?.mobile || ctx.guarantors?.[1]?.id || 'Pending documentation'}</td></tr>
           </table>
 
           <div class="legal-text">
@@ -262,8 +268,8 @@ export function openDocumentPrintWindow(
           <div class="section-title">1. Member Ledger Passbook Statement (SRS §47 #10)</div>
           <table class="grid-table">
             <tr><td class="lbl">Customer Name:</td><td class="val">${ctx.fullName}</td><td class="lbl">Member Number:</td><td class="val">${ctx.customerNumber}</td></tr>
-            <tr><td class="lbl">Account Number:</td><td class="val">${ctx.accountNumber || 'SJF-AC-1002'}</td><td class="lbl">Product Category:</td><td class="val">${ctx.productType || 'Savings Account'}</td></tr>
-            <tr><td class="lbl">Current Balance:</td><td class="val"><strong>₹${(ctx.balance || 24500).toLocaleString('en-IN')}</strong></td><td class="lbl">Branch:</td><td class="val">${ctx.branchName || 'Head Office'}</td></tr>
+            <tr><td class="lbl">Account Number:</td><td class="val">${ctx.accountNumber || '-'}</td><td class="lbl">Product Category:</td><td class="val">${ctx.productType || 'Savings Account'}</td></tr>
+            <tr><td class="lbl">Current Balance:</td><td class="val"><strong>₹${Number(ctx.balance || 0).toLocaleString('en-IN')}</strong></td><td class="lbl">Branch:</td><td class="val">${ctx.branchName || 'Head Office'}</td></tr>
           </table>
 
           <div class="section-title">2. Recent Account Transactions</div>
@@ -271,30 +277,28 @@ export function openDocumentPrintWindow(
             <tr style="background:#047857;color:#fff;">
               <th>Date</th><th>TXN Ref</th><th>Description</th><th>Debit (-)</th><th>Credit (+)</th><th>Running Balance</th>
             </tr>
-            <tr>
-              <td>${new Date(Date.now() - 30 * 86400000).toLocaleDateString('en-IN')}</td>
-              <td>TXN-1001</td>
-              <td>Opening Balance / Deposit</td>
-              <td>-</td>
-              <td>₹15,000</td>
-              <td>₹15,000</td>
-            </tr>
-            <tr>
-              <td>${new Date(Date.now() - 15 * 86400000).toLocaleDateString('en-IN')}</td>
-              <td>TXN-1045</td>
-              <td>Monthly Recurring Contribution</td>
-              <td>-</td>
-              <td>₹10,000</td>
-              <td>₹25,000</td>
-            </tr>
-            <tr>
-              <td>${new Date(Date.now() - 3 * 86400000).toLocaleDateString('en-IN')}</td>
-              <td>TXN-1099</td>
-              <td>Account Maintenance Fee</td>
-              <td>₹500</td>
-              <td>-</td>
-              <td><strong>₹24,500</strong></td>
-            </tr>
+            ${(ctx.transactions && ctx.transactions.length > 0)
+              ? ctx.transactions.map((t: any) => `
+                <tr>
+                  <td>${new Date(t.date || t.createdAt || Date.now()).toLocaleDateString('en-IN')}</td>
+                  <td>${t.referenceNo || t.id || '-'}</td>
+                  <td>${t.narration || t.type || 'Transaction'}</td>
+                  <td>${t.type === 'DEBIT' || t.debit ? `₹${Number(t.debit || t.amount).toLocaleString('en-IN')}` : '-'}</td>
+                  <td>${t.type === 'CREDIT' || t.credit ? `₹${Number(t.credit || t.amount).toLocaleString('en-IN')}` : '-'}</td>
+                  <td><strong>₹${Number(t.balanceAfter || t.runningBalance || ctx.balance || 0).toLocaleString('en-IN')}</strong></td>
+                </tr>
+              `).join('')
+              : `
+                <tr>
+                  <td>${new Date().toLocaleDateString('en-IN')}</td>
+                  <td>${ctx.accountNumber || '-'}</td>
+                  <td>Current Book Balance</td>
+                  <td>-</td>
+                  <td>-</td>
+                  <td><strong>₹${Number(ctx.balance || 0).toLocaleString('en-IN')}</strong></td>
+                </tr>
+              `
+            }
           </table>
 
           <table class="sign-grid">
@@ -303,13 +307,17 @@ export function openDocumentPrintWindow(
         `;
 
       case 'CLOSURE_FORM':
+        const closurePrincipal = ctx.balance || ctx.principalPaid || 0;
+        const closureAccrued = ctx.accruedInterest || 0;
+        const closureDeduction = ctx.penaltyAmount || 0;
+        const closureFinal = ctx.settlementAmount || (closurePrincipal + closureAccrued - closureDeduction);
         return `
           <div class="section-title">1. Account Closure & Settlement Mandate (SRS §47 #11)</div>
           <table class="grid-table">
-            <tr><td class="lbl">Account Number:</td><td class="val">${ctx.accountNumber || 'SJF-AC-1002'}</td><td class="lbl">Member ID:</td><td class="val">${ctx.customerNumber}</td></tr>
-            <tr><td class="lbl">Account Holder:</td><td class="val">${ctx.fullName}</td><td class="lbl">Product Type:</td><td class="val">${ctx.productType || 'Recurring Deposit'}</td></tr>
-            <tr><td class="lbl">Principal Paid:</td><td class="val">₹${(ctx.balance || 24000).toLocaleString('en-IN')}</td><td class="lbl">Accrued Interest:</td><td class="val">₹1,200</td></tr>
-            <tr><td class="lbl">Premature Deduction:</td><td class="val">₹240 (1%)</td><td class="lbl">Final Settlement:</td><td class="val"><strong>₹${(ctx.balance || 24960).toLocaleString('en-IN')}</strong></td></tr>
+            <tr><td class="lbl">Account Number:</td><td class="val">${ctx.accountNumber || '-'}</td><td class="lbl">Member ID:</td><td class="val">${ctx.customerNumber}</td></tr>
+            <tr><td class="lbl">Account Holder:</td><td class="val">${ctx.fullName}</td><td class="lbl">Product Type:</td><td class="val">${ctx.productType || 'Deposit Account'}</td></tr>
+            <tr><td class="lbl">Principal Paid:</td><td class="val">₹${Number(closurePrincipal).toLocaleString('en-IN')}</td><td class="lbl">Accrued Interest:</td><td class="val">₹${Number(closureAccrued).toLocaleString('en-IN')}</td></tr>
+            <tr><td class="lbl">Premature Deduction:</td><td class="val">₹${Number(closureDeduction).toLocaleString('en-IN')}</td><td class="lbl">Final Settlement:</td><td class="val"><strong>₹${Number(closureFinal).toLocaleString('en-IN')}</strong></td></tr>
           </table>
 
           <div class="section-title">2. Surrender of Documents & No-Due Declaration</div>
@@ -326,14 +334,14 @@ export function openDocumentPrintWindow(
         return `
           <div class="section-title">1. Grievance Tracking Particulars (SRS §47 #12, §37)</div>
           <table class="grid-table">
-            <tr><td class="lbl">Complaint Tracking No:</td><td class="val">CMP-${Date.now().toString().slice(-6)}</td><td class="lbl">Filing Date:</td><td class="val">${new Date().toLocaleDateString('en-IN')}</td></tr>
-            <tr><td class="lbl">Complainant Member:</td><td class="val">${ctx.fullName}</td><td class="lbl">Member ID:</td><td class="val">${ctx.customerNumber}</td></tr>
-            <tr><td class="lbl">Registered Mobile:</td><td class="val">+91 ${ctx.mobile}</td><td class="lbl">Grievance Category:</td><td class="val">Passbook / Receipt Discrepancy</td></tr>
+            <tr><td class="lbl">Complaint Tracking No:</td><td class="val">${ctx.complaintNumber || ctx.id || `CMP-${Date.now().toString().slice(-6)}`}</td><td class="lbl">Filing Date:</td><td class="val">${new Date().toLocaleDateString('en-IN')}</td></tr>
+            <tr><td class="lbl">Complainant Member:</td><td class="val">${ctx.fullName || ctx.customerName || 'Valued Member'}</td><td class="lbl">Member ID:</td><td class="val">${ctx.customerNumber || ctx.customerId || 'N/A'}</td></tr>
+            <tr><td class="lbl">Registered Mobile:</td><td class="val">${ctx.mobile ? `+91 ${ctx.mobile}` : 'N/A'}</td><td class="lbl">Grievance Category:</td><td class="val">${ctx.category || ctx.complaintCategory || 'General Grievance'}</td></tr>
           </table>
 
           <div class="section-title">2. Grievance Description & Redressal SLA</div>
           <div class="legal-text">
-            Member reported that SMS receipt for collection on 5th September was not delivered. Branch officer has verified cash drawer and issued manual receipt confirmation. Escalated to Customer Service Head.<br/><br/>
+            ${ctx.description || ctx.complaintDescription || 'Grievance registered and forwarded to Grievance Redressal Officer for formal investigation and timely resolution.'}<br/><br/>
             <strong>Commitment:</strong> Under Sanjeevani Finance SOP §37, all registered grievances are resolved within a mandatory 3 business day SLA.
           </div>
 

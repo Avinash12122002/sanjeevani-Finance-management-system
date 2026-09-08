@@ -152,11 +152,12 @@ export default function CustomersPage() {
   };
 
   const downloadSampleCsv = () => {
+    const y = new Date().getFullYear();
     const headers = 'fullName,mobile,address,openingBalance,productType,joiningDate,nomineeName,nomineeRelation\n';
     const sampleRows = [
-      'Ramesh Kumar,9876543210,"Sector 14 Rohini Delhi",5000,SAVINGS,2026-01-10,Sunita Devi,SPOUSE',
-      'Pooja Sharma,9811223344,"Pitampura Village Delhi",10000,RD,2026-02-01,Amit Sharma,BROTHER',
-      'Satish Verma,9899001122,"Narela Mandi Delhi",25000,TERM_DEPOSIT,2026-01-15,Rekha Verma,SPOUSE'
+      `Ramesh Kumar,9876543210,"Sector 14 Rohini Delhi",5000,SAVINGS,${y}-01-10,Sunita Devi,SPOUSE`,
+      `Pooja Sharma,9811223344,"Pitampura Village Delhi",10000,RD,${y}-02-01,Amit Sharma,BROTHER`,
+      `Satish Verma,9899001122,"Narela Mandi Delhi",25000,TERM_DEPOSIT,${y}-01-15,Rekha Verma,SPOUSE`
     ].join('\n');
     const blob = new Blob([headers + sampleRows], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
