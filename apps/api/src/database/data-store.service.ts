@@ -831,48 +831,41 @@ export class DataStoreService implements OnModuleInit {
 
   async getSyncStatus() {
     await this.refreshIfStale(1000);
-    const statusList: {
-      table: string;
-      inMemoryCount: number;
-      postgresCount: number;
-      status: 'IN_SYNC' | 'DESYNCHRONIZED' | 'POSTGRES_DISCONNECTED';
-    }[] = [];
-
     if (!this.pool) {
-      for (const table of this.ALL_DB_TABLES) {
-        statusList.push({
-          table,
-          inMemoryCount: this.getInMemoryCount(table),
-          postgresCount: 0,
-          status: 'POSTGRES_DISCONNECTED',
-        });
-      }
+      const disconnectedList = this.ALL_DB_TABLES.map((table) => ({
+        table,
+        inMemoryCount: this.getInMemoryCount(table),
+        postgresCount: 0,
+        status: 'POSTGRES_DISCONNECTED' as const,
+      }));
       return {
         isConnected: false,
         totalTables: this.ALL_DB_TABLES.length,
         inSyncTables: 0,
         allInSync: false,
-        tables: statusList,
+        tables: disconnectedList,
       };
     }
 
-    for (const table of this.ALL_DB_TABLES) {
-      let pgCount = 0;
-      try {
-        const res = await this.pool.query(`SELECT COUNT(*) as count FROM ${table}`);
-        pgCount = parseInt(res.rows[0]?.count || '0', 10);
-      } catch {
-        pgCount = -1;
-      }
-      const memCount = this.getInMemoryCount(table);
-      const isSync = pgCount === memCount;
-      statusList.push({
-        table,
-        inMemoryCount: memCount,
-        postgresCount: pgCount >= 0 ? pgCount : 0,
-        status: isSync ? 'IN_SYNC' : 'DESYNCHRONIZED',
-      });
-    }
+    const statusList = await Promise.all(
+      this.ALL_DB_TABLES.map(async (table) => {
+        let pgCount = 0;
+        try {
+          const res = await this.pool!.query(`SELECT COUNT(*) as count FROM ${table}`);
+          pgCount = parseInt(res.rows[0]?.count || '0', 10);
+        } catch {
+          pgCount = -1;
+        }
+        const memCount = this.getInMemoryCount(table);
+        const isSync = pgCount === memCount;
+        return {
+          table,
+          inMemoryCount: memCount,
+          postgresCount: pgCount >= 0 ? pgCount : 0,
+          status: (isSync ? 'IN_SYNC' : 'DESYNCHRONIZED') as 'IN_SYNC' | 'DESYNCHRONIZED',
+        };
+      }),
+    );
 
     const inSyncCount = statusList.filter((s) => s.status === 'IN_SYNC').length;
 
@@ -2115,40 +2108,52 @@ export class DataStoreService implements OnModuleInit {
 
   async getTableMetadata() {
     await this.refreshIfStale();
-    const result: any[] = [];
 
-    for (const table of this.ALL_DB_TABLES) {
-      let count = 0;
-      let columns: string[] = [];
-
-      if (this.pool) {
-        try {
-          const countRes = await this.pool.query(`SELECT COUNT(*) as count FROM ${table}`);
-          count = parseInt(countRes.rows[0]?.count || '0', 10);
-          const colRes = await this.pool.query(
-            `SELECT column_name FROM information_schema.columns WHERE table_name = $1 ORDER BY ordinal_position`,
-            [table]
-          );
-          columns = colRes.rows.map((r: any) => r.column_name);
-        } catch {
-          // Fallback if information_schema query fails
+    // Query column schemas for all tables in a single batch
+    const allColumnsByTable: Record<string, string[]> = {};
+    if (this.pool) {
+      try {
+        const colRes = await this.pool.query(
+          `SELECT table_name, column_name FROM information_schema.columns WHERE table_schema = 'public' ORDER BY ordinal_position`,
+        );
+        for (const row of colRes.rows) {
+          if (!allColumnsByTable[row.table_name]) {
+            allColumnsByTable[row.table_name] = [];
+          }
+          allColumnsByTable[row.table_name].push(row.column_name);
         }
+      } catch (err: any) {
+        this.logger.debug(`Batch column query fallback: ${err.message}`);
       }
-
-      if (columns.length === 0) {
-        columns = this.getDefaultTableColumns(table);
-      }
-      if (count === 0 && !this.pool) {
-        count = this.getInMemoryCount(table);
-      }
-
-      result.push({
-        name: table,
-        rowCount: count,
-        columnCount: columns.length,
-        columns,
-      });
     }
+
+    const result = await Promise.all(
+      this.ALL_DB_TABLES.map(async (table) => {
+        let count = 0;
+        if (this.pool) {
+          try {
+            const countRes = await this.pool.query(`SELECT COUNT(*) as count FROM ${table}`);
+            count = parseInt(countRes.rows[0]?.count || '0', 10);
+          } catch {
+            count = this.getInMemoryCount(table);
+          }
+        } else {
+          count = this.getInMemoryCount(table);
+        }
+
+        let columns = allColumnsByTable[table] || [];
+        if (!columns || columns.length === 0) {
+          columns = this.getDefaultTableColumns(table);
+        }
+
+        return {
+          name: table,
+          rowCount: count,
+          columnCount: columns.length,
+          columns,
+        };
+      }),
+    );
 
     return result;
   }

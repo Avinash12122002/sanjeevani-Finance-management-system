@@ -115,8 +115,39 @@ export default function SettingsPage() {
   const [complaintForm] = Form.useForm();
   const [resolveComplaintForm] = Form.useForm();
 
-  // Database Explorer (All 15 PostgreSQL Tables) State & Handlers
-  const [dbTables, setDbTables] = useState<any[]>([]);
+  // Database Explorer (All 21 PostgreSQL Tables) State & Handlers
+  const ALL_DB_TABLE_NAMES = [
+    'accounts',
+    'audit_logs',
+    'branches',
+    'cash_drawers',
+    'chart_of_accounts',
+    'committee_groups',
+    'committee_installments',
+    'committee_members',
+    'committee_payouts',
+    'complaints',
+    'customer_documents',
+    'customers',
+    'daily_closures',
+    'employees',
+    'journal_entries',
+    'loans',
+    'products',
+    'receipts',
+    'repayment_schedules',
+    'transactions',
+    'users',
+  ];
+
+  const [dbTables, setDbTables] = useState<any[]>(() =>
+    ALL_DB_TABLE_NAMES.map((name) => ({
+      name,
+      rowCount: 0,
+      columnCount: 0,
+      columns: [],
+    }))
+  );
   const [selectedTable, setSelectedTable] = useState<string>('accounts');
   const [tableRows, setTableRows] = useState<any[]>([]);
   const [loadingTableRows, setLoadingTableRows] = useState(false);
@@ -133,13 +164,19 @@ export default function SettingsPage() {
   const [forcingSync, setForcingSync] = useState(false);
 
   const loadDbTables = async () => {
-    const res = await fetchApi('/database/tables');
-    if (res.success && res.data) {
-      setDbTables(res.data);
-    }
-    const syncRes = await fetchApi('/database/sync-status');
-    if (syncRes.success && syncRes.data) {
-      setSyncStatus(syncRes.data);
+    try {
+      const [res, syncRes] = await Promise.all([
+        fetchApi('/database/tables'),
+        fetchApi('/database/sync-status'),
+      ]);
+      if (res.success && res.data) {
+        setDbTables(res.data);
+      }
+      if (syncRes.success && syncRes.data) {
+        setSyncStatus(syncRes.data);
+      }
+    } catch (e) {
+      console.error('Failed to load database tables or sync status', e);
     }
   };
 
@@ -1570,7 +1607,7 @@ export default function SettingsPage() {
           },
           {
             key: 'db_explorer',
-            label: renderTabHeader('Database', dbTables.length || 17, 'PostgreSQL Database Explorer', <TableOutlined className="text-teal-600 text-xs" />),
+            label: renderTabHeader('Database', dbTables.length || 21, 'PostgreSQL Database Explorer', <TableOutlined className="text-teal-600 text-xs" />),
             children: (
               <Card
                 className="glass-card"
