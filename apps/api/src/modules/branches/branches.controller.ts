@@ -8,14 +8,18 @@ import {
   Param,
   UseGuards,
   NotFoundException,
+  BadRequestException,
 } from '@nestjs/common';
 import { DataStoreService } from '../../database/data-store.service';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
-import { IBranch, IUser } from '@sanjeevani/shared-types';
+import { StaffGuard } from '../../common/guards/staff.guard';
+import { RolesGuard } from '../../common/guards/roles.guard';
+import { Roles } from '../../common/decorators/roles.decorator';
+import { IBranch, IUser, UserRole } from '@sanjeevani/shared-types';
 
 @Controller('api/v1/branches')
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, StaffGuard, RolesGuard)
 export class BranchesController {
   constructor(private dataStore: DataStoreService) {}
 
@@ -34,6 +38,7 @@ export class BranchesController {
   }
 
   @Post()
+  @Roles(UserRole.SUPER_ADMIN, UserRole.GENERAL_MANAGER)
   async createBranch(@Body() body: Partial<IBranch>, @CurrentUser() user: IUser) {
     const newBranch: IBranch = {
       id: `BR-${Date.now()}`,
@@ -68,6 +73,7 @@ export class BranchesController {
   }
 
   @Patch(':id')
+  @Roles(UserRole.SUPER_ADMIN, UserRole.GENERAL_MANAGER)
   async updateBranch(
     @Param('id') id: string,
     @Body() body: Partial<IBranch>,
@@ -107,10 +113,16 @@ export class BranchesController {
   }
 
   @Delete(':id')
+  @Roles(UserRole.SUPER_ADMIN, UserRole.GENERAL_MANAGER)
   async deleteBranch(@Param('id') id: string, @CurrentUser() user: IUser) {
     const branchIndex = this.dataStore.branches.findIndex((b) => b.id === id || b.branchCode === id);
     if (branchIndex === -1) {
       throw new NotFoundException(`Branch not found: ${id}`);
+    }
+
+    const targetBranch = this.dataStore.branches[branchIndex];
+    if (targetBranch.id === 'BR-001' || this.dataStore.branches.length <= 1) {
+      throw new BadRequestException('Primary head office branch cannot be deleted.');
     }
 
     const removed = this.dataStore.branches.splice(branchIndex, 1)[0];

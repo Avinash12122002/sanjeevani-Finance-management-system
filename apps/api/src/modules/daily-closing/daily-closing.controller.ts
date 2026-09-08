@@ -19,8 +19,10 @@ import {
   TransactionStatus,
 } from '@sanjeevani/shared-types';
 
+import { StaffGuard } from '../../common/guards/staff.guard';
+
 @Controller('api/v1/daily-closing')
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, StaffGuard)
 export class DailyClosingController {
   constructor(private dataStore: DataStoreService) {}
 
@@ -63,16 +65,34 @@ export class DailyClosingController {
       closure.bankBalance = bankBalance;
     }
 
+    // BUG-04 FIX: Compute checklist items from live data — never hardcode true
+    const pendingTransactions = this.dataStore.transactions.filter(
+      (t) => t.transactionDate === today && (t.status as string) === 'PENDING',
+    );
+    const openDrawerWithMismatch = this.dataStore.cashDrawers.find(
+      (d) => d.businessDate === today && d.status === 'OPEN' && (d.difference ?? 0) !== 0,
+    );
+    const activeCashMismatches = this.dataStore.redAlerts.filter(
+      (a) => a.alertType === 'CASH_MISMATCH' && a.timestamp?.startsWith(today),
+    );
+    const openDrawer = this.dataStore.cashDrawers.find(
+      (d) => d.businessDate === today && d.status === 'OPEN',
+    );
+
     return {
       currentBusinessDate: today,
       status: closure.status,
       closure,
       checklist: {
-        allFieldCollectionsSubmitted: true,
-        cashierDrawerBalanced: true,
-        bankTransactionsReconciled: true,
-        allPendingTransactionsApproved: true,
-        ledgerPostingVerified: true,
+        allFieldCollectionsSubmitted: pendingTransactions.length === 0,
+        cashierDrawerBalanced: !openDrawer || (openDrawer.difference === 0 && !openDrawerWithMismatch),
+        bankTransactionsReconciled: activeCashMismatches.length === 0,
+        allPendingTransactionsApproved: pendingTransactions.length === 0,
+        ledgerPostingVerified: this.dataStore.journalEntries.some(
+          (j) => j.businessDate === today && j.status === 'POSTED',
+        ),
+        pendingTransactionCount: pendingTransactions.length,
+        cashMismatchCount: activeCashMismatches.length,
       },
     };
   }
@@ -200,4 +220,64 @@ export class DailyClosingController {
       closure,
     };
   }
+
+  /**
+   * Manager Digital Sign-Off (SRS §19 — Four-eyes daily closing approval)
+   * Only BRANCH_MANAGER / GENERAL_MANAGER / SUPER_ADMIN can approve
+   */
+  @Post('manager-approve')
+  async managerApprove(
+    @Body() body: { date?: string; remarks?: string },
+    @CurrentUser() user: IUser,
+  ) {
+    const isAuthorized =
+      user.roles.includes(UserRole.BRANCH_MANAGER) ||
+      user.roles.includes(UserRole.GENERAL_MANAGER) ||
+      user.roles.includes(UserRole.SUPER_ADMIN);
+
+    if (!isAuthorized) {
+      throw new ForbiddenException(
+        'Manager Sign-Off (SRS §19): Only Branch Manager, General Manager, or Owner can approve the daily closing.',
+      );
+    }
+
+    const targetDate = body.date || new Date().toISOString().split('T')[0];
+    const closure = this.dataStore.businessDayClosures.find((c) => c.businessDate === targetDate);
+
+    if (!closure) {
+      throw new BadRequestException(`No daily closing record found for date: ${targetDate}`);
+    }
+
+    if (closure.status !== BusinessDateStatus.LOCKED) {
+      throw new BadRequestException(
+        `Business date ${targetDate} must be LOCKED before manager approval. Current status: ${closure.status}. Please execute daily closing first.`,
+      );
+    }
+
+    const oldVal = { ...closure };
+    (closure as any).managerApprovedBy = user.id;
+    (closure as any).managerApprovedByName = user.employeeName || 'Manager';
+    (closure as any).managerApprovedAt = new Date().toISOString();
+    (closure as any).managerRemarks = body.remarks || 'Approved by manager.';
+    closure.status = BusinessDateStatus.LOCKED; // stays LOCKED — manager approval is additional sign-off
+
+    await this.dataStore.persistClosure(closure);
+
+    this.dataStore.logAudit(
+      user.id,
+      user.employeeName || 'Manager',
+      'DAILY_CLOSING_MANAGER_APPROVED',
+      'BusinessDayClosure',
+      closure.id,
+      oldVal,
+      closure,
+      `Manager sign-off by ${user.employeeName} for business date ${targetDate}. Remarks: ${body.remarks || 'None'}`,
+    );
+
+    return {
+      message: `Daily closing for ${targetDate} approved by ${user.employeeName || 'Manager'}.`,
+      closure,
+    };
+  }
 }
+

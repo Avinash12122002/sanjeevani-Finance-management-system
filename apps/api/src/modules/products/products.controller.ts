@@ -13,16 +13,20 @@ import {
 import { DataStoreService } from '../../database/data-store.service';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { StaffGuard } from '../../common/guards/staff.guard';
+import { RolesGuard } from '../../common/guards/roles.guard';
+import { Roles } from '../../common/decorators/roles.decorator';
 import {
   IProduct,
   IUser,
+  UserRole,
   ProductType,
   RegulatoryStatus,
   InterestMethod,
 } from '@sanjeevani/shared-types';
 
 @Controller('api/v1/products')
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, StaffGuard, RolesGuard)
 export class ProductsController {
   constructor(private dataStore: DataStoreService) {}
 
@@ -43,6 +47,7 @@ export class ProductsController {
   }
 
   @Post()
+  @Roles(UserRole.SUPER_ADMIN, UserRole.GENERAL_MANAGER)
   async createProduct(@Body() body: Partial<IProduct>, @CurrentUser() user: IUser) {
     if (!body.productName || !body.productType || body.interestRate === undefined) {
       throw new BadRequestException('Product Name, Product Type and Interest Rate are required');
@@ -88,6 +93,7 @@ export class ProductsController {
   }
 
   @Patch(':id')
+  @Roles(UserRole.SUPER_ADMIN, UserRole.GENERAL_MANAGER)
   async updateProduct(
     @Param('id') id: string,
     @Body() body: Partial<IProduct>,
@@ -122,6 +128,7 @@ export class ProductsController {
   }
 
   @Delete(':id')
+  @Roles(UserRole.SUPER_ADMIN, UserRole.GENERAL_MANAGER)
   async deleteProduct(@Param('id') id: string, @CurrentUser() user: IUser) {
     const index = this.dataStore.products.findIndex((p) => p.id === id || p.productCode === id);
     if (index === -1) {

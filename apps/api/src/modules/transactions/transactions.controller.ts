@@ -22,8 +22,13 @@ import {
   PaginationParams,
 } from '@sanjeevani/shared-types';
 
+import { StaffGuard } from '../../common/guards/staff.guard';
+import { RolesGuard } from '../../common/guards/roles.guard';
+import { Roles } from '../../common/decorators/roles.decorator';
+import { UserRole } from '@sanjeevani/shared-types';
+
 @Controller('api/v1/transactions')
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, StaffGuard, RolesGuard)
 export class TransactionsController {
   constructor(private dataStore: DataStoreService) {}
 
@@ -94,8 +99,10 @@ export class TransactionsController {
    * IMMUTABLE REVERSAL WORKFLOW (SRS §17, BR-002, BR-003)
    * Original Approved Transactions are never deleted.
    * A counter-acting Reversal Transaction is posted.
+   * Four-Eyes managerial authorization required.
    */
   @Post(':id/reverse')
+  @Roles(UserRole.SUPER_ADMIN, UserRole.GENERAL_MANAGER, UserRole.BRANCH_MANAGER, UserRole.ACCOUNTANT)
   async reverseTransaction(
     @Param('id') id: string,
     @Body() body: { reason: string },

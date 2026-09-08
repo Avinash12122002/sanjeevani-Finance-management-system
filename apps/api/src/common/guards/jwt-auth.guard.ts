@@ -16,12 +16,17 @@ export class JwtAuthGuard implements CanActivate {
     const authHeader = request.headers?.authorization;
     if (authHeader && authHeader.startsWith('Bearer ')) {
       token = authHeader.split(' ')[1]?.trim() || '';
-    } else if (request.query && typeof request.query.token === 'string') {
+    } else if (
+      request.query &&
+      typeof request.query.token === 'string' &&
+      request.path?.includes('/documents/file/')
+    ) {
+      // Allow only for direct binary document media streaming
       token = request.query.token.trim();
     }
 
     if (!token) {
-      throw new UnauthorizedException('Authentication session expired or token missing. Please sign in.');
+      throw new UnauthorizedException('Authentication session expired or token missing. Please sign in with Bearer token.');
     }
     try {
       const payload = await this.jwtService.verifyAsync(token);

@@ -31,11 +31,17 @@ import {
   PaginationParams,
   IJournalEntry,
 } from '@sanjeevani/shared-types';
+import { SmsNotificationService } from '../../shared/sms-notification.service';
+
+import { StaffGuard } from '../../common/guards/staff.guard';
 
 @Controller('api/v1')
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, StaffGuard)
 export class LoansController {
-  constructor(private dataStore: DataStoreService) {}
+  constructor(
+    private dataStore: DataStoreService,
+    private sms: SmsNotificationService,
+  ) {}
 
   // ==========================================
   // LOAN APPLICATIONS (SRS §22, §23)
@@ -154,25 +160,28 @@ export class LoansController {
       throw new NotFoundException('Loan Application not found');
     }
 
-    const totalScore = Math.round(
-      (body.kycScore * 0.15 +
-        body.incomeScore * 0.25 +
-        body.repaymentScore * 0.2 +
-        body.liabilityScore * 0.1 +
-        body.securityScore * 0.1 +
-        body.bankingScore * 0.1 +
-        body.fieldScore * 0.1),
-    );
+    // SRS §11 Scorecard: direct sum of raw scores (max 100)
+    // KYC(max 10) + Income(max 20) + Repayment(max 20) + Liabilities(max 15)
+    // + Security(max 15) + Banking(max 10) + Field(max 10) = 100
+    const totalScore =
+      Number(body.kycScore) +
+      Number(body.incomeScore) +
+      Number(body.repaymentScore) +
+      Number(body.liabilityScore) +
+      Number(body.securityScore) +
+      Number(body.bankingScore) +
+      Number(body.fieldScore);
 
     let riskCategory = RiskCategory.LOW;
     let recommendation: 'APPROVE' | 'REJECT' | 'FURTHER_REVIEW' = 'APPROVE';
 
-    if (totalScore >= 75) {
+    // SRS §11 thresholds: 80+ Low Risk, 60–79 Manager Review, <60 High Risk
+    if (totalScore >= 80) {
       riskCategory = RiskCategory.LOW;
       recommendation = 'APPROVE';
     } else if (totalScore >= 60) {
       riskCategory = RiskCategory.MEDIUM;
-      recommendation = 'APPROVE';
+      recommendation = 'FURTHER_REVIEW'; // Manager must review before approve
     } else if (totalScore >= 45) {
       riskCategory = RiskCategory.HIGH;
       recommendation = 'FURTHER_REVIEW';
@@ -366,8 +375,9 @@ export class LoansController {
 
     // Create Double-Entry Accounting Journal Entry (SRS §38: Dr Loan Receivable, Cr Bank/Cash)
     const journalNumber = this.dataStore.nextJournalNumber();
+    const disburseJournalId = `JRN-${Date.now()}`; // BUG-03 FIX: compute once, reuse for both lines
     const disburseJournal: IJournalEntry = {
-      id: `JRN-${Date.now()}`,
+      id: disburseJournalId,
       journalNumber,
       businessDate: disburseDate,
       description: `Loan Disbursement for ${app.customerName} (${loanNumber})`,
@@ -379,8 +389,8 @@ export class LoansController {
       createdAt: new Date().toISOString(),
       lines: [
         {
-          id: `JRNL-${Date.now()}-1`,
-          journalEntryId: `JRN-${Date.now()}`,
+          id: `JRNL-${disburseJournalId}-1`,
+          journalEntryId: disburseJournalId,
           ledgerAccountId: 'COA-1030',
           ledgerAccountCode: '1030',
           ledgerAccountName: 'Loan Portfolio Principal Receivable',
@@ -390,8 +400,8 @@ export class LoansController {
           customerId: app.customerId,
         },
         {
-          id: `JRNL-${Date.now()}-2`,
-          journalEntryId: `JRN-${Date.now()}`,
+          id: `JRNL-${disburseJournalId}-2`,
+          journalEntryId: disburseJournalId,
           ledgerAccountId: body.paymentMode === 'CASH' ? 'COA-1010' : 'COA-1020',
           ledgerAccountCode: body.paymentMode === 'CASH' ? '1010' : '1020',
           ledgerAccountName: body.paymentMode === 'CASH' ? 'Cash In Hand' : 'HDFC Bank Operations Account',
@@ -439,6 +449,19 @@ export class LoansController {
       newLoan,
       `Disbursed Loan ${loanNumber} of ₹ ${principal} to ${app.customerName}`,
     );
+
+    // SRS §24: Send loan disbursed SMS to customer (async — do not block response)
+    const customerForSms = this.dataStore.customers.find((c) => c.id === app.customerId);
+    if (customerForSms?.mobile) {
+      this.sms.sendLoanDisbursedSms({
+        mobile: customerForSms.mobile,
+        customerName: app.customerName,
+        loanNumber,
+        amount: principal,
+        emiAmount: newLoan.emiAmount,
+        firstEmiDate: newLoan.firstDueDate,
+      }).catch((e) => this.dataStore.logAudit('SYSTEM', 'System', 'SMS_FAILED', 'SMS', newLoan.id, undefined, { error: e?.message }, 'Disbursement SMS failed'));
+    }
 
     return {
       loan: newLoan,

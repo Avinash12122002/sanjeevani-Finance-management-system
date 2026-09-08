@@ -10,6 +10,7 @@ import {
   UseGuards,
   NotFoundException,
   BadRequestException,
+  ForbiddenException,
   Res,
 } from '@nestjs/common';
 import { Response } from 'express';
@@ -19,6 +20,7 @@ import { extname, join, basename } from 'path';
 import * as fs from 'fs';
 import { DataStoreService } from '../../database/data-store.service';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
+import { StaffGuard } from '../../common/guards/staff.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { IUser } from '@sanjeevani/shared-types';
 
@@ -102,6 +104,14 @@ export class DocumentsController {
       throw new NotFoundException(`Customer record not found for: ${customerId}`);
     }
 
+    const isCustomerAccount = (user as any).isCustomer === true || (Array.isArray((user as any).roles) && (user as any).roles.includes('CUSTOMER') && (user as any).roles.length === 1);
+    if (isCustomerAccount) {
+      const authCustId = (user as any).customerId || (user as any).id;
+      if (authCustId !== customerId && authCustId !== customer.id && authCustId !== customer.customerNumber) {
+        throw new BadRequestException('Access denied: You can only upload documents for your own customer profile.');
+      }
+    }
+
     const docRecord = {
       id: `DOC-${Date.now()}`,
       customerId: customer.id,
@@ -110,7 +120,7 @@ export class DocumentsController {
       fileUrl: `/api/v1/documents/file/${file.filename}`,
       fileSize: file.size,
       mimeType: file.mimetype,
-      uploadedBy: user.employeeName || 'Staff',
+      uploadedBy: user.employeeName || 'Customer Portal',
       uploadedAt: new Date().toISOString(),
     };
 
@@ -136,11 +146,20 @@ export class DocumentsController {
   }
 
   /**
-   * List all documents for a member
+   * List all documents for a member (IDOR Protected)
    */
   @Get('customer/:customerId')
-  async getCustomerDocuments(@Param('customerId') customerId: string) {
+  async getCustomerDocuments(@Param('customerId') customerId: string, @CurrentUser() user: any) {
     await this.dataStore.refreshIfStale();
+
+    const isCustomerAccount = user?.isCustomer === true || (Array.isArray(user?.roles) && user?.roles.includes('CUSTOMER') && user?.roles.length === 1);
+    if (isCustomerAccount) {
+      const authCustId = user?.customerId || user?.id;
+      if (authCustId !== customerId) {
+        throw new BadRequestException('Access denied: You can only view documents for your own customer profile.');
+      }
+    }
+
     const docs = this.dataStore.customerDocuments.filter(
       (d) => d.customerId === customerId,
     );
@@ -148,14 +167,28 @@ export class DocumentsController {
   }
 
   /**
-   * Securely stream customer KYC document (requires staff authentication)
+   * Securely stream customer KYC document (IDOR protected for customer portal, accessible to authenticated staff)
    */
   @Get('file/:filename')
   async getDocumentFile(
     @Param('filename') rawFilename: string,
+    @CurrentUser() user: any,
     @Res() res: Response,
   ) {
     const safeFilename = basename(rawFilename);
+    await this.dataStore.refreshIfStale();
+
+    const isCustomerAccount = user?.isCustomer === true || (Array.isArray(user?.roles) && user?.roles.includes('CUSTOMER') && user?.roles.length === 1);
+    if (isCustomerAccount) {
+      const authCustId = user?.customerId || user?.id;
+      const matchingDoc = this.dataStore.customerDocuments.find(
+        (d) => d.fileUrl && d.fileUrl.endsWith(safeFilename),
+      );
+      if (matchingDoc && matchingDoc.customerId !== authCustId) {
+        throw new ForbiddenException('Access denied: You cannot view documents belonging to another member.');
+      }
+    }
+
     let filePath = join(uploadDir, safeFilename);
 
     if (!fs.existsSync(filePath)) {
@@ -183,9 +216,10 @@ export class DocumentsController {
   }
 
   /**
-   * Delete a document
+   * Delete a document (Restricted to internal staff)
    */
   @Delete(':id')
+  @UseGuards(StaffGuard)
   async deleteCustomerDocument(
     @Param('id') id: string,
     @CurrentUser() user: IUser,

@@ -50,11 +50,20 @@ export class AllExceptionsFilter implements ExceptionFilter {
       request.headers['x-request-id'] ||
       `REQ-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
 
+    // Sanitize message to prevent database details or credentials from leaking
+    if (typeof message === 'string') {
+      message = message.replace(/(postgres|postgresql|mysql|mongodb):\/\/[^\s]+/gi, '[REDACTED_DB_URI]');
+      message = message.replace(/password\s*=\s*['"][^'"]+['"]/gi, 'password=[REDACTED]');
+    }
+
     if (status === HttpStatus.INTERNAL_SERVER_ERROR) {
       this.logger.error(
         `[${requestId}] ${request.method} ${request.url} - ${exception instanceof Error ? exception.stack || exception.message : exception}`,
       );
-      if (process.env.NODE_ENV === 'production') {
+      if (
+        process.env.NODE_ENV === 'production' ||
+        /relation ".*" does not exist|syntax error at or near|duplicate key value/i.test(message)
+      ) {
         message = `An internal financial processing error occurred. Please contact system support with request ID ${requestId}.`;
         details = undefined;
       }

@@ -29,6 +29,7 @@ import {
 import { fetchApi, postApi, deleteApi } from '@/lib/api-client';
 import { FinancialEngine } from '@sanjeevani/financial-engine';
 import { IReceipt, PaymentMode } from '@sanjeevani/shared-types';
+import { openReceiptPrintWindow } from '@/components/print/ReceiptPrintView';
 
 export default function CollectionsPage() {
   const [collectionData, setCollectionData] = useState<any>(null);
@@ -187,7 +188,15 @@ export default function CollectionsPage() {
               setReceiptModalVisible(true);
             }}
           >
-            View / Print
+            View
+          </Button>
+          <Button
+            size="small"
+            icon={<PrinterOutlined />}
+            style={{ color: '#059669', borderColor: '#059669' }}
+            onClick={() => openReceiptPrintWindow(r)}
+          >
+            Print
           </Button>
           <Popconfirm
             title="Void / Delete Receipt"
@@ -430,7 +439,7 @@ export default function CollectionsPage() {
             type="primary"
             icon={<PrinterOutlined />}
             style={{ background: '#059669', borderColor: '#059669' }}
-            onClick={() => window.print()}
+            onClick={() => currentReceipt && openReceiptPrintWindow(currentReceipt)}
           >
             Print Official Receipt
           </Button>,

@@ -11,6 +11,10 @@ import {
   Button,
   Alert,
   Skeleton,
+  Table,
+  Space,
+  Popconfirm,
+  message,
 } from 'antd';
 import {
   UsergroupAddOutlined,
@@ -22,6 +26,9 @@ import {
   ArrowUpOutlined,
   CheckCircleOutlined,
   ReloadOutlined,
+  CloseCircleOutlined,
+  AuditOutlined,
+  TrophyOutlined,
 } from '@ant-design/icons';
 import {
   ResponsiveContainer,
@@ -38,7 +45,7 @@ import {
   Legend,
   CartesianGrid,
 } from 'recharts';
-import { fetchApi } from '@/lib/api-client';
+import { fetchApi, postApi } from '@/lib/api-client';
 import { FinancialEngine } from '@sanjeevani/financial-engine';
 import { IDashboardMetrics, IRedAlert } from '@sanjeevani/shared-types';
 
@@ -106,6 +113,9 @@ export default function OwnerDashboardPage() {
   const [metrics, setMetrics] = useState<IDashboardMetrics>(initialMetrics);
   const [charts, setCharts] = useState<any>(initialCharts);
   const [redAlerts, setRedAlerts] = useState<IRedAlert[]>([]);
+  const [pendingVerifications, setPendingVerifications] = useState<any[]>([]);
+  const [staffKpis, setStaffKpis] = useState<any[]>([]);
+  const [actionLoading, setActionLoading] = useState<string | null>(null);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -148,10 +158,12 @@ export default function OwnerDashboardPage() {
   const loadDashboard = async () => {
     setLoading(true);
     try {
-      const [mRes, cRes, aRes] = await Promise.all([
+      const [mRes, cRes, aRes, vRes, kRes] = await Promise.all([
         fetchApi<IDashboardMetrics>('/dashboard/metrics'),
         fetchApi('/dashboard/charts'),
         fetchApi<IRedAlert[]>('/dashboard/red-alerts'),
+        fetchApi('/verifications/pending'),
+        fetchApi('/dashboard/staff-kpi'),
       ]);
 
       if (mRes.success && mRes.data) {
@@ -167,11 +179,54 @@ export default function OwnerDashboardPage() {
         }
       }
       if (aRes.success && aRes.data) setRedAlerts(aRes.data);
+      if (vRes.success && vRes.data) setPendingVerifications(Array.isArray(vRes.data) ? vRes.data : []);
+      if (kRes.success && kRes.data) {
+        const list = Array.isArray(kRes.data) ? kRes.data : (kRes.data.staff || []);
+        setStaffKpis(list);
+      }
     } catch (e) {
       console.warn('Dashboard live fetch error, using safe initial state', e);
     } finally {
       setLoading(false);
       setInitialLoading(false);
+    }
+  };
+
+  const handleApproveVerification = async (id: string) => {
+    setActionLoading(id);
+    try {
+      const res = await postApi(`/verifications/${id}/approve`, {
+        comments: 'Approved by Executive from Dashboard (SRS §38)',
+      });
+      if (res.success) {
+        message.success('Transaction approved under Four-Eyes Dual Verification policy!');
+        setPendingVerifications((prev) => prev.filter((v) => v.id !== id));
+      } else {
+        message.error(res.message || res.error || 'Approval failed');
+      }
+    } catch {
+      message.error('An error occurred during approval');
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleRejectVerification = async (id: string) => {
+    setActionLoading(id);
+    try {
+      const res = await postApi(`/verifications/${id}/reject`, {
+        reason: 'Rejected by Executive from Dashboard oversight',
+      });
+      if (res.success) {
+        message.warning('Transaction rejected per Four-Eyes Dual Verification policy.');
+        setPendingVerifications((prev) => prev.filter((v) => v.id !== id));
+      } else {
+        message.error(res.message || res.error || 'Rejection failed');
+      }
+    } catch {
+      message.error('An error occurred during rejection');
+    } finally {
+      setActionLoading(null);
     }
   };
 
@@ -318,6 +373,111 @@ export default function OwnerDashboardPage() {
         />
       )}
 
+      {/* FOUR-EYES DUAL CONTROL PENDING APPROVALS QUEUE (SRS §38) */}
+      {pendingVerifications.length > 0 && (
+        <Card
+          title={
+            <div className="flex items-center justify-between">
+              <span className="flex items-center gap-2 font-bold text-amber-800">
+                <AuditOutlined />
+                <SafetyOutlined />
+                <span>Pending Four-Eyes Dual Verifications (SRS §38)</span>
+              </span>
+              <Tag color="warning">{pendingVerifications.length} Requiring Second Approval</Tag>
+            </div>
+          }
+          className="border-amber-200 bg-amber-50/30 shadow-sm"
+          size="small"
+        >
+          <Table
+            size="small"
+            dataSource={pendingVerifications}
+            rowKey="id"
+            pagination={false}
+            columns={[
+              {
+                title: 'Transaction Type',
+                dataIndex: 'entityType',
+                key: 'type',
+                render: (t) => <Tag color="blue">{t}</Tag>,
+              },
+              {
+                title: 'Reference',
+                dataIndex: 'entityReference',
+                key: 'ref',
+                render: (r) => <span className="font-mono font-bold text-slate-800">{r}</span>,
+              },
+              {
+                title: 'Amount',
+                dataIndex: 'amount',
+                key: 'amt',
+                render: (a) => <span className="font-bold text-emerald-700">{FinancialEngine.formatINR(a)}</span>,
+              },
+              {
+                title: 'Requested By',
+                dataIndex: 'requestedByName',
+                key: 'req',
+                render: (name, r) => (
+                  <div>
+                    <span className="font-medium">{name}</span>
+                    <span className="text-xs text-slate-400 block">{r.branchName}</span>
+                  </div>
+                ),
+              },
+              {
+                title: 'Description',
+                dataIndex: 'description',
+                key: 'desc',
+                ellipsis: true,
+              },
+              {
+                title: 'Dual Approval Actions',
+                key: 'actions',
+                width: 170,
+                render: (_, record) => (
+                  <Space size="small">
+                    <Popconfirm
+                      title="Approve Transaction"
+                      description="Authorize this transaction as second manager?"
+                      onConfirm={() => handleApproveVerification(record.id)}
+                      okText="Approve"
+                      cancelText="Cancel"
+                    >
+                      <Button
+                        size="small"
+                        type="primary"
+                        icon={<CheckCircleOutlined />}
+                        loading={actionLoading === record.id}
+                        style={{ background: '#059669', borderColor: '#059669' }}
+                      >
+                        Approve
+                      </Button>
+                    </Popconfirm>
+                    <Popconfirm
+                      title="Reject Transaction"
+                      description="Reject this transaction?"
+                      onConfirm={() => handleRejectVerification(record.id)}
+                      okText="Reject"
+                      okType="danger"
+                      cancelText="Cancel"
+                    >
+                      <Button
+                        size="small"
+                        danger
+                        icon={<CloseCircleOutlined />}
+                        loading={actionLoading === record.id}
+                      >
+                        Reject
+                      </Button>
+                    </Popconfirm>
+                  </Space>
+                ),
+              },
+            ]}
+          />
+        </Card>
+      )}
+
       {/* 16 KPI METRICS GRID (§65) */}
       <div>
         <div className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">
@@ -360,114 +520,191 @@ export default function OwnerDashboardPage() {
             </div>
           </Col>
 
-          {/* Card 3: Loan Outstanding */}
+          {/* Card 3: Active Loan Outstanding */}
           <Col xs={24} sm={12} md={6}>
             <div className="glass-card kpi-card bg-white">
               <div className="flex items-center justify-between text-slate-500 text-xs font-medium">
-                <span>LOAN PORTFOLIO OUTSTANDING</span>
-                <BankOutlined className="text-blue-600 text-lg" />
+                <span>LOAN OUTSTANDING</span>
+                <RiseOutlined className="text-purple-600 text-lg" />
               </div>
               <div className="text-2xl font-black text-slate-900 mt-2">
                 {FinancialEngine.formatINR(metrics.totalLoanOutstanding)}
               </div>
-              <div className="text-xs text-blue-600 mt-1">
-                Disbursed This Month: {FinancialEngine.formatINR(metrics.newLoanDisbursementMonth)}
+              <div className="text-xs text-slate-500 mt-1">
+                Disbursed Mo: {FinancialEngine.formatINR(metrics.newLoanDisbursementMonth)}
               </div>
             </div>
           </Col>
 
-          {/* Card 4: Overdue Amount */}
+          {/* Card 4: Overdue Amount & PAR Ratio */}
           <Col xs={24} sm={12} md={6}>
             <div className="glass-card kpi-card bg-white">
               <div className="flex items-center justify-between text-slate-500 text-xs font-medium">
-                <span>PORTFOLIO OVERDUE (PAR)</span>
+                <span>OVERDUE PORTFOLIO (PAR)</span>
                 <WarningOutlined className="text-amber-500 text-lg" />
               </div>
-              <div className="text-2xl font-black text-amber-600 mt-2">
+              <div className="text-2xl font-black text-red-600 mt-2">
                 {FinancialEngine.formatINR(metrics.totalOverdueAmount)}
               </div>
-              <div className="text-xs text-slate-500 mt-1">
-                Overdue Rate: <Tag color={metrics.overduePercentage > 5 ? 'error' : 'success'}>{metrics.overduePercentage}%</Tag>
+              <div className="text-xs text-red-500 mt-1 flex items-center gap-1 font-semibold">
+                NPA / PAR Ratio: {metrics.overduePercentage.toFixed(2)}%
               </div>
             </div>
           </Col>
 
-          {/* Card 5: Cash In Vault */}
+          {/* Card 5: Today's EMI Due vs Collected */}
           <Col xs={24} sm={12} md={6}>
             <div className="glass-card kpi-card bg-white">
               <div className="flex items-center justify-between text-slate-500 text-xs font-medium">
-                <span>CASH IN HAND (BRANCH VAULT)</span>
-                <SafetyOutlined className="text-emerald-600 text-lg" />
+                <span>EMI DUE TODAY</span>
+                <DollarCircleOutlined className="text-blue-500 text-lg" />
+              </div>
+              <div className="text-2xl font-black text-blue-700 mt-2">
+                {FinancialEngine.formatINR(metrics.emiDueToday)}
+              </div>
+              <div className="text-xs text-slate-500 mt-1">
+                Collected: {FinancialEngine.formatINR(metrics.emiCollectedToday)}
+              </div>
+            </div>
+          </Col>
+
+          {/* Card 6: Cash in Vault */}
+          <Col xs={24} sm={12} md={6}>
+            <div className="glass-card kpi-card bg-white">
+              <div className="flex items-center justify-between text-slate-500 text-xs font-medium">
+                <span>PHYSICAL VAULT CASH</span>
+                <BankOutlined className="text-emerald-700 text-lg" />
               </div>
               <div className="text-2xl font-black text-slate-900 mt-2">
                 {FinancialEngine.formatINR(metrics.cashInHand)}
               </div>
-              <div className="text-xs text-emerald-600 mt-1">
-                Drawer Status: Balanced
+              <div className="text-xs text-slate-500 mt-1">
+                Cash Drawer Discrepancy: ₹{metrics.cashMismatchAmount}
               </div>
             </div>
           </Col>
 
-          {/* Card 6: Bank Balance */}
+          {/* Card 7: Bank Balance */}
           <Col xs={24} sm={12} md={6}>
             <div className="glass-card kpi-card bg-white">
               <div className="flex items-center justify-between text-slate-500 text-xs font-medium">
                 <span>BANK ACCOUNT BALANCE</span>
                 <BankOutlined className="text-indigo-600 text-lg" />
               </div>
-              <div className="text-2xl font-black text-indigo-700 mt-2">
+              <div className="text-2xl font-black text-indigo-900 mt-2">
                 {FinancialEngine.formatINR(metrics.bankBalance)}
               </div>
-              <div className="text-xs text-slate-500 mt-1">
-                Operations A/c Reconciled
+              <div className="text-xs text-emerald-600 mt-1 font-medium">
+                Reconciled with GL
               </div>
             </div>
           </Col>
 
-          {/* Card 7: Monthly Income */}
+          {/* Card 8: Monthly Net Operating Result */}
           <Col xs={24} sm={12} md={6}>
             <div className="glass-card kpi-card bg-white">
               <div className="flex items-center justify-between text-slate-500 text-xs font-medium">
-                <span>MONTHLY GROSS REVENUE</span>
+                <span>NET MONTHLY RESULT</span>
                 <ArrowUpOutlined className="text-emerald-600 text-lg" />
               </div>
-              <div className="text-2xl font-black text-emerald-600 mt-2">
-                {FinancialEngine.formatINR(metrics.monthlyIncome)}
-              </div>
-              <div className="text-xs text-slate-500 mt-1">
-                Interest + Fees
-              </div>
-            </div>
-          </Col>
-
-          {/* Card 8: Net Operating Profit */}
-          <Col xs={24} sm={12} md={6}>
-            <div className="glass-card kpi-card bg-white">
-              <div className="flex items-center justify-between text-slate-500 text-xs font-medium">
-                <span>NET OPERATIONAL RESULT</span>
-                <RiseOutlined className="text-emerald-600 text-lg" />
-              </div>
-              <div className="text-2xl font-black text-emerald-700 mt-2">
+              <div
+                className={`text-2xl font-black mt-2 ${
+                  metrics.netResult >= 0 ? 'text-emerald-700' : 'text-red-600'
+                }`}
+              >
                 {FinancialEngine.formatINR(metrics.netResult)}
               </div>
               <div className="text-xs text-slate-500 mt-1">
-                Expenses: {FinancialEngine.formatINR(metrics.monthlyExpense)}
+                Income: {FinancialEngine.formatINR(metrics.monthlyIncome)} • Exp: {FinancialEngine.formatINR(metrics.monthlyExpense)}
               </div>
             </div>
           </Col>
         </Row>
       </div>
 
-      {/* ANALYTICAL CHARTS SECTION (§66) */}
-      {charts && (
+      {/* STAFF PERFORMANCE & KPI LEADERBOARD (SRS §40) */}
+      {staffKpis.length > 0 && (
+        <Card
+          title={
+            <div className="flex items-center justify-between">
+              <span className="flex items-center gap-2 font-bold text-slate-800">
+                <TrophyOutlined className="text-amber-500" />
+                <span>Staff Performance & Operational KPIs (SRS §40)</span>
+              </span>
+              <Tag color="purple">{staffKpis.length} Active Staff Members</Tag>
+            </div>
+          }
+          className="glass-card shadow-sm"
+          size="small"
+        >
+          <Table
+            size="small"
+            dataSource={staffKpis}
+            rowKey="employeeId"
+            pagination={{ pageSize: 5 }}
+            columns={[
+              {
+                title: 'Employee',
+                key: 'emp',
+                render: (_, r) => (
+                  <div>
+                    <span className="font-semibold text-slate-900">{r.employeeName}</span>
+                    <span className="text-xs font-mono text-slate-500 block">{r.employeeNumber}</span>
+                  </div>
+                ),
+              },
+              {
+                title: 'Designation / Branch',
+                key: 'desig',
+                render: (_, r) => (
+                  <div>
+                    <Tag color="blue">{r.designation}</Tag>
+                    <span className="text-xs text-slate-500 block">{r.branchName}</span>
+                  </div>
+                ),
+              },
+              {
+                title: "Today's Collections",
+                key: 'col',
+                render: (_, r) => (
+                  <span className="font-bold text-emerald-700">
+                    {FinancialEngine.formatINR(r.collectionMetrics?.todayCollectedAmount || 0)}
+                  </span>
+                ),
+              },
+              {
+                title: 'Lifetime Collections',
+                key: 'totCol',
+                render: (_, r) => (
+                  <span className="font-medium text-slate-700">
+                    {FinancialEngine.formatINR(r.collectionMetrics?.totalAllTimeCollected || 0)}
+                  </span>
+                ),
+              },
+              {
+                title: 'Efficiency Rating',
+                key: 'eff',
+                render: (_, r) => (
+                  <Tag color={r.collectionMetrics?.collectionEfficiencyPercentage >= 90 ? 'green' : 'orange'}>
+                    {r.collectionMetrics?.collectionEfficiencyPercentage || 90}% Efficiency
+                  </Tag>
+                ),
+              },
+            ]}
+          />
+        </Card>
+      )}
+
+      {/* 4 VISUAL ANALYTICAL CHARTS GRID (§66) */}
+      {!initialLoading && (
         <Row gutter={[16, 16]}>
-          {/* Chart 1: Monthly Collection Trend */}
+          {/* Chart 1: Monthly Collection Trend vs Target */}
           <Col xs={24} lg={14}>
             <Card
               title={
                 <div className="flex items-center justify-between">
-                  <span className="font-bold text-slate-800">Monthly Collection Performance vs Target</span>
-                  <Tag color="emerald">SRS §66 Trend</Tag>
+                  <span className="font-bold text-slate-800">Monthly Collection Trajectory vs Target</span>
+                  <Tag color="green">SRS §66 Trajectory</Tag>
                 </div>
               }
               className="glass-card shadow-sm"

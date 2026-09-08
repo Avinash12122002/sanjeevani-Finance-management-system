@@ -20,6 +20,8 @@ import {
   Drawer,
   Popconfirm,
   message,
+  Radio,
+  Alert,
 } from 'antd';
 import {
   SettingOutlined,
@@ -43,11 +45,19 @@ import {
   SearchOutlined,
   CopyOutlined,
   TableOutlined,
+  DollarCircleOutlined,
+  UploadOutlined,
+  DownloadOutlined,
+  PrinterOutlined,
+  IdcardOutlined,
+  SafetyCertificateOutlined,
 } from '@ant-design/icons';
 import { fetchApi, postApi, patchApi, deleteApi } from '@/lib/api-client';
 import { noEmojiRule } from '@/lib/emoji-sanitizer';
 import { FinancialEngine } from '@sanjeevani/financial-engine';
 import { UserRole, PriorityLevel, ComplaintStatus } from '@sanjeevani/shared-types';
+import { PayslipModal } from '@/components/print/PayslipPrintView';
+import { maskAadhaar } from '@/lib/html-sanitizer';
 
 export default function SettingsPage() {
   const [currentUser, setCurrentUser] = useState<any>(null);
@@ -220,6 +230,7 @@ export default function SettingsPage() {
     loadSettingsData();
     loadDbTables();
     loadTableRows('accounts');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const loadSettingsData = async () => {
@@ -240,6 +251,253 @@ export default function SettingsPage() {
     if (cRes.success && cRes.data) setComplaints(cRes.data);
     if (custRes.success && custRes.data) setCustomersList(custRes.data.items || custRes.data);
     setLoading(false);
+    loadHrData();
+    loadPayrollData(payrollMonth);
+  };
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // HR & 7-Day Training State & Handlers (SRS §43, §44)
+  // ─────────────────────────────────────────────────────────────────────────────
+  const [onboardingList, setOnboardingList] = useState<any[]>([]);
+  const [trainingCurriculum, setTrainingCurriculum] = useState<any[]>([]);
+  const [trainingModalOpen, setTrainingModalOpen] = useState(false);
+  const [trainingCandidateId, setTrainingCandidateId] = useState<string>('');
+  const [attendanceList, setAttendanceList] = useState<any[]>([]);
+  const [leaveRequestsList, setLeaveRequestsList] = useState<any[]>([]);
+  const [addCandidateModal, setAddCandidateModal] = useState(false);
+  const [candidateForm] = Form.useForm();
+
+  const loadHrData = async () => {
+    try {
+      const [oRes, aRes, lRes] = await Promise.all([
+        fetchApi('/hr/onboarding'),
+        fetchApi('/hr/attendance'),
+        fetchApi('/hr/leaves'),
+      ]);
+      if (oRes.success && oRes.data) setOnboardingList(oRes.data);
+      if (aRes.success && aRes.data) setAttendanceList(aRes.data);
+      if (lRes.success && lRes.data) setLeaveRequestsList(lRes.data);
+    } catch {}
+  };
+
+  const handleAdvanceCandidateStage = async (id: string, stage: string) => {
+    try {
+      const res = await patchApi(`/hr/onboarding/${id}/stage`, { stage });
+      if (res.success) {
+        message.success(`Candidate advanced to ${stage}`);
+        loadHrData();
+      } else {
+        message.error(res.message || 'Failed to update stage');
+      }
+    } catch {
+      message.error('Error advancing candidate stage');
+    }
+  };
+
+  const handleOpenTrainingModal = async (empId: string) => {
+    setTrainingCandidateId(empId);
+    setTrainingModalOpen(true);
+    try {
+      const res = await fetchApi(`/hr/training/${empId}`);
+      if (res.success && res.data) {
+        const list = Array.isArray(res.data) ? res.data : (res.data.curriculum || res.data.days || []);
+        setTrainingCurriculum(list);
+      }
+    } catch {
+      message.error('Failed to load employee training curriculum');
+    }
+  };
+
+  const handlePassTrainingDay = async (day: number) => {
+    try {
+      const res = await postApi(`/hr/training/${trainingCandidateId}/day/${day}`, {
+        status: 'PASSED',
+        examScore: 85,
+        instructorNotes: 'Curriculum verified and certified (SRS §44)',
+      });
+      if (res.success) {
+        message.success(`Day ${day} curriculum marked PASSED!`);
+        handleOpenTrainingModal(trainingCandidateId);
+      } else {
+        message.error(res.message || 'Failed to certify training day');
+      }
+    } catch {
+      message.error('Error certifying training day');
+    }
+  };
+
+  const handleApproveLeaveRequest = async (leaveId: string) => {
+    try {
+      const res = await patchApi(`/hr/leaves/${leaveId}/approve`, {});
+      if (res.success) {
+        message.success('Employee leave approved.');
+        loadHrData();
+      } else {
+        message.error(res.message || 'Leave approval failed');
+      }
+    } catch {
+      message.error('Error approving leave');
+    }
+  };
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // Payroll Management State & Handlers (SRS §41, §49 Module 18)
+  // ─────────────────────────────────────────────────────────────────────────────
+  const [payrollMonth, setPayrollMonth] = useState(() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+  });
+  const [payrollList, setPayrollList] = useState<any[]>([]);
+  const [payslipModalOpen, setPayslipModalOpen] = useState(false);
+  const [selectedPayslip, setSelectedPayslip] = useState<any>(null);
+  const [generatingPayroll, setGeneratingPayroll] = useState(false);
+
+  const loadPayrollData = async (month: string) => {
+    try {
+      const res = await fetchApi(`/payroll?month=${month}`);
+      if (res.success && res.data) setPayrollList(res.data);
+    } catch {}
+  };
+
+  const handleGeneratePayroll = async () => {
+    setGeneratingPayroll(true);
+    try {
+      const res = await postApi('/payroll/generate', { month: payrollMonth });
+      if (res.success) {
+        message.success(`Monthly payroll generated with 4-factor incentives (SRS §41)`);
+        loadPayrollData(payrollMonth);
+      } else {
+        message.error(res.message || 'Failed to generate payroll');
+      }
+    } catch {
+      message.error('Error generating payroll');
+    } finally {
+      setGeneratingPayroll(false);
+    }
+  };
+
+  const handleDisbursePayroll = async (id: string) => {
+    try {
+      const res = await postApi(`/payroll/${id}/disburse`, { paymentMode: 'BANK_TRANSFER' });
+      if (res.success) {
+        message.success('Salary disbursed! Posted double-entry journal: Dr Salaries, Cr Bank.');
+        loadPayrollData(payrollMonth);
+      } else {
+        message.error(res.message || 'Disbursement failed');
+      }
+    } catch {
+      message.error('Error disbursing payroll');
+    }
+  };
+
+  const handleViewPayslip = async (id: string) => {
+    try {
+      const res = await fetchApi(`/payroll/${id}/payslip`);
+      if (res.success && res.data) {
+        setSelectedPayslip(res.data);
+        setPayslipModalOpen(true);
+      }
+    } catch {
+      message.error('Failed to load payslip data');
+    }
+  };
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // Bulk Data Import State & Handlers (SRS §50)
+  // ─────────────────────────────────────────────────────────────────────────────
+  const [importEntityType, setImportEntityType] = useState<'customers' | 'accounts' | 'loans'>('customers');
+  const [importCsvText, setImportCsvText] = useState('');
+  const [importValidationResult, setImportValidationResult] = useState<any[]>([]);
+  const [validatingImport, setValidatingImport] = useState(false);
+  const [committingImport, setCommittingImport] = useState(false);
+
+  const handleDownloadTemplate = async () => {
+    try {
+      const res = await fetchApi(`/import/template/${importEntityType}`);
+      if (res.success && res.data) {
+        const headers = res.data.headers.join(',');
+        const sample = res.data.sampleRows.map((r: any[]) => r.join(',')).join('\n');
+        const csv = `${headers}\n${sample}`;
+        const blob = new Blob([csv], { type: 'text/csv' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `sanjeevani_${importEntityType}_template.csv`;
+        a.click();
+        URL.revokeObjectURL(url);
+        message.success(`Downloaded ${importEntityType} template.csv`);
+      }
+    } catch {
+      message.error('Failed to download template');
+    }
+  };
+
+  const handleValidateCsv = async () => {
+    if (!importCsvText.trim()) {
+      message.warning('Please enter or paste CSV records first');
+      return;
+    }
+    setValidatingImport(true);
+    try {
+      const lines = importCsvText.trim().split('\n');
+      if (lines.length < 2) {
+        message.error('CSV must have header row and at least 1 record');
+        setValidatingImport(false);
+        return;
+      }
+      const headers = lines[0].split(',').map((h) => h.trim().replace(/^"|"$/g, ''));
+      const rows = lines.slice(1).map((line) => {
+        const vals = line.split(',').map((v) => v.trim().replace(/^"|"$/g, ''));
+        const obj: Record<string, any> = {};
+        headers.forEach((h, idx) => {
+          obj[h] = vals[idx] || '';
+        });
+        return obj;
+      });
+
+      const res = await postApi('/import/validate', {
+        entityType: importEntityType,
+        rows,
+      });
+      if (res.success && res.data) {
+        setImportValidationResult(res.data);
+        message.success(`Validated ${rows.length} rows against business rules`);
+      } else {
+        message.error(res.message || 'Validation failed');
+      }
+    } catch {
+      message.error('Error parsing CSV input');
+    } finally {
+      setValidatingImport(false);
+    }
+  };
+
+  const handleCommitImport = async () => {
+    if (!importValidationResult.length) {
+      message.warning('Please validate records first');
+      return;
+    }
+    const validRows = importValidationResult.filter((r) => r.isValid).map((r) => r.data);
+    if (!validRows.length) {
+      message.error('No valid rows available to import');
+      return;
+    }
+    setCommittingImport(true);
+    try {
+      const res = await postApi(`/import/commit/${importEntityType}`, { rows: validRows });
+      if (res.success && res.data) {
+        message.success(`Migration Committed! Added ${res.data.committedCount} records to database.`);
+        setImportCsvText('');
+        setImportValidationResult([]);
+        loadSettingsData();
+      } else {
+        message.error(res.message || 'Import commit failed');
+      }
+    } catch {
+      message.error('Error committing import to database');
+    } finally {
+      setCommittingImport(false);
+    }
   };
 
   const handleToggleFlag = (key: string, checked: boolean) => {
@@ -1465,7 +1723,458 @@ export default function SettingsPage() {
               </Card>
             ),
           },
+          {
+            key: 'hr',
+            label: renderTabHeader('HR & Training', onboardingList.length, 'HR Onboarding & 7-Day Training (SRS §43, §44)', <IdcardOutlined className="text-emerald-600 text-xs" />),
+            children: (
+              <div className="space-y-4">
+                <Card
+                  title={
+                    <div className="flex items-center justify-between">
+                      <span className="font-bold text-slate-800">Staff Onboarding Pipeline (SRS §43)</span>
+                      <Space>
+                        <Button icon={<ReloadOutlined />} size="small" onClick={loadHrData}>
+                          Refresh HR
+                        </Button>
+                      </Space>
+                    </div>
+                  }
+                  className="glass-card"
+                  size="small"
+                >
+                  <Table
+                    size="small"
+                    dataSource={onboardingList}
+                    rowKey="id"
+                    pagination={{ pageSize: 5 }}
+                    columns={[
+                      {
+                        title: 'Candidate Name',
+                        key: 'name',
+                        render: (_, r) => (
+                          <div>
+                            <span className="font-semibold text-slate-900">{r.candidateName}</span>
+                            <span className="text-xs text-slate-500 font-mono block">+91 {r.mobile}</span>
+                          </div>
+                        ),
+                      },
+                      { title: 'Designation', dataIndex: 'designation', key: 'desig', render: (d) => <Tag color="blue">{d}</Tag> },
+                      {
+                        title: 'Current Stage',
+                        dataIndex: 'stage',
+                        key: 'stg',
+                        render: (s) => {
+                          let color = 'orange';
+                          if (s === 'CONFIRMED') color = 'green';
+                          else if (s === 'TRAINING') color = 'purple';
+                          else if (s === 'PROBATION') color = 'cyan';
+                          return <Tag color={color}>{s}</Tag>;
+                        },
+                      },
+                      {
+                        title: 'Interview Score',
+                        dataIndex: 'interviewScore',
+                        key: 'sc',
+                        render: (sc) => <span className="font-bold text-slate-700">{sc ? `${sc} / 100` : 'Pending'}</span>,
+                      },
+                      {
+                        title: 'Training Progress',
+                        key: 'tr',
+                        render: (_, r) => (
+                          <Button
+                            size="small"
+                            type="primary"
+                            ghost
+                            icon={<SafetyCertificateOutlined />}
+                            onClick={() => handleOpenTrainingModal(r.id)}
+                          >
+                            7-Day Training (§44)
+                          </Button>
+                        ),
+                      },
+                      {
+                        title: 'Advance Stage',
+                        key: 'act',
+                        render: (_, r) => (
+                          <Select
+                            size="small"
+                            value={r.stage}
+                            style={{ width: 140 }}
+                            onChange={(val) => handleAdvanceCandidateStage(r.id, val)}
+                            options={[
+                              { value: 'INTERVIEW', label: '1. Interview' },
+                              { value: 'DOC_VERIFIED', label: '2. Doc Verified' },
+                              { value: 'REFERENCE_CHECKED', label: '3. Ref Checked' },
+                              { value: 'OFFER_ISSUED', label: '4. Offer Issued' },
+                              { value: 'APPOINTMENT_LETTER', label: '5. Appointment' },
+                              { value: 'TRAINING', label: '6. Training' },
+                              { value: 'PROBATION', label: '7. Probation' },
+                              { value: 'CONFIRMED', label: '8. Confirmed' },
+                            ]}
+                          />
+                        ),
+                      },
+                    ]}
+                  />
+                </Card>
+
+                {/* Attendance & Leaves Row */}
+                <Row gutter={16}>
+                  <Col xs={24} lg={12}>
+                    <Card title="Today's Attendance Logs" size="small" className="glass-card">
+                      <Table
+                        size="small"
+                        dataSource={attendanceList}
+                        rowKey="id"
+                        pagination={{ pageSize: 5 }}
+                        columns={[
+                          { title: 'Employee', dataIndex: 'employeeName', key: 'en' },
+                          { title: 'Check In', dataIndex: 'checkIn', key: 'ci', render: (t) => t ? new Date(t).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }) : '-' },
+                          { title: 'Status', dataIndex: 'status', key: 'st', render: (s) => <Tag color={s === 'PRESENT' ? 'green' : 'orange'}>{s}</Tag> },
+                        ]}
+                      />
+                    </Card>
+                  </Col>
+                  <Col xs={24} lg={12}>
+                    <Card title="Leave Requests" size="small" className="glass-card">
+                      <Table
+                        size="small"
+                        dataSource={leaveRequestsList}
+                        rowKey="id"
+                        pagination={{ pageSize: 5 }}
+                        columns={[
+                          { title: 'Staff', dataIndex: 'employeeName', key: 'en' },
+                          { title: 'Type', dataIndex: 'leaveType', key: 'lt', render: (t) => <Tag color="geekblue">{t}</Tag> },
+                          { title: 'Days', dataIndex: 'daysCount', key: 'dc', render: (d) => `${d} Days` },
+                          { title: 'Status', dataIndex: 'status', key: 'st', render: (s) => <Tag color={s === 'APPROVED' ? 'green' : 'orange'}>{s}</Tag> },
+                          {
+                            title: 'Action',
+                            key: 'act',
+                            render: (_, r) => r.status === 'PENDING' ? (
+                              <Button size="small" type="primary" onClick={() => handleApproveLeaveRequest(r.id)}>
+                                Approve
+                              </Button>
+                            ) : null,
+                          },
+                        ]}
+                      />
+                    </Card>
+                  </Col>
+                </Row>
+              </div>
+            ),
+          },
+          {
+            key: 'payroll',
+            label: renderTabHeader('Payroll', payrollList.length, 'Payroll & Incentives (SRS §41, §49)', <DollarCircleOutlined className="text-blue-600 text-xs" />),
+            children: (
+              <div className="space-y-4">
+                <div className="flex flex-wrap items-center justify-between p-3 bg-slate-50 border border-slate-200 rounded-xl gap-3">
+                  <div className="flex items-center gap-3">
+                    <span className="text-xs font-semibold text-slate-700">Payroll Month:</span>
+                    <Input
+                      type="month"
+                      value={payrollMonth}
+                      onChange={(e) => {
+                        setPayrollMonth(e.target.value);
+                        loadPayrollData(e.target.value);
+                      }}
+                      style={{ width: 160 }}
+                      size="small"
+                    />
+                    <Button
+                      type="primary"
+                      icon={<DollarCircleOutlined />}
+                      size="small"
+                      loading={generatingPayroll}
+                      onClick={handleGeneratePayroll}
+                      style={{ background: '#059669', borderColor: '#059669' }}
+                    >
+                      Generate Monthly Payroll (§41)
+                    </Button>
+                  </div>
+                  <Button size="small" icon={<ReloadOutlined />} onClick={() => loadPayrollData(payrollMonth)}>
+                    Refresh
+                  </Button>
+                </div>
+
+                <Card className="glass-card" size="small">
+                  <Table
+                    size="small"
+                    dataSource={payrollList}
+                    rowKey="id"
+                    pagination={{ pageSize: 10 }}
+                    columns={[
+                      {
+                        title: 'Employee',
+                        key: 'emp',
+                        render: (_, r) => (
+                          <div>
+                            <span className="font-semibold text-slate-900">{r.employeeName}</span>
+                            <span className="text-xs font-mono text-slate-500 block">{r.employeeNumber}</span>
+                          </div>
+                        ),
+                      },
+                      { title: 'Designation', dataIndex: 'designation', key: 'desig' },
+                      {
+                        title: 'Basic Pay',
+                        dataIndex: 'basicSalary',
+                        key: 'bp',
+                        render: (b) => FinancialEngine.formatINR(b),
+                      },
+                      {
+                        title: 'Incentive (SRS §41)',
+                        dataIndex: 'incentiveAmount',
+                        key: 'inc',
+                        render: (i) => <span className="font-bold text-emerald-700">{FinancialEngine.formatINR(i || 0)}</span>,
+                      },
+                      {
+                        title: 'Gross Salary',
+                        dataIndex: 'grossSalary',
+                        key: 'gs',
+                        render: (g) => FinancialEngine.formatINR(g),
+                      },
+                      {
+                        title: 'Deductions',
+                        dataIndex: 'totalDeductions',
+                        key: 'td',
+                        render: (d) => <span className="text-rose-600">{FinancialEngine.formatINR(d || 0)}</span>,
+                      },
+                      {
+                        title: 'Net Payable',
+                        dataIndex: 'netPayable',
+                        key: 'np',
+                        render: (n) => <span className="font-bold text-slate-900">{FinancialEngine.formatINR(n)}</span>,
+                      },
+                      {
+                        title: 'Status',
+                        dataIndex: 'status',
+                        key: 'st',
+                        render: (s) => (
+                          <Tag color={s === 'DISBURSED' ? 'green' : s === 'APPROVED' ? 'blue' : 'default'}>
+                            {s}
+                          </Tag>
+                        ),
+                      },
+                      {
+                        title: 'Actions',
+                        key: 'act',
+                        render: (_, r) => (
+                          <Space size={4}>
+                            {r.status !== 'DISBURSED' && (
+                              <Popconfirm
+                                title="Disburse Salary"
+                                description="Execute payment and post double-entry disbursement journal (Dr Salaries, Cr Bank)?"
+                                onConfirm={() => handleDisbursePayroll(r.id)}
+                                okText="Disburse"
+                              >
+                                <Button size="small" type="primary" style={{ background: '#059669', borderColor: '#059669' }}>
+                                  Disburse
+                                </Button>
+                              </Popconfirm>
+                            )}
+                            <Button size="small" icon={<PrinterOutlined />} onClick={() => handleViewPayslip(r.id)}>
+                              Payslip
+                            </Button>
+                          </Space>
+                        ),
+                      },
+                    ]}
+                  />
+                </Card>
+              </div>
+            ),
+          },
+          {
+            key: 'data_import',
+            label: renderTabHeader('Data Import', undefined, 'Bulk Data Migration Wizard (SRS §50)', <UploadOutlined className="text-purple-600 text-xs" />),
+            children: (
+              <div className="space-y-4">
+                <Alert
+                  type="info"
+                  showIcon
+                  message="8-Step Legacy Data Migration Utility (SRS §50)"
+                  description="Pre-flight validation checks every row against existing database records to prevent duplicate mobile numbers, verify PIN codes, and maintain double-entry balance integrity before committing."
+                />
+
+                <div className="p-4 bg-white rounded-xl border border-slate-200 shadow-sm space-y-4">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div className="flex items-center gap-3">
+                      <span className="text-xs font-semibold text-slate-700">Entity Type:</span>
+                      <Radio.Group
+                        value={importEntityType}
+                        onChange={(e) => {
+                          setImportEntityType(e.target.value);
+                          setImportValidationResult([]);
+                        }}
+                        size="small"
+                      >
+                        <Radio.Button value="customers">Customers / Members</Radio.Button>
+                        <Radio.Button value="accounts">Accounts (RD / FD)</Radio.Button>
+                        <Radio.Button value="loans">Existing Loans</Radio.Button>
+                      </Radio.Group>
+                    </div>
+
+                    <Button icon={<DownloadOutlined />} size="small" onClick={handleDownloadTemplate}>
+                      Download CSV Template
+                    </Button>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">
+                      Paste CSV Content (or enter records):
+                    </label>
+                    <Input.TextArea
+                      rows={5}
+                      value={importCsvText}
+                      onChange={(e) => setImportCsvText(e.target.value)}
+                      placeholder="e.g. fullName,mobile,dateOfBirth,gender,aadhaar,pan,address,city,state,pinCode&#10;Rajesh Kumar,9876543210,1985-05-15,MALE,123456789012,ABCDE1234F,H.No 123 Sector 4,Delhi,Delhi,110086"
+                      className="font-mono text-xs"
+                    />
+                  </div>
+
+                  <div className="flex justify-between items-center">
+                    <Button
+                      type="primary"
+                      icon={<SafetyCertificateOutlined />}
+                      loading={validatingImport}
+                      onClick={handleValidateCsv}
+                      style={{ background: '#2563eb', borderColor: '#2563eb' }}
+                    >
+                      Pre-Validate CSV Records
+                    </Button>
+
+                    {importValidationResult.length > 0 && (
+                      <Button
+                        type="primary"
+                        icon={<UploadOutlined />}
+                        loading={committingImport}
+                        onClick={handleCommitImport}
+                        style={{ background: '#059669', borderColor: '#059669' }}
+                      >
+                        Commit Valid Records to Database
+                      </Button>
+                    )}
+                  </div>
+                </div>
+
+                {/* Validation Results Table */}
+                {importValidationResult.length > 0 && (
+                  <Card title={`Validation Report (${importValidationResult.length} Rows)`} size="small" className="glass-card">
+                    <Table
+                      size="small"
+                      dataSource={importValidationResult}
+                      rowKey="rowNumber"
+                      pagination={{ pageSize: 5 }}
+                      columns={[
+                        { title: 'Row #', dataIndex: 'rowNumber', key: 'rn', width: 70 },
+                        {
+                          title: 'Primary Data',
+                          key: 'data',
+                          render: (_, r) => (
+                            <span className="font-mono text-xs">
+                              {r.data.fullName || r.data.customerNumber || r.data.principalAmount || JSON.stringify(r.data)}
+                            </span>
+                          ),
+                        },
+                        {
+                          title: 'Validation Status',
+                          key: 'st',
+                          render: (_, r) => (
+                            <Tag color={r.isValid ? 'success' : 'error'}>
+                              {r.isValid ? 'VALID' : 'INVALID'}
+                            </Tag>
+                          ),
+                        },
+                        {
+                          title: 'Errors / Warnings',
+                          key: 'err',
+                          render: (_, r) => (
+                            <div>
+                              {r.errors?.map((err: string, idx: number) => (
+                                <Tag color="error" key={idx} className="mb-0.5">{err}</Tag>
+                              ))}
+                              {r.warnings?.map((w: string, idx: number) => (
+                                <Tag color="warning" key={idx} className="mb-0.5">{w}</Tag>
+                              ))}
+                            </div>
+                          ),
+                        },
+                      ]}
+                    />
+                  </Card>
+                )}
+              </div>
+            ),
+          },
         ]}
+      />
+
+      {/* 7-DAY TRAINING CURRICULUM MODAL (SRS §44) */}
+      <Modal
+        title={
+          <div className="flex items-center gap-2 text-emerald-800">
+            <SafetyCertificateOutlined />
+            <span>7-Day Induction & Practical Training Schedule (SRS §44)</span>
+          </div>
+        }
+        open={trainingModalOpen}
+        onCancel={() => setTrainingModalOpen(false)}
+        width={750}
+        footer={[
+          <Button key="close" onClick={() => setTrainingModalOpen(false)}>
+            Close
+          </Button>,
+        ]}
+      >
+        <div className="space-y-4 py-2">
+          <Alert
+            type="info"
+            showIcon
+            message="Mandatory Operational Certification Guard"
+            description="Employees cannot receive field collection permissions or loan underwriting authority until Day 7 practical examination is marked PASSED (SRS §44)."
+          />
+
+          <Table
+            size="small"
+            dataSource={trainingCurriculum}
+            rowKey="day"
+            pagination={false}
+            columns={[
+              { title: 'Day', dataIndex: 'day', key: 'd', width: 60, render: (d) => <Tag color="blue">Day {d}</Tag> },
+              { title: 'Curriculum Module', dataIndex: 'title', key: 't', render: (t) => <span className="font-semibold text-slate-800">{t}</span> },
+              { title: 'SOP Coverage', dataIndex: 'description', key: 'desc', ellipsis: true },
+              {
+                title: 'Status',
+                dataIndex: 'status',
+                key: 'st',
+                render: (s) => <Tag color={s === 'PASSED' ? 'green' : 'orange'}>{s}</Tag>,
+              },
+              {
+                title: 'Certify',
+                key: 'cert',
+                render: (_, r) => (
+                  <Button
+                    size="small"
+                    type="primary"
+                    disabled={r.status === 'PASSED'}
+                    onClick={() => handlePassTrainingDay(r.day)}
+                    style={r.status !== 'PASSED' ? { background: '#059669', borderColor: '#059669' } : undefined}
+                  >
+                    {r.status === 'PASSED' ? 'Passed' : 'Mark Passed'}
+                  </Button>
+                ),
+              },
+            ]}
+          />
+        </div>
+      </Modal>
+
+      {/* SALARY PAYSLIP MODAL (SRS §49 MODULE 18) */}
+      <PayslipModal
+        open={payslipModalOpen}
+        data={selectedPayslip}
+        onClose={() => setPayslipModalOpen(false)}
       />
 
       {/* Add New Staff Modal */}
@@ -2448,7 +3157,11 @@ export default function SettingsPage() {
               <Descriptions.Item label="Employee ID / Number"><span className="font-mono font-bold text-emerald-800">{viewRecord.employeeNumber}</span></Descriptions.Item>
               <Descriptions.Item label="Designation / Role"><Tag color="purple">{viewRecord.designation || 'STAFF'}</Tag></Descriptions.Item>
               <Descriptions.Item label="Statutory ID (Aadhaar / PAN)">
-                <span className="font-mono font-bold text-emerald-700">{viewRecord.aadhaarOrPan || 'Not Specified'}</span>
+                <span className="font-mono font-bold text-emerald-700">
+                  {viewRecord.aadhaarOrPan && /^\d{12}$/.test(viewRecord.aadhaarOrPan.replace(/\s/g, ''))
+                    ? maskAadhaar(viewRecord.aadhaarOrPan)
+                    : viewRecord.aadhaarOrPan || 'Not Specified'}
+                </span>
               </Descriptions.Item>
               <Descriptions.Item label="Mobile (Login Username)">{viewRecord.mobile}</Descriptions.Item>
               <Descriptions.Item label="Emergency Contact Mobile">{viewRecord.emergencyContact || 'Not Specified'}</Descriptions.Item>

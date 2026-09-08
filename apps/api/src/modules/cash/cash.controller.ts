@@ -19,8 +19,10 @@ import {
   IUser,
 } from '@sanjeevani/shared-types';
 
+import { StaffGuard } from '../../common/guards/staff.guard';
+
 @Controller('api/v1/cash-drawers')
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, StaffGuard)
 export class CashController {
   constructor(private dataStore: DataStoreService) {}
 

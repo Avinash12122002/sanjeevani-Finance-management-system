@@ -149,7 +149,33 @@ export default function DailyClosingPage() {
     },
   ];
 
-  const isLocked = closingData?.status === BusinessDateStatus.LOCKED;
+  const handleManagerApprove = async () => {
+    setSubmitting(true);
+    const targetDate =
+      closingData?.currentBusinessDate ||
+      closingData?.closure?.businessDate ||
+      new Date().toISOString().split('T')[0];
+    const res = await postApi('/daily-closing/manager-approve', {
+      date: targetDate,
+      remarks: 'End-of-day operations verified and approved by Manager.',
+    });
+    setSubmitting(false);
+
+    if (res.success) {
+      message.success('Manager Sign-Off completed successfully! (SRS §19)');
+      loadClosingData();
+    } else {
+      message.error(res.message || res.error || 'Failed to complete manager sign-off');
+    }
+  };
+
+  const isManagerApproved =
+    closingData?.status === 'MANAGER_APPROVED' ||
+    Boolean(closingData?.closure?.managerApprovedBy) ||
+    Boolean(closingData?.managerApprovedBy);
+  const isLocked =
+    closingData?.status === BusinessDateStatus.LOCKED ||
+    isManagerApproved;
 
   return (
     <div className="space-y-6">
@@ -158,11 +184,11 @@ export default function DailyClosingPage() {
         <div>
           <h1 className="text-2xl font-bold text-slate-900 m-0">Daily Closing & Business Date Lock</h1>
           <p className="text-slate-500 text-sm mt-1 m-0">
-            End-of-day multi-stage settlement, ledger locking, cashier reconciliation and date lock enforcement (SRS §63, §64, BR-009, BR-010).
+            End-of-day multi-stage settlement, ledger locking, cashier reconciliation and date lock enforcement (SRS §19, §63, §64, BR-009, BR-010).
           </p>
         </div>
-        <div className="flex gap-2">
-          {!isLocked ? (
+        <div className="flex gap-2 items-center">
+          {closingData?.status === BusinessDateStatus.OPEN && (
             <Button
               type="primary"
               icon={<LockOutlined />}
@@ -172,7 +198,28 @@ export default function DailyClosingPage() {
             >
               Lock Business Date
             </Button>
-          ) : (
+          )}
+
+          {closingData?.status === BusinessDateStatus.LOCKED && !isManagerApproved && (
+            <Button
+              type="primary"
+              icon={<CheckCircleOutlined />}
+              loading={submitting}
+              onClick={handleManagerApprove}
+              style={{ background: '#2563eb', borderColor: '#2563eb', height: 40 }}
+            >
+              Manager Sign-Off (SRS §19)
+            </Button>
+          )}
+
+          {isManagerApproved && (
+            <Tag color="blue" className="py-2 px-3 text-xs font-semibold flex items-center gap-1.5 rounded-lg m-0">
+              <CheckCircleOutlined className="text-blue-600" />
+              <span>Manager Signed Off ({closingData?.managerApprovedByName || closingData?.closure?.managerApprovedByName || 'Verified'})</span>
+            </Tag>
+          )}
+
+          {isLocked && (
             <Button
               danger
               icon={<UnlockOutlined />}
@@ -191,8 +238,22 @@ export default function DailyClosingPage() {
           <Card className="glass-card h-full">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <div className={`w-12 h-12 rounded-xl flex items-center justify-center text-white text-xl ${isLocked ? 'bg-red-600' : 'bg-emerald-600'}`}>
-                  {isLocked ? <LockOutlined /> : <CheckCircleOutlined />}
+                <div
+                  className={`w-12 h-12 rounded-xl flex items-center justify-center text-white text-xl ${
+                    isManagerApproved
+                      ? 'bg-blue-600'
+                      : isLocked
+                      ? 'bg-amber-600'
+                      : 'bg-emerald-600'
+                  }`}
+                >
+                  {isManagerApproved ? (
+                    <CheckCircleOutlined />
+                  ) : isLocked ? (
+                    <LockOutlined />
+                  ) : (
+                    <CheckCircleOutlined />
+                  )}
                 </div>
                 <div>
                   <div className="text-xs text-slate-500 font-semibold uppercase">CURRENT BUSINESS DATE</div>
@@ -201,11 +262,65 @@ export default function DailyClosingPage() {
               </div>
 
               <div>
-                <Tag color={isLocked ? 'error' : 'success'} className="px-4 py-1.5 font-bold text-sm rounded-full">
+                <Tag
+                  color={isManagerApproved ? 'blue' : isLocked ? 'warning' : 'success'}
+                  className="px-4 py-1.5 font-bold text-sm rounded-full"
+                >
                   STATUS: {closingData?.status}
                 </Tag>
               </div>
             </div>
+
+            {/* Dynamic Checklist (SRS §19 / BUG-04) */}
+            {closingData?.checklist && (
+              <div className="mt-6 pt-6 border-t border-slate-100">
+                <div className="text-xs font-bold text-slate-700 uppercase tracking-wider mb-3">
+                  Verification Checklist (SRS §19)
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
+                  <div
+                    className={`p-3 rounded-lg border flex items-center justify-between ${
+                      closingData.checklist.allFieldCollectionsSubmitted
+                        ? 'bg-emerald-50 border-emerald-200 text-emerald-900'
+                        : 'bg-amber-50 border-amber-200 text-amber-900'
+                    }`}
+                  >
+                    <span>Field Collections</span>
+                    <span>
+                      {closingData.checklist.allFieldCollectionsSubmitted
+                        ? '✅ Submitted'
+                        : `⚠️ ${closingData.checklist.pendingTransactionCount || 0} Pending`}
+                    </span>
+                  </div>
+                  <div
+                    className={`p-3 rounded-lg border flex items-center justify-between ${
+                      closingData.checklist.cashierDrawerBalanced
+                        ? 'bg-emerald-50 border-emerald-200 text-emerald-900'
+                        : 'bg-red-50 border-red-200 text-red-900'
+                    }`}
+                  >
+                    <span>Cashier Drawer</span>
+                    <span>
+                      {closingData.checklist.cashierDrawerBalanced ? '✅ Balanced' : '❌ Difference'}
+                    </span>
+                  </div>
+                  <div
+                    className={`p-3 rounded-lg border flex items-center justify-between ${
+                      closingData.checklist.bankTransactionsReconciled
+                        ? 'bg-emerald-50 border-emerald-200 text-emerald-900'
+                        : 'bg-red-50 border-red-200 text-red-900'
+                    }`}
+                  >
+                    <span>Fraud & Mismatch</span>
+                    <span>
+                      {closingData.checklist.bankTransactionsReconciled
+                        ? '✅ Zero Mismatch'
+                        : `❌ ${closingData.checklist.cashMismatchCount || 0} Alerts`}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* 9-Step Closing Workflow Progress (SRS §63) */}
             <div className="mt-6 pt-6 border-t border-slate-100">
@@ -214,7 +329,7 @@ export default function DailyClosingPage() {
               </div>
               <Steps
                 size="small"
-                current={isLocked ? 9 : 6}
+                current={isManagerApproved ? 9 : isLocked ? 8 : 6}
                 items={[
                   { title: 'Collections' },
                   { title: 'Collector Recon' },

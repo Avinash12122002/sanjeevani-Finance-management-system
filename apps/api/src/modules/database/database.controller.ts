@@ -19,7 +19,7 @@ import { IUser, UserRole } from '@sanjeevani/shared-types';
 
 @Controller('api/v1/database')
 @UseGuards(JwtAuthGuard, RolesGuard)
-@Roles(UserRole.SUPER_ADMIN, UserRole.GENERAL_MANAGER, UserRole.BRANCH_MANAGER)
+@Roles(UserRole.SUPER_ADMIN)
 export class DatabaseController {
   constructor(private dataStore: DataStoreService) {}
 
@@ -120,6 +120,12 @@ export class DatabaseController {
     @Param('id') id: string,
     @CurrentUser() user: IUser,
   ) {
+    const IMMUTABLE_FINANCIAL_TABLES = ['audit_logs', 'transactions', 'journal_entries', 'daily_closures'];
+    if (IMMUTABLE_FINANCIAL_TABLES.includes(tableName)) {
+      throw new BadRequestException(
+        `Financial regulatory violation: Direct deletion of records from immutable financial ledger "${tableName}" is strictly prohibited by RBI banking rules.`,
+      );
+    }
     try {
       const res = await this.dataStore.deleteRawTableRow(tableName, id);
       this.dataStore.logAudit(

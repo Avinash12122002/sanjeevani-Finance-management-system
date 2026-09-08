@@ -11,8 +11,10 @@ import {
 } from '@nestjs/common';
 import { DataStoreService } from '../../database/data-store.service';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
+import { StaffGuard } from '../../common/guards/staff.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { FinancialEngine } from '@sanjeevani/financial-engine';
+import { SmsNotificationService } from '../../shared/sms-notification.service';
 import {
   PaymentMode,
   TransactionType,
@@ -25,9 +27,12 @@ import {
 } from '@sanjeevani/shared-types';
 
 @Controller('api/v1/collections')
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, StaffGuard)
 export class CollectionsController {
-  constructor(private dataStore: DataStoreService) {}
+  constructor(
+    private dataStore: DataStoreService,
+    private sms: SmsNotificationService,
+  ) {}
 
   /**
    * Today's Collection Queue for Collector or Cashier (SRS §31, §32)
@@ -131,9 +136,13 @@ export class CollectionsController {
       transactionType = TransactionType.EMI_PAYMENT;
       paymentFor = `Loan EMI (${loan.loanNumber})`;
 
-      // Update next due installment
+      // Update next due installment — includes OVERDUE so past-due payments are correctly marked (BUG-02 FIX)
       nextInst = this.dataStore.loanInstallments.find(
-        (i) => i.loanId === loan.id && (i.status === InstallmentStatus.DUE || i.status === InstallmentStatus.UPCOMING),
+        (i) =>
+          i.loanId === loan.id &&
+          (i.status === InstallmentStatus.DUE ||
+            i.status === InstallmentStatus.UPCOMING ||
+            i.status === InstallmentStatus.OVERDUE),
       );
 
       if (nextInst) {
@@ -300,6 +309,21 @@ export class CollectionsController {
       { amount, receiptNumber, customer: customer.customerNumber },
       `Recorded ${paymentFor} of ₹ ${amount}`,
     );
+
+    // SRS §24: Send payment received SMS to customer (async — do not block response)
+    if (customer.mobile) {
+      const outstandingLoan = body.loanId
+        ? this.dataStore.loans.find((l) => l.id === body.loanId)?.outstandingPrincipal
+        : undefined;
+      this.sms.sendPaymentReceivedSms({
+        mobile: customer.mobile,
+        customerName: `${customer.firstName} ${customer.lastName}`.trim(),
+        amount,
+        receiptNumber,
+        outstandingBalance: outstandingLoan,
+        paymentFor,
+      }).catch((e) => this.dataStore.logAudit('SYSTEM', 'System', 'SMS_FAILED', 'SMS', transaction.id, undefined, { error: e?.message }, 'Payment SMS failed'));
+    }
 
     return {
       message: 'Payment received successfully',

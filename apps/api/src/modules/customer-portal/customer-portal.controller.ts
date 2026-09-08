@@ -8,6 +8,8 @@ import {
   UnauthorizedException,
   NotFoundException,
   BadRequestException,
+  HttpException,
+  HttpStatus,
   Logger,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
@@ -29,6 +31,12 @@ import * as bcrypt from 'bcryptjs';
 
 // Active OTP Store (cleanMobile -> { otp, customerId, expiresAt, attempts, verified?, reqId? })
 const otpStore = new Map<string, { otp: string; customerId: string; expiresAt: number; attempts: number; verified?: boolean; reqId?: string }>();
+
+// Brute-force protection for customer portal (Rate-limiting failed password attempts)
+const portalLoginAttemptsMap = new Map<string, { attempts: number; lockUntil: number; firstAttempt: number }>();
+const PORTAL_MAX_FAILED_ATTEMPTS = 5;
+const PORTAL_LOCKOUT_DURATION_MS = 15 * 60 * 1000; // 15 mins
+const PORTAL_WINDOW_DURATION_MS = 15 * 60 * 1000;
 
 @Controller('api/v1/portal')
 export class CustomerPortalController {
@@ -282,8 +290,8 @@ export class CustomerPortalController {
       throw new BadRequestException('Please provide mobile number, OTP, and your new password');
     }
 
-    if (newPassword.length < 4) {
-      throw new BadRequestException('Password must be at least 4 characters long');
+    if (newPassword.length < 6) {
+      throw new BadRequestException('Password must be at least 6 characters long for banking account security');
     }
 
     const record = otpStore.get(cleanMobile);
@@ -519,7 +527,10 @@ export class CustomerPortalController {
    * 5. RETURNING CUSTOMER: LOGIN WITH PASSWORD
    */
   @Post('login-password')
-  async loginWithPassword(@Body() body: { mobile?: string; password?: string }) {
+  async loginWithPassword(
+    @Body() body: { mobile?: string; password?: string },
+    @Req() req: any,
+  ) {
     await this.dataStore.refreshIfStale();
 
     const cleanMobile = (body.mobile || '').replace(/\D/g, '').slice(-10);
@@ -529,13 +540,43 @@ export class CustomerPortalController {
       throw new BadRequestException('Please provide your mobile number and password');
     }
 
+    const clientIp = (req?.headers?.['x-forwarded-for'] as string) || req?.ip || '127.0.0.1';
+    const rateLimitKey = `${clientIp}:${cleanMobile}`;
+    const now = Date.now();
+
+    const attemptRecord = portalLoginAttemptsMap.get(rateLimitKey);
+    if (attemptRecord) {
+      if (attemptRecord.lockUntil > now) {
+        const remainingMins = Math.ceil((attemptRecord.lockUntil - now) / 60000);
+        throw new HttpException(
+          `Too many failed password attempts. Access temporarily locked for ${remainingMins} minute(s) for your account protection. Please sign in via Mobile OTP.`,
+          HttpStatus.TOO_MANY_REQUESTS,
+        );
+      }
+      if (now - attemptRecord.firstAttempt > PORTAL_WINDOW_DURATION_MS) {
+        portalLoginAttemptsMap.delete(rateLimitKey);
+      }
+    }
+
     const customer = this.dataStore.customers.find((c) => {
       const cMob = (c.mobile || '').replace(/\D/g, '').slice(-10);
       return cMob === cleanMobile;
     });
 
     if (!customer) {
-      throw new UnauthorizedException('No account found with this mobile number.');
+      const record = portalLoginAttemptsMap.get(rateLimitKey) || { attempts: 0, lockUntil: 0, firstAttempt: now };
+      record.attempts += 1;
+      if (record.attempts >= PORTAL_MAX_FAILED_ATTEMPTS) {
+        record.lockUntil = now + PORTAL_LOCKOUT_DURATION_MS;
+      }
+      portalLoginAttemptsMap.set(rateLimitKey, record);
+
+      const remaining = Math.max(0, PORTAL_MAX_FAILED_ATTEMPTS - record.attempts);
+      throw new UnauthorizedException(
+        remaining > 0
+          ? `Invalid login credentials. ${remaining} attempt(s) remaining before temporary lockout.`
+          : 'Too many failed login attempts. Access locked for 15 minutes. Please sign in with OTP.',
+      );
     }
 
     const customPass = this.dataStore.getCustomerPassword(customer.id);
@@ -556,8 +597,33 @@ export class CustomerPortalController {
     }
 
     if (!isValidPass) {
-      throw new UnauthorizedException('Incorrect password. Please try again or log in with OTP.');
+      const record = portalLoginAttemptsMap.get(rateLimitKey) || { attempts: 0, lockUntil: 0, firstAttempt: now };
+      record.attempts += 1;
+      if (record.attempts >= PORTAL_MAX_FAILED_ATTEMPTS) {
+        record.lockUntil = now + PORTAL_LOCKOUT_DURATION_MS;
+      }
+      portalLoginAttemptsMap.set(rateLimitKey, record);
+
+      this.dataStore.logAudit(
+        'SYSTEM_SECURITY',
+        customer.customerNumber || cleanMobile,
+        'FAILED_PORTAL_PASSWORD_LOGIN',
+        'Customer',
+        customer.id,
+        undefined,
+        { clientIp, attempts: record.attempts },
+        `Failed password login for customer ${cleanMobile} (Attempt ${record.attempts}/${PORTAL_MAX_FAILED_ATTEMPTS})`,
+      );
+
+      const remaining = Math.max(0, PORTAL_MAX_FAILED_ATTEMPTS - record.attempts);
+      throw new UnauthorizedException(
+        remaining > 0
+          ? `Incorrect password. ${remaining} attempt(s) remaining before temporary lockout.`
+          : 'Too many failed password attempts. Access locked for 15 minutes. Please sign in with OTP.',
+      );
     }
+
+    portalLoginAttemptsMap.delete(rateLimitKey);
 
     const fullName = `${customer.firstName} ${customer.lastName || ''}`.trim();
     const payload = {
@@ -607,12 +673,33 @@ export class CustomerPortalController {
    * 7. LEGACY LOGIN (Customer ID or Mobile + Password)
    */
   @Post('login')
-  async login(@Body() body: { identifier?: string; password?: string }) {
+  async login(
+    @Body() body: { identifier?: string; password?: string },
+    @Req() req: any,
+  ) {
     await this.dataStore.refreshIfStale();
 
     const { identifier, password } = body;
     if (!identifier || !password) {
       throw new BadRequestException('Please provide your Customer ID or Mobile Number and Password');
+    }
+
+    const clientIp = (req?.headers?.['x-forwarded-for'] as string) || req?.ip || '127.0.0.1';
+    const rateLimitKey = `${clientIp}:${identifier.trim().toLowerCase()}`;
+    const now = Date.now();
+
+    const attemptRecord = portalLoginAttemptsMap.get(rateLimitKey);
+    if (attemptRecord) {
+      if (attemptRecord.lockUntil > now) {
+        const remainingMins = Math.ceil((attemptRecord.lockUntil - now) / 60000);
+        throw new HttpException(
+          `Too many failed password attempts. Access temporarily locked for ${remainingMins} minute(s) for your account protection. Please sign in via Mobile OTP.`,
+          HttpStatus.TOO_MANY_REQUESTS,
+        );
+      }
+      if (now - attemptRecord.firstAttempt > PORTAL_WINDOW_DURATION_MS) {
+        portalLoginAttemptsMap.delete(rateLimitKey);
+      }
     }
 
     const cleanId = identifier.trim().toLowerCase();
@@ -624,21 +711,67 @@ export class CustomerPortalController {
     );
 
     if (!customer) {
-      throw new UnauthorizedException('No account found with this Customer ID or Mobile Number.');
+      const record = portalLoginAttemptsMap.get(rateLimitKey) || { attempts: 0, lockUntil: 0, firstAttempt: now };
+      record.attempts += 1;
+      if (record.attempts >= PORTAL_MAX_FAILED_ATTEMPTS) {
+        record.lockUntil = now + PORTAL_LOCKOUT_DURATION_MS;
+      }
+      portalLoginAttemptsMap.set(rateLimitKey, record);
+
+      const remaining = Math.max(0, PORTAL_MAX_FAILED_ATTEMPTS - record.attempts);
+      throw new UnauthorizedException(
+        remaining > 0
+          ? `Invalid login credentials. ${remaining} attempt(s) remaining before temporary lockout.`
+          : 'Too many failed login attempts. Access locked for 15 minutes. Please sign in with OTP.',
+      );
     }
 
     const customPass = this.dataStore.getCustomerPassword(customer.id);
-    const last4Mobile = customer.mobile ? customer.mobile.slice(-4) : '1234';
-    const isValidPass = customPass
-      ? customPass === password
-      : password === 'Pass@123' ||
-      password === 'Password@123' ||
-      password === last4Mobile ||
-      (customer.dateOfBirth && password === customer.dateOfBirth.replace(/-/g, ''));
+    if (!customPass) {
+      throw new UnauthorizedException(
+        'No password has been set for this account yet. Please sign in via Mobile OTP to verify your identity and set a password.',
+      );
+    }
+
+    let isValidPass = false;
+    if (/^\$2[aby]\$\d{2}\$/.test(customPass)) {
+      isValidPass = bcrypt.compareSync(password, customPass);
+    } else {
+      isValidPass = customPass === password;
+      if (isValidPass) {
+        const upgraded = bcrypt.hashSync(password, 10);
+        await this.dataStore.saveCustomerPassword(customer.id, upgraded);
+      }
+    }
 
     if (!isValidPass) {
-      throw new UnauthorizedException('Invalid password.');
+      const record = portalLoginAttemptsMap.get(rateLimitKey) || { attempts: 0, lockUntil: 0, firstAttempt: now };
+      record.attempts += 1;
+      if (record.attempts >= PORTAL_MAX_FAILED_ATTEMPTS) {
+        record.lockUntil = now + PORTAL_LOCKOUT_DURATION_MS;
+      }
+      portalLoginAttemptsMap.set(rateLimitKey, record);
+
+      this.dataStore.logAudit(
+        'SYSTEM_SECURITY',
+        customer.customerNumber || cleanId,
+        'FAILED_PORTAL_PASSWORD_LOGIN',
+        'Customer',
+        customer.id,
+        undefined,
+        { clientIp, attempts: record.attempts },
+        `Failed password login for customer ${cleanId} (Attempt ${record.attempts}/${PORTAL_MAX_FAILED_ATTEMPTS})`,
+      );
+
+      const remaining = Math.max(0, PORTAL_MAX_FAILED_ATTEMPTS - record.attempts);
+      throw new UnauthorizedException(
+        remaining > 0
+          ? `Invalid login credentials. ${remaining} attempt(s) remaining before temporary lockout.`
+          : 'Too many failed login attempts. Access locked for 15 minutes. Please sign in with OTP.',
+      );
     }
+
+    portalLoginAttemptsMap.delete(rateLimitKey);
 
     const fullName = `${customer.firstName} ${customer.lastName || ''}`.trim();
     const payload = {
@@ -871,8 +1004,21 @@ export class CustomerPortalController {
     @Body() body: { currentPassword?: string; newPassword?: string },
   ) {
     const customerId = req.user?.customerId || req.user?.sub;
-    if (!body.newPassword || body.newPassword.length < 4) {
-      throw new BadRequestException('New password must be at least 4 characters long');
+    if (!body.newPassword || body.newPassword.length < 6) {
+      throw new BadRequestException('New password must be at least 6 characters long');
+    }
+
+    const storedPass = this.dataStore.getCustomerPassword(customerId);
+    if (storedPass) {
+      if (!body.currentPassword) {
+        throw new BadRequestException('Current password is required to set a new password');
+      }
+      const isValid = /^\$2[aby]\$\d{2}\$/.test(storedPass)
+        ? bcrypt.compareSync(body.currentPassword, storedPass)
+        : storedPass === body.currentPassword;
+      if (!isValid) {
+        throw new UnauthorizedException('Current password does not match. Please enter your existing password correctly.');
+      }
     }
 
     await this.dataStore.saveCustomerPassword(customerId, body.newPassword);
@@ -910,13 +1056,13 @@ export class CustomerPortalController {
     });
 
     await this.dispatchMsg91Otp(cleanMobile, otp);
-    const hasAuthKey = Boolean(process.env.MSG91_AUTH_KEY);
+    const allowDevOtp = process.env.ALLOW_DEV_OTP === 'true' && process.env.NODE_ENV !== 'production';
 
     return {
       success: true,
       message: `Verification OTP sent to +91 ******${cleanMobile.slice(-4)} via SMS.`,
       data: {
-        devOtp: !hasAuthKey || process.env.NODE_ENV !== 'production' ? otp : undefined,
+        devOtp: allowDevOtp ? otp : undefined,
       },
     };
   }
@@ -947,8 +1093,8 @@ export class CustomerPortalController {
       throw new BadRequestException('Please provide the OTP and your new password');
     }
 
-    if (newPassword.length < 4) {
-      throw new BadRequestException('New password must be at least 4 characters long');
+    if (newPassword.length < 6) {
+      throw new BadRequestException('New password must be at least 6 characters long for banking account security');
     }
 
     const record = otpStore.get(cleanMobile);

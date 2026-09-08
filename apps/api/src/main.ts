@@ -18,13 +18,25 @@ async function bootstrap() {
   // 1. Security Hardening Middleware (SRS §82)
   app.use(
     helmet({
-      contentSecurityPolicy: false, // Allows Next.js & Ant Design UI hydration
+      contentSecurityPolicy: false, // Handled per-client; allows Next.js & Ant Design UI hydration
       crossOriginEmbedderPolicy: false,
       hidePoweredBy: true,
       xssFilter: true,
       noSniff: true,
+      hsts: {
+        maxAge: 31536000, // 1 year Strict-Transport-Security
+        includeSubDomains: true,
+        preload: true,
+      },
+      frameguard: {
+        action: 'sameorigin',
+      },
     }),
   );
+
+  // 1.5 Payload Size Protection (Prevent DoS through oversized request bodies)
+  app.use(express.json({ limit: '10mb' }));
+  app.use(express.urlencoded({ limit: '10mb', extended: true }));
 
   // 2. Performance Compression
   app.use(compression());

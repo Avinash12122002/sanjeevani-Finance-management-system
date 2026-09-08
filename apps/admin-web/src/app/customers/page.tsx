@@ -38,6 +38,7 @@ import {
   CheckCircleOutlined,
   ClockCircleOutlined,
   ShareAltOutlined,
+  PrinterOutlined,
   UploadOutlined,
   DownloadOutlined,
   FileExcelOutlined,
@@ -50,6 +51,8 @@ import {
 import { fetchApi, postApi, patchApi, deleteApi } from '@/lib/api-client';
 import { FinancialEngine } from '@sanjeevani/financial-engine';
 import { ICustomer } from '@sanjeevani/shared-types';
+import { CustomerDocumentsModal } from '@/components/print/DocumentTemplates';
+import { maskAadhaar } from '@/lib/html-sanitizer';
 
 export default function CustomersPage() {
   const [customers, setCustomers] = useState<ICustomer[]>([]);
@@ -71,6 +74,8 @@ export default function CustomersPage() {
   // KYC Document Scans State (§6, §47)
   const [customerDocs, setCustomerDocs] = useState<any[]>([]);
   const [docsLoading, setDocsLoading] = useState(false);
+  const [printDocModalOpen, setPrintDocModalOpen] = useState(false);
+  const [printDocCustomer, setPrintDocCustomer] = useState<any>(null);
   const [uploadingDoc, setUploadingDoc] = useState(false);
   const [selectedDocType, setSelectedDocType] = useState<string>('AADHAAR_FRONT');
 
@@ -410,6 +415,17 @@ export default function CustomersPage() {
             onClick={() => handleOpenEditCustomer(r)}
           >
             Edit
+          </Button>
+          <Button
+            size="small"
+            icon={<PrinterOutlined />}
+            onClick={() => {
+              setPrintDocCustomer(r);
+              setPrintDocModalOpen(true);
+            }}
+            title="Print Official Documents (SRS §47)"
+          >
+            Docs
           </Button>
           <Popconfirm
             title="Delete Member"
@@ -1015,7 +1031,11 @@ export default function CustomersPage() {
                         </Descriptions.Item>
                         <Descriptions.Item label="Aadhaar UID">
                           <span className="font-mono text-xs font-semibold">
-                            {selectedCustomer360.profile.aadhaar || <Tag color="default">Not Provided</Tag>}
+                            {selectedCustomer360.profile.aadhaar ? (
+                              maskAadhaar(selectedCustomer360.profile.aadhaar)
+                            ) : (
+                              <Tag color="default">Not Provided</Tag>
+                            )}
                           </span>
                         </Descriptions.Item>
                         <Descriptions.Item label="Income Tax PAN">
@@ -1375,6 +1395,13 @@ export default function CustomersPage() {
           )}
         </div>
       </Modal>
+
+      {/* ALL 12 CUSTOMER LEGAL DOCUMENT TEMPLATES MODAL (SRS §47) */}
+      <CustomerDocumentsModal
+        open={printDocModalOpen}
+        customer={printDocCustomer}
+        onClose={() => setPrintDocModalOpen(false)}
+      />
     </div>
   );
 }

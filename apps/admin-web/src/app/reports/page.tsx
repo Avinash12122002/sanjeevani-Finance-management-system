@@ -15,7 +15,9 @@ import {
   Row,
   Col,
   Radio,
+  Statistic,
   message,
+  DatePicker,
 } from 'antd';
 import {
   PieChartOutlined,
@@ -26,9 +28,15 @@ import {
   CheckSquareOutlined,
   SafetyCertificateOutlined,
   UserOutlined,
+  FileTextOutlined,
+  ClockCircleOutlined,
+  DollarCircleOutlined,
+  RiseOutlined,
+  WarningOutlined,
 } from '@ant-design/icons';
 import { fetchApi } from '@/lib/api-client';
 import { FinancialEngine } from '@sanjeevani/financial-engine';
+import dayjs from 'dayjs';
 
 export default function ReportsPage() {
   const [activeReport, setActiveReport] = useState('daily_collection');
@@ -39,6 +47,20 @@ export default function ReportsPage() {
   const [loading, setLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [reportPeriod, setReportPeriod] = useState('all');
+  const [customDate, setCustomDate] = useState<string | null>(null);
+
+  // Dedicated MIS Report States (§30, §52)
+  const [monthlyMis, setMonthlyMis] = useState<any>(null);
+  const [loanOutstanding, setLoanOutstanding] = useState<any>(null);
+  const [overdueAging, setOverdueAging] = useState<any>(null);
+  const [rdDue, setRdDue] = useState<any>(null);
+  const [depositMaturity, setDepositMaturity] = useState<any>(null);
+
+  const [selectedMonth, setSelectedMonth] = useState(() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+  });
+  const [projectionDays, setProjectionDays] = useState(30);
 
   // Surprise Audit Sampler State (§36)
   const [auditModalOpen, setAuditModalOpen] = useState(false);
@@ -88,12 +110,100 @@ export default function ReportsPage() {
     setLoading(false);
   };
 
+  // Load Monthly MIS Report
+  const loadMonthlyMis = async (month: string) => {
+    setLoading(true);
+    try {
+      const res = await fetchApi(`/accounting/reports/monthly-mis?month=${month}`);
+      if (res.success && res.data) {
+        setMonthlyMis(res.data);
+      }
+    } catch {
+      message.error('Failed to load Monthly MIS report');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Load Loan Outstanding Report
+  const loadLoanOutstanding = async () => {
+    setLoading(true);
+    try {
+      const res = await fetchApi('/accounting/reports/loan-outstanding-report');
+      if (res.success && res.data) {
+        setLoanOutstanding(res.data);
+      }
+    } catch {
+      message.error('Failed to load Loan Outstanding report');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Load Overdue Aging Report
+  const loadOverdueAging = async () => {
+    setLoading(true);
+    try {
+      const res = await fetchApi('/accounting/reports/overdue-aging-report');
+      if (res.success && res.data) {
+        setOverdueAging(res.data);
+      }
+    } catch {
+      message.error('Failed to load Overdue Aging report');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Load RD Due Report
+  const loadRdDue = async () => {
+    setLoading(true);
+    try {
+      const res = await fetchApi('/accounting/reports/rd-due-report');
+      if (res.success && res.data) {
+        setRdDue(res.data);
+      }
+    } catch {
+      message.error('Failed to load RD Due report');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Load Deposit Maturity Report
+  const loadDepositMaturity = async (days: number) => {
+    setLoading(true);
+    try {
+      const res = await fetchApi(`/accounting/reports/deposit-maturity-report?days=${days}`);
+      if (res.success && res.data) {
+        setDepositMaturity(res.data);
+      }
+    } catch {
+      message.error('Failed to load Deposit Maturity report');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Auto-fetch on tab change
+  const handleTabChange = (key: string) => {
+    setActiveReport(key);
+    if (key === 'monthly_mis' && !monthlyMis) loadMonthlyMis(selectedMonth);
+    if (key === 'loan_outstanding' && !loanOutstanding) loadLoanOutstanding();
+    if (key === 'overdue_aging' && !overdueAging) loadOverdueAging();
+    if (key === 'rd_due' && !rdDue) loadRdDue();
+    if (key === 'deposit_maturity' && !depositMaturity) loadDepositMaturity(projectionDays);
+  };
+
   const exportCSV = (data: any[], filename: string) => {
-    if (!data.length) return;
+    if (!data || !data.length) {
+      message.warning('No records available to export');
+      return;
+    }
     const keys = Object.keys(data[0]);
     const csvContent =
       'data:text/csv;charset=utf-8,' +
-      [keys.join(','), ...data.map((row) => keys.map((k) => JSON.stringify(row[k] || '')).join(','))].join('\n');
+      [keys.join(','), ...data.map((row) => keys.map((k) => JSON.stringify(row[k] ?? '')).join(','))].join('\n');
 
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement('a');
@@ -102,12 +212,31 @@ export default function ReportsPage() {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+    message.success(`Exported ${filename}.csv`);
   };
 
   const q = searchQuery.toLowerCase().trim();
-  const filteredTransactions = transactions.filter((t) =>
-    !q || t.transactionNumber?.toLowerCase().includes(q) || t.customerName?.toLowerCase().includes(q) || t.paymentMode?.toLowerCase().includes(q)
-  );
+  const filteredTransactions = transactions.filter((t) => {
+    const matchesSearch =
+      !q ||
+      t.transactionNumber?.toLowerCase().includes(q) ||
+      t.customerName?.toLowerCase().includes(q) ||
+      t.paymentMode?.toLowerCase().includes(q);
+    if (!matchesSearch) return false;
+
+    if (reportPeriod === 'today') {
+      const todayStr = new Date().toISOString().split('T')[0];
+      return t.transactionDate && t.transactionDate.startsWith(todayStr);
+    }
+    if (reportPeriod === 'month') {
+      const monthStr = new Date().toISOString().slice(0, 7);
+      return t.transactionDate && t.transactionDate.startsWith(monthStr);
+    }
+    if (reportPeriod === 'custom' && customDate) {
+      return t.transactionDate && t.transactionDate.startsWith(customDate);
+    }
+    return true;
+  });
   const filteredLoans = loans.filter((l) =>
     !q || l.loanNumber?.toLowerCase().includes(q) || l.customerName?.toLowerCase().includes(q)
   );
@@ -122,6 +251,16 @@ export default function ReportsPage() {
     switch (activeReport) {
       case 'daily_collection':
         return filteredTransactions;
+      case 'loan_outstanding':
+        return loanOutstanding?.loans || filteredLoans;
+      case 'overdue_aging':
+        return overdueAging?.loans || [];
+      case 'rd_due':
+        return rdDue?.accounts || [];
+      case 'deposit_maturity':
+        return depositMaturity?.accounts || [];
+      case 'monthly_mis':
+        return monthlyMis ? [monthlyMis] : [];
       case 'loan_portfolio':
       case 'loans':
         return filteredLoans;
@@ -145,7 +284,7 @@ export default function ReportsPage() {
         <div>
           <h1 className="text-2xl font-bold text-slate-900 m-0">Financial Reports & Regulatory MIS</h1>
           <p className="text-slate-500 text-sm mt-1 m-0">
-            25+ mandatory operational and financial statements, audit trail exports, and PAR delinquency analysis (SRS §68, §106).
+            Mandatory operational and financial statements, monthly MIS, overdue aging (PAR), and audit trail exports (SRS §30, §52, §68).
           </p>
         </div>
         <Space>
@@ -172,7 +311,7 @@ export default function ReportsPage() {
 
       <Card className="glass-card">
         <Row gutter={[12, 12]} className="mb-4" align="middle">
-          <Col xs={24} sm={14} md={10}>
+          <Col xs={24} sm={14} md={reportPeriod === 'custom' ? 8 : 10}>
             <Input
               placeholder="Search / filter statement records..."
               value={searchQuery}
@@ -181,32 +320,55 @@ export default function ReportsPage() {
               prefix={<PieChartOutlined className="text-slate-400 mr-1" />}
             />
           </Col>
-          <Col xs={24} sm={10} md={6}>
+          <Col xs={24} sm={10} md={reportPeriod === 'custom' ? 5 : 6}>
             <Select
               value={reportPeriod}
-              onChange={setReportPeriod}
+              onChange={(val) => {
+                setReportPeriod(val);
+                if (val !== 'custom') setCustomDate(null);
+              }}
               style={{ width: '100%' }}
               options={[
                 { value: 'all', label: 'All Dates (Historical)' },
                 { value: 'today', label: 'Today Only' },
                 { value: 'month', label: 'Current Month' },
+                { value: 'custom', label: 'Custom Date' },
               ]}
             />
           </Col>
-          <Col xs={24} md={8} className="text-left md:text-right">
+          {reportPeriod === 'custom' && (
+            <Col xs={24} sm={10} md={5}>
+              <DatePicker
+                placeholder="Select Date"
+                style={{ width: '100%' }}
+                value={customDate ? dayjs(customDate) : null}
+                onChange={(_, dateStr) => {
+                  const val = Array.isArray(dateStr) ? dateStr[0] : dateStr;
+                  setCustomDate(val || null);
+                }}
+              />
+            </Col>
+          )}
+          <Col xs={24} md={reportPeriod === 'custom' ? 6 : 8} className="text-left md:text-right">
             <span className="text-xs text-slate-500">
-              Showing <strong className="text-slate-800">{getActiveData().length}</strong> matching records
+              Active View: <strong className="text-emerald-800 uppercase font-mono">{activeReport.replace('_', ' ')}</strong>
             </span>
           </Col>
         </Row>
 
         <Tabs
           defaultActiveKey="daily_collection"
-          onChange={(k) => setActiveReport(k)}
+          activeKey={activeReport}
+          onChange={handleTabChange}
           items={[
             {
               key: 'daily_collection',
-              label: 'Daily Collection Statement (§68)',
+              label: (
+                <span className="flex items-center gap-1.5 font-semibold text-emerald-700">
+                  <DollarCircleOutlined />
+                  <span>Daily Collection Statement (§68)</span>
+                </span>
+              ),
               children: (
                 <Table
                   size="small"
@@ -227,35 +389,344 @@ export default function ReportsPage() {
               ),
             },
             {
-              key: 'loan_portfolio',
+              key: 'monthly_mis',
               label: (
-                <span className="flex items-center gap-1.5">
-                  <PieChartOutlined />
-                  <span>Loan Outstanding Portfolio (§68)</span>
+                <span className="flex items-center gap-1.5 font-semibold text-emerald-700">
+                  <FileTextOutlined />
+                  <span>Monthly MIS Report (§52 #10)</span>
                 </span>
               ),
               children: (
-                <Table
-                  size="small"
-                  dataSource={filteredLoans}
-                  rowKey="id"
-                  loading={loading}
-                  pagination={{ pageSize: 10 }}
-                  columns={[
-                    { title: 'Loan ID', dataIndex: 'loanNumber', key: 'num', render: (l) => <span className="font-mono font-bold text-blue-700">{l}</span> },
-                    { title: 'Member', dataIndex: 'customerName', key: 'name', ellipsis: true },
-                    { title: 'Principal Disbursed', dataIndex: 'principal', key: 'p', render: (p) => FinancialEngine.formatINR(p) },
-                    { title: 'Outstanding Balance', dataIndex: 'outstandingPrincipal', key: 'out', render: (o) => <span className="font-bold text-red-600">{FinancialEngine.formatINR(o)}</span> },
-                    { title: 'Monthly EMI', dataIndex: 'emiAmount', key: 'emi', render: (e) => FinancialEngine.formatINR(e) },
-                    { title: 'Overdue PAR', dataIndex: 'overdueAmount', key: 'ov', render: (ov) => <Tag color={ov > 0 ? 'error' : 'success'}>{FinancialEngine.formatINR(ov || 0)}</Tag> },
-                    { title: 'Bucket', dataIndex: 'recoveryBucket', key: 'bkt', render: (b) => <Tag>{b}</Tag> },
-                  ]}
-                />
+                <div className="space-y-4">
+                  <div className="flex flex-wrap items-center justify-between p-3 bg-slate-50 border border-slate-200 rounded-xl gap-3">
+                    <div className="flex items-center gap-3">
+                      <span className="text-sm font-semibold text-slate-700">MIS Month:</span>
+                      <DatePicker
+                        picker="month"
+                        value={selectedMonth ? dayjs(selectedMonth, 'YYYY-MM') : null}
+                        onChange={(_, dateString) => {
+                          const val = Array.isArray(dateString) ? dateString[0] : dateString;
+                          if (val) {
+                            setSelectedMonth(val);
+                            loadMonthlyMis(val);
+                          }
+                        }}
+                        allowClear={false}
+                        style={{ width: 160 }}
+                      />
+                      <Button
+                        icon={<SyncOutlined spin={loading} />}
+                        onClick={() => loadMonthlyMis(selectedMonth)}
+                      >
+                        Refresh
+                      </Button>
+                    </div>
+                    {monthlyMis && (
+                      <Tag color="green" className="text-sm py-1 px-3">
+                        Status: Generated ({monthlyMis.month})
+                      </Tag>
+                    )}
+                  </div>
+
+                  {monthlyMis ? (
+                    <div className="space-y-4">
+                      <Row gutter={[16, 16]}>
+                        <Col xs={24} sm={12} lg={6}>
+                          <Card className="border border-slate-200 shadow-sm">
+                            <Statistic
+                              title="Active Members"
+                              value={monthlyMis.members?.closing || 0}
+                              prefix={<UserOutlined className="text-blue-600" />}
+                              suffix={<span className="text-xs text-slate-500">(+{monthlyMis.members?.newInMonth || 0} new)</span>}
+                            />
+                          </Card>
+                        </Col>
+                        <Col xs={24} sm={12} lg={6}>
+                          <Card className="border border-slate-200 shadow-sm">
+                            <Statistic
+                              title="Deposit Balance"
+                              value={monthlyMis.deposits?.totalBalance || 0}
+                              formatter={(val) => FinancialEngine.formatINR(Number(val))}
+                              prefix={<DollarCircleOutlined className="text-emerald-600" />}
+                            />
+                          </Card>
+                        </Col>
+                        <Col xs={24} sm={12} lg={6}>
+                          <Card className="border border-slate-200 shadow-sm">
+                            <Statistic
+                              title="Loan Outstanding"
+                              value={monthlyMis.loans?.totalOutstandingPrincipal || 0}
+                              formatter={(val) => FinancialEngine.formatINR(Number(val))}
+                              prefix={<RiseOutlined className="text-purple-600" />}
+                            />
+                          </Card>
+                        </Col>
+                        <Col xs={24} sm={12} lg={6}>
+                          <Card className="border border-slate-200 shadow-sm">
+                            <Statistic
+                              title="Net Surplus / (Deficit)"
+                              value={monthlyMis.financials?.netSurplusOrDeficit || 0}
+                              formatter={(val) => FinancialEngine.formatINR(Number(val))}
+                              valueStyle={{ color: (monthlyMis.financials?.netSurplusOrDeficit || 0) >= 0 ? '#059669' : '#dc2626' }}
+                            />
+                          </Card>
+                        </Col>
+                      </Row>
+
+                      {/* Financial Performance Table */}
+                      <Card title="Revenue & Expense Summary" size="small">
+                        <Table
+                          size="small"
+                          pagination={false}
+                          dataSource={[
+                            { metric: 'Interest Income from Loans', value: monthlyMis.financials?.interestIncome, type: 'INCOME' },
+                            { metric: 'Fee & Other Operating Income', value: monthlyMis.financials?.feeAndOtherIncome, type: 'INCOME' },
+                            { metric: 'Total Gross Operating Income', value: monthlyMis.financials?.totalIncome, type: 'TOTAL_INCOME' },
+                            { metric: 'Operating & Admin Expenses', value: monthlyMis.financials?.operatingExpenses, type: 'EXPENSE' },
+                            { metric: 'Net Operating Surplus / (Deficit)', value: monthlyMis.financials?.netSurplusOrDeficit, type: 'NET' },
+                          ]}
+                          columns={[
+                            { title: 'Line Item / Head', dataIndex: 'metric', key: 'm', render: (m, r: any) => r.type.startsWith('TOTAL') || r.type === 'NET' ? <strong>{m}</strong> : m },
+                            {
+                              title: 'Amount (INR)',
+                              dataIndex: 'value',
+                              key: 'v',
+                              align: 'right',
+                              render: (v, r: any) => (
+                                <span className={r.type === 'NET' ? (v >= 0 ? 'font-bold text-emerald-700' : 'font-bold text-red-600') : r.type === 'TOTAL_INCOME' ? 'font-bold text-blue-700' : ''}>
+                                  {FinancialEngine.formatINR(v || 0)}
+                                </span>
+                              ),
+                            },
+                          ]}
+                        />
+                      </Card>
+
+                      {/* Portfolio Quality Breakdown */}
+                      <Card title="Portfolio Quality & NPA Breakdown (SRS §15)" size="small">
+                        <Row gutter={[16, 16]}>
+                          <Col xs={12} sm={6}>
+                            <div className="p-3 bg-emerald-50 rounded-lg border border-emerald-200 text-center">
+                              <div className="text-xs text-emerald-700 font-semibold">Current (0 DPD)</div>
+                              <div className="text-lg font-bold text-emerald-900">{FinancialEngine.formatINR(monthlyMis.portfolioQuality?.parCurrent || 0)}</div>
+                            </div>
+                          </Col>
+                          <Col xs={12} sm={6}>
+                            <div className="p-3 bg-amber-50 rounded-lg border border-amber-200 text-center">
+                              <div className="text-xs text-amber-700 font-semibold">1-30 DPD (Yellow)</div>
+                              <div className="text-lg font-bold text-amber-900">{FinancialEngine.formatINR(monthlyMis.portfolioQuality?.parBucket1_30 || 0)}</div>
+                            </div>
+                          </Col>
+                          <Col xs={12} sm={6}>
+                            <div className="p-3 bg-orange-50 rounded-lg border border-orange-200 text-center">
+                              <div className="text-xs text-orange-700 font-semibold">31-90 DPD (Orange)</div>
+                              <div className="text-lg font-bold text-orange-900">{FinancialEngine.formatINR((monthlyMis.portfolioQuality?.parBucket31_60 || 0) + (monthlyMis.portfolioQuality?.parBucket61_90 || 0))}</div>
+                            </div>
+                          </Col>
+                          <Col xs={12} sm={6}>
+                            <div className="p-3 bg-red-50 rounded-lg border border-red-200 text-center">
+                              <div className="text-xs text-red-700 font-semibold">90+ DPD (NPA)</div>
+                              <div className="text-lg font-bold text-red-900">{FinancialEngine.formatINR(monthlyMis.portfolioQuality?.npa90Plus || 0)}</div>
+                              <Tag color="error" className="mt-1">NPA: {monthlyMis.portfolioQuality?.npaRatioPercent || 0}%</Tag>
+                            </div>
+                          </Col>
+                        </Row>
+                      </Card>
+                    </div>
+                  ) : (
+                    <div className="p-8 text-center text-slate-500">
+                      Click Refresh to generate the Monthly MIS report for {selectedMonth}.
+                    </div>
+                  )}
+                </div>
+              ),
+            },
+            {
+              key: 'loan_outstanding',
+              label: (
+                <span className="flex items-center gap-1.5 font-semibold text-blue-700">
+                  <RiseOutlined />
+                  <span>Loan Outstanding Report (§52 #7)</span>
+                </span>
+              ),
+              children: (
+                <div className="space-y-4">
+                  {loanOutstanding?.summary && (
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                      <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg">
+                        <div className="text-xs text-slate-500">Active Loans</div>
+                        <div className="text-lg font-bold text-slate-900">{loanOutstanding.summary.totalLoansCount}</div>
+                      </div>
+                      <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg">
+                        <div className="text-xs text-slate-500">Total Sanctioned</div>
+                        <div className="text-lg font-bold text-blue-700">{FinancialEngine.formatINR(loanOutstanding.summary.totalSanctionedPrincipal)}</div>
+                      </div>
+                      <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg">
+                        <div className="text-xs text-slate-500">Total Outstanding</div>
+                        <div className="text-lg font-bold text-purple-700">{FinancialEngine.formatINR(loanOutstanding.summary.totalOutstandingPrincipal)}</div>
+                      </div>
+                      <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg">
+                        <div className="text-xs text-slate-500">Total Overdue</div>
+                        <div className="text-lg font-bold text-red-600">{FinancialEngine.formatINR(loanOutstanding.summary.totalOverdueAmount)}</div>
+                      </div>
+                    </div>
+                  )}
+                  <Table
+                    size="small"
+                    dataSource={loanOutstanding?.loans || filteredLoans}
+                    rowKey="id"
+                    loading={loading}
+                    pagination={{ pageSize: 10 }}
+                    columns={[
+                      { title: 'Loan ID', dataIndex: 'loanNumber', key: 'num', render: (l) => <span className="font-mono font-bold text-blue-700">{l}</span> },
+                      { title: 'Borrower', dataIndex: 'customerName', key: 'name', ellipsis: true },
+                      { title: 'Sanctioned Principal', dataIndex: 'principal', key: 'p', render: (p) => FinancialEngine.formatINR(p) },
+                      { title: 'Current Outstanding', dataIndex: 'outstandingPrincipal', key: 'out', render: (o) => <span className="font-bold text-slate-900">{FinancialEngine.formatINR(o)}</span> },
+                      { title: 'EMI', dataIndex: 'emiAmount', key: 'emi', render: (e) => FinancialEngine.formatINR(e) },
+                      { title: 'Overdue (PAR)', dataIndex: 'overdueAmount', key: 'ov', render: (ov) => <Tag color={ov > 0 ? 'error' : 'success'}>{FinancialEngine.formatINR(ov || 0)}</Tag> },
+                      { title: 'DPD', dataIndex: 'daysPastDue', key: 'dpd', render: (d) => <span className={d > 0 ? 'text-red-600 font-bold' : 'text-slate-500'}>{d || 0}</span> },
+                      { title: 'Bucket', dataIndex: 'recoveryBucket', key: 'bkt', render: (b) => <Tag color={b === 'NPA_90_PLUS' ? 'red' : b === 'CURRENT' ? 'green' : 'orange'}>{b || 'CURRENT'}</Tag> },
+                    ]}
+                  />
+                </div>
+              ),
+            },
+            {
+              key: 'overdue_aging',
+              label: (
+                <span className="flex items-center gap-1.5 font-semibold text-red-700">
+                  <WarningOutlined />
+                  <span>Overdue Aging & PAR (§52 #9)</span>
+                </span>
+              ),
+              children: (
+                <div className="space-y-4">
+                  {overdueAging && (
+                    <div className="flex items-center justify-between p-3 bg-red-50 border border-red-200 rounded-xl">
+                      <div>
+                        <span className="font-bold text-red-900 text-sm">Total Delinquent Portfolio:</span>
+                        <span className="ml-2 text-base font-black text-red-700">{FinancialEngine.formatINR(overdueAging.totalOverdueAmount || 0)}</span>
+                      </div>
+                      <Tag color="error">{overdueAging.totalOverdueLoansCount || 0} Delinquent Loans</Tag>
+                    </div>
+                  )}
+                  <Table
+                    size="small"
+                    dataSource={overdueAging?.loans || []}
+                    rowKey="loanNumber"
+                    loading={loading}
+                    pagination={{ pageSize: 10 }}
+                    columns={[
+                      { title: 'Loan No', dataIndex: 'loanNumber', key: 'ln', render: (l) => <span className="font-mono font-bold text-red-700">{l}</span> },
+                      { title: 'Borrower Name', dataIndex: 'customerName', key: 'cn' },
+                      { title: 'Sanctioned', dataIndex: 'principal', key: 'p', render: (p) => FinancialEngine.formatINR(p) },
+                      { title: 'Outstanding Balance', dataIndex: 'outstandingPrincipal', key: 'out', render: (o) => FinancialEngine.formatINR(o) },
+                      { title: 'Overdue Amount', dataIndex: 'overdueAmount', key: 'ov', render: (ov) => <span className="font-bold text-red-600">{FinancialEngine.formatINR(ov)}</span> },
+                      { title: 'Days Past Due', dataIndex: 'daysPastDue', key: 'dpd', render: (d) => <Tag color={d >= 90 ? 'magenta' : d >= 31 ? 'volcano' : 'orange'}>{d} Days</Tag> },
+                      { title: 'PAR Classification', dataIndex: 'bucket', key: 'bkt', render: (b) => <Tag color={b.includes('90+') ? 'red' : b.includes('31-') ? 'orange' : 'gold'}>{b}</Tag> },
+                    ]}
+                  />
+                </div>
+              ),
+            },
+            {
+              key: 'rd_due',
+              label: (
+                <span className="flex items-center gap-1.5 font-semibold text-amber-700">
+                  <ClockCircleOutlined />
+                  <span>RD Due Report (§52 #5)</span>
+                </span>
+              ),
+              children: (
+                <div className="space-y-4">
+                  {rdDue && (
+                    <div className="flex items-center justify-between p-3 bg-amber-50 border border-amber-200 rounded-xl">
+                      <div>
+                        <span className="font-bold text-amber-900 text-sm">Monthly Expected RD Collection:</span>
+                        <span className="ml-2 text-base font-black text-amber-700">{FinancialEngine.formatINR(rdDue.totalExpectedMonthlyCollection || 0)}</span>
+                      </div>
+                      <Tag color="warning">{rdDue.totalRdAccounts || 0} Active RD Accounts</Tag>
+                    </div>
+                  )}
+                  <Table
+                    size="small"
+                    dataSource={rdDue?.accounts || []}
+                    rowKey="accountNumber"
+                    loading={loading}
+                    pagination={{ pageSize: 10 }}
+                    columns={[
+                      { title: 'RD Account #', dataIndex: 'accountNumber', key: 'an', render: (a) => <span className="font-mono font-bold text-amber-800">{a}</span> },
+                      { title: 'Member Name', dataIndex: 'customerName', key: 'cn' },
+                      { title: 'Contact Mobile', dataIndex: 'customerMobile', key: 'mob' },
+                      { title: 'Monthly Due', dataIndex: 'monthlyDeposit', key: 'md', render: (m) => <span className="font-bold text-emerald-700">{FinancialEngine.formatINR(m)}</span> },
+                      { title: 'Current Balance', dataIndex: 'currentBalance', key: 'cb', render: (b) => FinancialEngine.formatINR(b) },
+                      { title: 'Maturity Date', dataIndex: 'maturityDate', key: 'mdt' },
+                      { title: 'Status', dataIndex: 'status', key: 'st', render: (s) => <Tag color="green">{s}</Tag> },
+                    ]}
+                  />
+                </div>
+              ),
+            },
+            {
+              key: 'deposit_maturity',
+              label: (
+                <span className="flex items-center gap-1.5 font-semibold text-indigo-700">
+                  <DollarCircleOutlined />
+                  <span>Deposit Maturity Report (§52 #6)</span>
+                </span>
+              ),
+              children: (
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between p-3 bg-indigo-50 border border-indigo-200 rounded-xl">
+                    <div className="flex items-center gap-3">
+                      <span className="text-xs font-semibold text-slate-700">Projection Window:</span>
+                      <Radio.Group
+                        value={projectionDays}
+                        onChange={(e) => {
+                          setProjectionDays(e.target.value);
+                          loadDepositMaturity(e.target.value);
+                        }}
+                        size="small"
+                      >
+                        <Radio.Button value={7}>Next 7 Days</Radio.Button>
+                        <Radio.Button value={15}>Next 15 Days</Radio.Button>
+                        <Radio.Button value={30}>Next 30 Days</Radio.Button>
+                        <Radio.Button value={60}>Next 60 Days</Radio.Button>
+                      </Radio.Group>
+                    </div>
+                    {depositMaturity && (
+                      <Tag color="purple">
+                        Liability: {FinancialEngine.formatINR(depositMaturity.totalMaturityLiability || 0)} ({depositMaturity.maturingCount || 0} deposits)
+                      </Tag>
+                    )}
+                  </div>
+                  <Table
+                    size="small"
+                    dataSource={depositMaturity?.accounts || []}
+                    rowKey="accountNumber"
+                    loading={loading}
+                    pagination={{ pageSize: 10 }}
+                    columns={[
+                      { title: 'Account Number', dataIndex: 'accountNumber', key: 'an', render: (a) => <span className="font-mono font-bold text-indigo-800">{a}</span> },
+                      { title: 'Product', dataIndex: 'productType', key: 'pt', render: (p) => <Tag color="blue">{p}</Tag> },
+                      { title: 'Member Name', dataIndex: 'customerName', key: 'cn' },
+                      { title: 'Principal Deposited', dataIndex: 'principalAmount', key: 'pa', render: (p) => FinancialEngine.formatINR(p) },
+                      { title: 'Interest Rate', dataIndex: 'interestRate', key: 'ir', render: (r) => `${r}% p.a.` },
+                      { title: 'Maturity Payout', dataIndex: 'maturityAmount', key: 'ma', render: (m) => <span className="font-bold text-indigo-700">{FinancialEngine.formatINR(m)}</span> },
+                      { title: 'Maturity Date', dataIndex: 'maturityDate', key: 'md', render: (d) => <span className="font-bold text-slate-800">{d}</span> },
+                    ]}
+                  />
+                </div>
               ),
             },
             {
               key: 'audit_logs',
-              label: 'Indelible Audit Trail (§50, BR-011)',
+              label: (
+                <span className="flex items-center gap-1.5 font-semibold text-slate-700">
+                  <AuditOutlined />
+                  <span>Indelible Audit Trail (§50, BR-011)</span>
+                </span>
+              ),
               children: (
                 <Table
                   size="small"
@@ -276,7 +747,12 @@ export default function ReportsPage() {
             },
             {
               key: 'login_audit',
-              label: 'Login & Security Audit (§51, BR-012)',
+              label: (
+                <span className="flex items-center gap-1.5 font-semibold text-blue-700">
+                  <SafetyCertificateOutlined />
+                  <span>Login & Security Audit (§51, BR-012)</span>
+                </span>
+              ),
               children: (
                 <Table
                   size="small"
@@ -470,7 +946,7 @@ export default function ReportsPage() {
                   title: 'Loan Principal',
                   dataIndex: 'totalLoanOutstanding',
                   key: 'loan',
-                  render: (l) => l > 0 ? <span className="font-bold text-blue-700">{FinancialEngine.formatINR(l)}</span> : '-',
+                  render: (l) => (l > 0 ? <span className="font-bold text-blue-700">{FinancialEngine.formatINR(l)}</span> : '-'),
                 },
                 {
                   title: 'Last Receipt / Date',
@@ -491,7 +967,11 @@ export default function ReportsPage() {
                   ),
                   key: 'chk1',
                   width: 90,
-                  render: () => <div className="w-6 h-6 border-2 border-slate-300 rounded flex items-center justify-center mx-auto text-slate-200 hover:border-emerald-400 transition-colors cursor-pointer"><CheckSquareOutlined style={{ fontSize: 14 }} /></div>,
+                  render: () => (
+                    <div className="w-6 h-6 border-2 border-slate-300 rounded flex items-center justify-center mx-auto text-slate-200 hover:border-emerald-400 transition-colors cursor-pointer">
+                      <CheckSquareOutlined style={{ fontSize: 14 }} />
+                    </div>
+                  ),
                 },
                 {
                   title: (
@@ -502,7 +982,11 @@ export default function ReportsPage() {
                   ),
                   key: 'chk2',
                   width: 90,
-                  render: () => <div className="w-6 h-6 border-2 border-slate-300 rounded flex items-center justify-center mx-auto text-slate-200 hover:border-emerald-400 transition-colors cursor-pointer"><CheckSquareOutlined style={{ fontSize: 14 }} /></div>,
+                  render: () => (
+                    <div className="w-6 h-6 border-2 border-slate-300 rounded flex items-center justify-center mx-auto text-slate-200 hover:border-emerald-400 transition-colors cursor-pointer">
+                      <CheckSquareOutlined style={{ fontSize: 14 }} />
+                    </div>
+                  ),
                 },
                 {
                   title: 'Customer Sign',

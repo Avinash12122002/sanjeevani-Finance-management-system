@@ -18,6 +18,8 @@ import { Request } from 'express';
 import { JwtService } from '@nestjs/jwt';
 import { DataStoreService } from '../../database/data-store.service';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
+import { RolesGuard } from '../../common/guards/roles.guard';
+import { Roles } from '../../common/decorators/roles.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { IUser, UserRole } from '@sanjeevani/shared-types';
 
@@ -224,9 +226,11 @@ export class AuthController {
 
   /**
    * USER ACCOUNTS CRUD MANAGEMENT
+   * Restricted strictly to Super Admin and General Manager (RBAC Protection)
    */
   @Get('users')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.SUPER_ADMIN, UserRole.GENERAL_MANAGER)
   async getUsers() {
     await this.dataStore.refreshIfStale();
     return this.dataStore.users.map((u) => {
@@ -236,7 +240,8 @@ export class AuthController {
   }
 
   @Post('users')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.SUPER_ADMIN)
   async createUser(@Body() body: any, @CurrentUser() currentUser: IUser) {
     if (!body.username || !body.username.trim()) {
       throw new BadRequestException('Username is required');
@@ -249,6 +254,11 @@ export class AuthController {
       throw new BadRequestException('User with this username or email already exists');
     }
 
+    const rawPassword = (body.password || 'Password@123').trim();
+    if (rawPassword.length < 8) {
+      throw new BadRequestException('Password must be at least 8 characters long for banking staff security compliance.');
+    }
+
     const branch = this.dataStore.branches.find((b) => b.id === body.branchId) || this.dataStore.branches[0];
 
     const newUser: IUser = {
@@ -256,7 +266,7 @@ export class AuthController {
       username: cleanUsername,
       email: body.email?.trim() || `${cleanUsername}@sanjeevanifinance.com`,
       mobile: body.mobile?.trim() || '9876500000',
-      passwordHash: bcrypt.hashSync(body.password || 'Password@123', 10),
+      passwordHash: bcrypt.hashSync(rawPassword, 10),
       roles: Array.isArray(body.roles) && body.roles.length > 0 ? body.roles : [body.role || UserRole.LOAN_OFFICER],
       branchId: branch ? branch.id : 'BR-001',
       branchName: branch ? branch.name : 'Head Office - Main Branch',
@@ -286,7 +296,8 @@ export class AuthController {
   }
 
   @Patch('users/:id')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.SUPER_ADMIN)
   async updateUser(@Param('id') id: string, @Body() body: any, @CurrentUser() currentUser: IUser) {
     const userIndex = this.dataStore.users.findIndex((u) => u.id === id || u.username === id);
     if (userIndex === -1) {
@@ -295,6 +306,11 @@ export class AuthController {
 
     const targetUser = this.dataStore.users[userIndex];
     const oldVal = { ...targetUser };
+
+    // Prevent non-superadmins from revoking superadmin rights
+    if (targetUser.username === 'admin' && body.isActive === false) {
+      throw new BadRequestException('Primary system administrator account cannot be deactivated.');
+    }
 
     if (body.username) targetUser.username = body.username.trim().toLowerCase();
     if (body.email) targetUser.email = body.email.trim();
@@ -310,6 +326,9 @@ export class AuthController {
       }
     }
     if (body.password && body.password.trim()) {
+      if (body.password.trim().length < 8) {
+        throw new BadRequestException('Password must be at least 8 characters long.');
+      }
       (targetUser as any).passwordHash = bcrypt.hashSync(body.password.trim(), 10);
     }
 
@@ -331,11 +350,22 @@ export class AuthController {
   }
 
   @Delete('users/:id')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.SUPER_ADMIN)
   async deleteUser(@Param('id') id: string, @CurrentUser() currentUser: IUser) {
     const userIndex = this.dataStore.users.findIndex((u) => u.id === id || u.username === id);
     if (userIndex === -1) {
       throw new NotFoundException(`User not found for id: ${id}`);
+    }
+
+    const targetUser = this.dataStore.users[userIndex];
+
+    // Security check: Never delete the primary system administrator account or current active user
+    if (targetUser.username === 'admin' || (targetUser.roles && targetUser.roles.includes(UserRole.SUPER_ADMIN) && this.dataStore.users.filter((u) => u.roles?.includes(UserRole.SUPER_ADMIN)).length <= 1)) {
+      throw new BadRequestException('Primary system administrator account cannot be deleted.');
+    }
+    if (targetUser.id === currentUser.id) {
+      throw new BadRequestException('You cannot delete your own active administrator session.');
     }
 
     const removed = this.dataStore.users.splice(userIndex, 1)[0];

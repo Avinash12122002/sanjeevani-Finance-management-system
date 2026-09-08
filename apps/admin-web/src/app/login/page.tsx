@@ -61,6 +61,8 @@ export default function LoginPage() {
               <div>
                 <div className="font-extrabold text-xl tracking-wide text-white" style={{ color: '#ffffff' }}>SANJEEVANI</div>
                 <div className="text-emerald-400 text-xs font-semibold tracking-wider" style={{ color: '#34d399' }}>FINANCE OPERATIONS v1.0</div>
+                <div className="text-[11px] text-slate-300 font-medium mt-1">Your Money. Your Future. Our Responsibility.</div>
+                <div className="text-[10px] text-emerald-400">भरोसे के साथ, बेहतर कल की ओर</div>
               </div>
             </div>
 

@@ -106,6 +106,38 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     router.replace('/login');
   };
 
+  // Banking Terminal Idle Auto-Lock (15-minute inactivity auto-logout per banking security standards)
+  useEffect(() => {
+    if (!currentUser || pathname === '/login' || pathname.startsWith('/portal')) return;
+
+    const TERMINAL_IDLE_TIMEOUT_MS = 15 * 60 * 1000;
+    let timeoutId: NodeJS.Timeout;
+
+    const resetIdleTimer = () => {
+      clearTimeout(timeoutId);
+      timeoutId = setTimeout(() => {
+        if (typeof window !== 'undefined') {
+          localStorage.removeItem('sfms_access_token');
+          localStorage.removeItem('sfms_user');
+          localStorage.removeItem('sjf_auth_token');
+        }
+        setCurrentUser(null);
+        message.warning('Terminal session locked after 15 minutes of inactivity for security.');
+        router.replace('/login?reason=idle_timeout');
+      }, TERMINAL_IDLE_TIMEOUT_MS);
+    };
+
+    resetIdleTimer();
+
+    const activityEvents = ['mousedown', 'mousemove', 'keydown', 'scroll', 'touchstart'];
+    activityEvents.forEach((event) => window.addEventListener(event, resetIdleTimer, { passive: true }));
+
+    return () => {
+      clearTimeout(timeoutId);
+      activityEvents.forEach((event) => window.removeEventListener(event, resetIdleTimer));
+    };
+  }, [currentUser, pathname, router]);
+
   const siderWidth = collapsed ? 80 : 260;
 
   if (pathname === '/login' || pathname.startsWith('/portal')) {
@@ -128,16 +160,16 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const userRole = currentUser?.roles?.[0] || 'SUPER_ADMIN';
 
   const ROLE_ALLOWED_PAGES: Record<string, string[]> = {
-    SUPER_ADMIN: ['/', '/customers', '/accounts', '/loans', '/collections', '/cash', '/accounting', '/daily-closing', '/reports', '/settings'],
-    GENERAL_MANAGER: ['/', '/customers', '/accounts', '/loans', '/collections', '/cash', '/accounting', '/daily-closing', '/reports', '/settings'],
-    BRANCH_MANAGER: ['/', '/customers', '/accounts', '/loans', '/collections', '/cash', '/accounting', '/daily-closing', '/reports'],
-    ACCOUNTANT: ['/', '/accounts', '/loans', '/collections', '/cash', '/accounting', '/daily-closing', '/reports'],
-    LOAN_OFFICER: ['/', '/customers', '/loans', '/accounts', '/reports'],
-    CASHIER: ['/', '/customers', '/collections', '/cash', '/accounts', '/reports'],
-    COLLECTION_AGENT: ['/', '/customers', '/collections', '/reports'],
-    RECOVERY_OFFICER: ['/', '/customers', '/loans', '/collections', '/reports'],
-    CUSTOMER_SERVICE: ['/', '/customers', '/collections', '/reports'],
-    AUDITOR: ['/', '/customers', '/accounting', '/daily-closing', '/reports'],
+    SUPER_ADMIN: ['/', '/customers', '/accounts', '/loans', '/collections', '/cash', '/accounting', '/daily-closing', '/reports', '/audit', '/sop', '/settings'],
+    GENERAL_MANAGER: ['/', '/customers', '/accounts', '/loans', '/collections', '/cash', '/accounting', '/daily-closing', '/reports', '/audit', '/sop', '/settings'],
+    BRANCH_MANAGER: ['/', '/customers', '/accounts', '/loans', '/collections', '/cash', '/accounting', '/daily-closing', '/reports', '/audit', '/sop'],
+    ACCOUNTANT: ['/', '/accounts', '/loans', '/collections', '/cash', '/accounting', '/daily-closing', '/reports', '/audit', '/sop'],
+    LOAN_OFFICER: ['/', '/customers', '/loans', '/accounts', '/reports', '/sop'],
+    CASHIER: ['/', '/customers', '/collections', '/cash', '/accounts', '/reports', '/sop'],
+    COLLECTION_AGENT: ['/', '/customers', '/collections', '/reports', '/sop'],
+    RECOVERY_OFFICER: ['/', '/customers', '/loans', '/collections', '/reports', '/sop'],
+    CUSTOMER_SERVICE: ['/', '/customers', '/collections', '/reports', '/sop'],
+    AUDITOR: ['/', '/customers', '/accounting', '/daily-closing', '/reports', '/audit', '/sop'],
   };
 
   const allowedPages = ROLE_ALLOWED_PAGES[userRole] || ROLE_ALLOWED_PAGES.SUPER_ADMIN;
@@ -198,6 +230,16 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       key: '/reports',
       icon: <PieChartOutlined style={{ fontSize: 18 }} />,
       label: <Link href="/reports" prefetch={true} className="text-inherit no-underline block w-full">MIS & Financial Reports</Link>,
+    },
+    {
+      key: '/audit',
+      icon: <SafetyCertificateOutlined style={{ fontSize: 18 }} />,
+      label: <Link href="/audit" prefetch={true} className="text-inherit no-underline block w-full">Audit & Compliance (Surprise)</Link>,
+    },
+    {
+      key: '/sop',
+      icon: <BookOutlined style={{ fontSize: 18 }} />,
+      label: <Link href="/sop" prefetch={true} className="text-inherit no-underline block w-full">Operations Manual (SOP)</Link>,
     },
     {
       key: '/settings',
@@ -264,7 +306,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         key: 'portal',
         icon: <MobileOutlined style={{ color: '#059669' }} />,
         label: 'Open Customer Portal',
-        onClick: () => window.open('/portal/login', '_blank'),
+        onClick: () => window.open('/portal/login', '_blank', 'noopener,noreferrer'),
       },
       ...(allowedPages.includes('/settings')
         ? [
@@ -361,6 +403,18 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             }}
           />
         </div>
+
+        {/* Institutional Brand Taglines (SRS §46) */}
+        {!collapsed && (
+          <div className="mx-3 my-4 p-3 rounded-xl bg-slate-900/80 border border-slate-800 text-center">
+            <div className="text-[10px] text-slate-300 font-medium leading-tight">
+              &ldquo;Your Money. Your Future. Our Responsibility.&rdquo;
+            </div>
+            <div className="text-[9px] text-emerald-400 mt-1 font-semibold">
+              भरोसे के साथ, बेहतर कल की ओर
+            </div>
+          </div>
+        )}
       </Sider>
 
       {/* Top Instant Navigation Loader */}
@@ -436,7 +490,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
               {/* Member Self-Serve Portal Link */}
               <Button
                 icon={<MobileOutlined style={{ color: '#059669' }} />}
-                onClick={() => window.open('/portal/login', '_blank')}
+                onClick={() => window.open('/portal/login', '_blank', 'noopener,noreferrer')}
                 style={{
                   borderColor: '#a7f3d0',
                   color: '#065f46',

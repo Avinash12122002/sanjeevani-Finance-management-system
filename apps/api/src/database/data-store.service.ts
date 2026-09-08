@@ -1,5 +1,6 @@
 import { Injectable, OnModuleInit, Logger } from '@nestjs/common';
 import { Pool } from 'pg';
+import * as bcrypt from 'bcryptjs';
 import {
   UserRole,
   CustomerStatus,
@@ -154,6 +155,11 @@ export class DataStoreService implements OnModuleInit {
           'ALTER TABLE employees ADD COLUMN IF NOT EXISTS emergency_contact VARCHAR(20)',
           'ALTER TABLE branches ADD COLUMN IF NOT EXISTS pin_code VARCHAR(20)',
           'ALTER TABLE branches ADD COLUMN IF NOT EXISTS email VARCHAR(150)',
+          'ALTER TABLE audit_logs ADD COLUMN IF NOT EXISTS user_name VARCHAR(150)',
+          'ALTER TABLE audit_logs ADD COLUMN IF NOT EXISTS entity_type VARCHAR(100)',
+          'ALTER TABLE audit_logs ADD COLUMN IF NOT EXISTS entity_id VARCHAR(100)',
+          'ALTER TABLE audit_logs ADD COLUMN IF NOT EXISTS client_ip VARCHAR(50)',
+          'ALTER TABLE audit_logs ADD COLUMN IF NOT EXISTS user_agent TEXT',
         ];
         for (const stmt of alterStatements) {
           try {
@@ -212,7 +218,7 @@ export class DataStoreService implements OnModuleInit {
         this.pool.query('SELECT * FROM loans ORDER BY created_at ASC').catch(() => ({ rows: [] })),
         this.pool.query('SELECT * FROM receipts ORDER BY created_at ASC').catch(() => ({ rows: [] })),
         this.pool.query('SELECT * FROM transactions ORDER BY created_at ASC').catch(() => ({ rows: [] })),
-        this.pool.query('SELECT * FROM cash_drawers ORDER BY opened_at DESC LIMIT 10').catch(() => ({ rows: [] })),
+        this.pool.query("SELECT * FROM cash_drawers WHERE opened_at >= NOW() - INTERVAL '31 days' ORDER BY opened_at DESC").catch(() => ({ rows: [] })), // BUG-11 FIX: load 31 days not just 10 records
         this.pool.query('SELECT * FROM products ORDER BY created_at ASC').catch(() => ({ rows: [] })),
         this.pool.query('SELECT * FROM employees ORDER BY created_at ASC').catch(() => ({ rows: [] })),
         this.pool.query('SELECT * FROM chart_of_accounts ORDER BY account_code ASC').catch(() => ({ rows: [] })),
@@ -256,6 +262,7 @@ export class DataStoreService implements OnModuleInit {
           employeeName: r.employee_name,
           isActive: r.is_active,
           is2faEnabled: r.is_2fa_enabled,
+          passwordHash: r.password_hash,
           createdAt: r.created_at ? new Date(r.created_at).toISOString() : '',
         }));
       }
@@ -272,8 +279,8 @@ export class DataStoreService implements OnModuleInit {
           middleName: undefined,
           lastName: r.full_name?.split(' ').slice(1).join(' ') || '',
           fatherOrSpouseName: r.father_or_spouse_name || 'Not Specified',
-          dateOfBirth: '1990-01-01',
-          gender: 'MALE',
+          dateOfBirth: r.date_of_birth ? new Date(r.date_of_birth).toISOString().split('T')[0] : '', // BUG-05 FIX: read from DB
+          gender: r.gender || 'MALE', // BUG-06 FIX: read from DB
           mobile: r.mobile,
           alternateMobile: r.alternate_mobile || undefined,
           email: r.email || undefined,
@@ -283,8 +290,11 @@ export class DataStoreService implements OnModuleInit {
           city: r.city || 'Delhi',
           state: r.state || 'Delhi',
           postalCode: r.postal_code || '110086',
-          joiningDate: r.created_at ? new Date(r.created_at).toISOString().split('T')[0] : '',
-          status: CustomerStatus.ACTIVE,
+          joiningDate: r.joining_date ? new Date(r.joining_date).toISOString().split('T')[0] : (r.created_at ? new Date(r.created_at).toISOString().split('T')[0] : ''),
+          status: r.status === 'INACTIVE' ? CustomerStatus.INACTIVE // BUG-07 FIX: read from DB
+            : r.status === 'SUSPENDED' ? CustomerStatus.SUSPENDED
+            : r.status === 'CLOSED' ? CustomerStatus.INACTIVE
+            : CustomerStatus.ACTIVE,
           kycStatus: r.kyc_status === 'VERIFIED' ? KYCStatus.VERIFIED : KYCStatus.PENDING,
           riskCategory: (r.risk_category as any) || RiskCategory.LOW,
           createdBy: 'USR-001',
@@ -346,9 +356,17 @@ export class DataStoreService implements OnModuleInit {
           tenureMonths: r.tenure_months || 12,
           emiAmount: Number(r.emi_amount || 0),
           totalPayable: Number(r.total_payable || 0),
-          totalInterest: Number(r.total_payable || 0) - Number(r.principal_amount || 0),
+          totalInterest: (() => { // BUG-10 FIX: guard against negative totalInterest when total_payable is NULL
+            const tp = Number(r.total_payable || 0);
+            const pa = Number(r.principal_amount || 0);
+            return tp > 0 ? tp - pa : 0;
+          })(),
           disbursementDate: r.disbursed_at ? new Date(r.disbursed_at).toISOString().split('T')[0] : '',
-          firstDueDate: r.disbursed_at ? new Date(r.disbursed_at).toISOString().split('T')[0] : '',
+          firstDueDate: r.first_due_date // BUG-09 FIX: read stored first_due_date; fallback = disbursement + 1 month
+            ? new Date(r.first_due_date).toISOString().split('T')[0]
+            : r.disbursed_at
+              ? (() => { const d = new Date(r.disbursed_at); d.setMonth(d.getMonth() + 1); return d.toISOString().split('T')[0]; })()
+              : '',
           finalDueDate: r.mature_at ? new Date(r.mature_at).toISOString().split('T')[0] : '',
           outstandingPrincipal: Number(r.principal_outstanding || 0),
           totalPaid: Number(r.total_paid || 0),
@@ -723,13 +741,14 @@ export class DataStoreService implements OnModuleInit {
     // Asynchronously persist to PostgreSQL
     if (this.pool) {
       this.pool.query(
-        `INSERT INTO audit_logs (id, user_id, user_name, action, entity_type, entity_id, details)
-         VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+        `INSERT INTO audit_logs (id, user_id, user_name, action, entity, entity_type, entity_id, details)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
         [
           log.id,
           userId || 'SYSTEM',
           userName || 'System',
           eventType,
+          entityType || 'General',
           entityType || 'General',
           entityId || null,
           JSON.stringify({ reason: reason || '', details: newValue || {} }),
@@ -1742,10 +1761,12 @@ export class DataStoreService implements OnModuleInit {
   }
 
   async saveCustomerPassword(customerId: string, password: string): Promise<void> {
-    this.customerPasswordMap.set(customerId, password);
+    const isBcrypt = /^\$2[aby]\$\d{2}\$/.test(password);
+    const secureHash = isBcrypt ? password : bcrypt.hashSync(password, 10);
+    this.customerPasswordMap.set(customerId, secureHash);
     if (this.pool) {
       try {
-        await this.pool.query('UPDATE customers SET portal_password = $1 WHERE id = $2', [password, customerId]);
+        await this.pool.query('UPDATE customers SET portal_password = $1 WHERE id = $2', [secureHash, customerId]);
       } catch (err: any) {
         this.logger.error(`Failed to persist portal password for customer ${customerId}: ${err.message}`);
       }
@@ -2279,6 +2300,11 @@ export class DataStoreService implements OnModuleInit {
   async deleteRawTableRow(tableName: string, id: string) {
     if (!this.ALL_DB_TABLES.includes(tableName as any)) {
       throw new Error(`Invalid table name: ${tableName}`);
+    }
+
+    const IMMUTABLE_FINANCIAL_TABLES = ['audit_logs', 'transactions', 'journal_entries', 'daily_closures'];
+    if (IMMUTABLE_FINANCIAL_TABLES.includes(tableName)) {
+      throw new Error(`Deletion of records from immutable financial ledger "${tableName}" is prohibited by banking regulatory compliance.`);
     }
 
     if (this.pool) {

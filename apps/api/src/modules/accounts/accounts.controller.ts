@@ -26,8 +26,10 @@ import {
   InstallmentStatus,
 } from '@sanjeevani/shared-types';
 
+import { StaffGuard } from '../../common/guards/staff.guard';
+
 @Controller('api/v1/accounts')
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, StaffGuard)
 export class AccountsController {
   constructor(private dataStore: DataStoreService) {}
 

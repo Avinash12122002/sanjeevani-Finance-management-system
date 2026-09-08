@@ -16,8 +16,10 @@ import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { IEmployee, IUser, UserRole } from '@sanjeevani/shared-types';
 import * as bcrypt from 'bcryptjs';
 
+import { StaffGuard } from '../../common/guards/staff.guard';
+
 @Controller('api/v1/employees')
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, StaffGuard)
 export class EmployeesController {
   constructor(private dataStore: DataStoreService) {}
 
