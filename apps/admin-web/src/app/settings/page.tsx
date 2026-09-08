@@ -505,9 +505,10 @@ export default function SettingsPage() {
     }
     setCommittingImport(true);
     try {
-      const res = await postApi(`/import/commit/${importEntityType}`, { rows: validRows });
-      if (res.success && res.data) {
-        message.success(`Migration Committed! Added ${res.data.committedCount} records to database.`);
+      const res: any = await postApi(`/import/commit/${importEntityType}`, { entityType: importEntityType, rows: validRows });
+      if (res.success) {
+        const count = res.data?.committedCount || res.committedCount || validRows.length;
+        message.success(`Migration Committed! Added ${count} records to database.`);
         setImportCsvText('');
         setImportValidationResult([]);
         loadSettingsData();

@@ -130,17 +130,34 @@ export class ImportController {
    */
   @Post('commit')
   async commitImport(
-    @Body() body: { entityType: 'customers' | 'accounts'; rows: Record<string, any>[] },
+    @Body() body: { entityType?: 'customers' | 'accounts'; rows: Record<string, any>[] },
     @CurrentUser() user: IUser,
   ) {
-    if (!Array.isArray(body.rows) || body.rows.length === 0) {
+    return this.executeCommit(body.entityType || 'customers', body.rows, user);
+  }
+
+  @Post('commit/:entityType')
+  async commitImportWithParam(
+    @Param('entityType') entityType: 'customers' | 'accounts',
+    @Body() body: { entityType?: 'customers' | 'accounts'; rows: Record<string, any>[] },
+    @CurrentUser() user: IUser,
+  ) {
+    return this.executeCommit(entityType || body.entityType || 'customers', body.rows, user);
+  }
+
+  private async executeCommit(
+    entityType: 'customers' | 'accounts',
+    rows: Record<string, any>[],
+    user: IUser,
+  ) {
+    if (!Array.isArray(rows) || rows.length === 0) {
       throw new BadRequestException('No rows provided for commitment.');
     }
 
     let createdCount = 0;
 
-    if (body.entityType === 'customers') {
-      for (const row of body.rows) {
+    if (entityType === 'customers') {
+      for (const row of rows) {
         const customerNumber = this.dataStore.nextCustomerNumber();
         const newCust: any = {
           id: `CUST-${Date.now()}-${createdCount}`,
@@ -170,6 +187,42 @@ export class ImportController {
         await this.dataStore.persistCustomer(newCust);
         createdCount++;
       }
+    } else if (entityType === 'accounts') {
+      for (const row of rows) {
+        const cust = this.dataStore.customers.find(
+          (c) => c.customerNumber === row.customerNumber || c.mobile === row.customerNumber,
+        );
+        if (!cust) continue;
+
+        const newAcc: any = {
+          id: `ACC-${Date.now()}-${createdCount}`,
+          accountNumber: this.dataStore.nextAccountNumber((row.productType as any) || ProductType.SAVINGS),
+          customerId: cust.id,
+          customerName: `${cust.firstName} ${cust.lastName}`.trim(),
+          productId: 'PRD-001',
+          productName: row.productType === 'RD' ? 'Recurring Deposit' : 'Term Deposit',
+          productType: (row.productType as any) || ProductType.SAVINGS,
+          branchId: cust.branchId || 'BR-001',
+          branchName: cust.branchName || 'Head Office - Main Branch (Delhi)',
+          openingDate: new Date().toISOString().split('T')[0],
+          principalAmount: Number(row.monthlyDepositOrBalance || 0),
+          interestRate: 8.5,
+          tenureMonths: Number(row.tenureMonths || 12),
+          maturityAmount: Math.round(Number(row.monthlyDepositOrBalance || 0) * 1.085),
+          maturityDate: '',
+          currentBalance: Number(row.monthlyDepositOrBalance || 0),
+          status: 'ACTIVE',
+          nomineeName: row.nomineeName || undefined,
+          nomineeRelationship: row.nomineeRelation || undefined,
+          createdBy: user.id || 'USR-001',
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        };
+
+        this.dataStore.accounts.push(newAcc);
+        await this.dataStore.persistAccount(newAcc);
+        createdCount++;
+      }
     }
 
     this.dataStore.logAudit(
@@ -177,15 +230,15 @@ export class ImportController {
       user.employeeName || 'Administrator',
       'BULK_DATA_MIGRATION_COMMITTED',
       'DataMigration',
-      body.entityType,
+      entityType,
       undefined,
       { count: createdCount },
-      `Committed ${createdCount} imported records for ${body.entityType} (SRS §50).`,
+      `Committed ${createdCount} imported records for ${entityType} (SRS §50).`,
     );
 
     return {
       success: true,
-      message: `Successfully migrated and imported ${createdCount} ${body.entityType} into Sanjeevani system.`,
+      message: `Successfully migrated and imported ${createdCount} ${entityType} into Sanjeevani system.`,
       committedCount: createdCount,
     };
   }
