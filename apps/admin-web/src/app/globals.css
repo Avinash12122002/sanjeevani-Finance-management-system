@@ -67,6 +67,25 @@ html, body {
   color: #34d399 !important;
 }
 
+/* High-Contrast Guard for Dark Banners and Cards against Ant Design Typography overrides */
+[class*="bg-slate-9"],
+[class*="bg-slate-8"],
+[class*="from-slate-9"],
+[class*="from-slate-8"],
+[class*="to-emerald-950"] {
+  color: #f8fafc;
+}
+
+[class*="bg-slate-9"] .ant-typography,
+[class*="bg-slate-8"] .ant-typography,
+[class*="from-slate-9"] .ant-typography,
+[class*="from-slate-8"] .ant-typography,
+[class*="to-emerald-950"] .ant-typography,
+.ant-card[class*="from-slate-9"] .ant-card-body,
+.ant-card[class*="bg-slate-9"] .ant-card-body {
+  color: inherit !important;
+}
+
 /* Glassmorphic & Modern Cards */
 .glass-card {
   background: #ffffff;

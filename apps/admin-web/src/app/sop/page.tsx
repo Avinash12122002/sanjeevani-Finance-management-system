@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Card, Collapse, Typography, Tag, Input, Row, Col, Button, Divider } from 'antd';
+import { Card, Collapse, Tag, Input, Row, Col, Button, Divider } from 'antd';
 import {
   BookOutlined,
   SearchOutlined,
@@ -12,8 +12,6 @@ import {
   TeamOutlined,
   FileProtectOutlined,
 } from '@ant-design/icons';
-
-const { Title, Text, Paragraph } = Typography;
 
 interface ISopSection {
   id: number;
@@ -343,26 +341,26 @@ export default function SopPage() {
       </div>
 
       {/* Brand Ethos Card */}
-      <Card className="bg-gradient-to-r from-slate-900 to-emerald-950 text-white border-0 shadow-md">
+      <div className="bg-gradient-to-r from-slate-900 via-slate-800 to-emerald-950 text-white p-6 rounded-2xl shadow-xl border border-slate-800">
         <Row gutter={[24, 16]} align="middle">
           <Col xs={24} md={16}>
             <div className="text-xs uppercase tracking-wider text-emerald-400 font-semibold mb-1">
               Zero-Tolerance Operational Philosophy
             </div>
-            <div className="text-lg font-bold">
+            <div className="text-lg font-bold text-white" style={{ color: '#ffffff' }}>
               &quot;Ethics First, Micro-Finance Next — No Shortcut to Trust&quot;
             </div>
-            <div className="text-sm text-slate-300 mt-1">
+            <div className="text-sm mt-1 leading-relaxed" style={{ color: '#cbd5e1' }}>
               Every staff member must strictly follow these SOP guidelines. Non-compliance is subject to disciplinary review and credential revocation.
             </div>
           </Col>
-          <Col xs={24} md={8} className="text-right">
+          <Col xs={24} md={8} className="text-left md:text-right">
             <Tag color="gold" className="px-3 py-1 font-bold text-xs rounded-full">
               Sanjeevani SOP v2.4 (2026 Edition)
             </Tag>
           </Col>
         </Row>
-      </Card>
+      </div>
 
       {/* Search & Category Filter */}
       <div className="flex flex-col sm:flex-row gap-3 items-center justify-between bg-white p-4 rounded-xl border border-slate-200">

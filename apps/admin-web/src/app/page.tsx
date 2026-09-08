@@ -7,7 +7,6 @@ import {
   Col,
   Card,
   Tag,
-  Typography,
   Button,
   Alert,
   Skeleton,
@@ -48,8 +47,6 @@ import {
 import { fetchApi, postApi } from '@/lib/api-client';
 import { FinancialEngine } from '@sanjeevani/financial-engine';
 import { IDashboardMetrics, IRedAlert } from '@sanjeevani/shared-types';
-
-const { Title, Text } = Typography;
 
 const COLORS = ['#059669', '#0284c7', '#f59e0b', '#8b5cf6', '#ef4444'];
 
@@ -280,10 +277,12 @@ export default function OwnerDashboardPage() {
               {userRole === 'SUPER_ADMIN' ? 'Full Institutional Authority' : `Role: ${userRole}`}
             </span>
           </div>
-          <Title level={2} style={{ color: '#ffffff', margin: '8px 0 4px 0' }}>
+          <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight my-2" style={{ color: '#ffffff' }}>
             {roleTitle}
-          </Title>
-          <Text className="text-slate-300 text-sm">{roleSubtitle}</Text>
+          </h2>
+          <p className="text-sm m-0 leading-relaxed font-normal" style={{ color: '#cbd5e1' }}>
+            {roleSubtitle}
+          </p>
         </div>
 
         <div className="flex items-center gap-3">

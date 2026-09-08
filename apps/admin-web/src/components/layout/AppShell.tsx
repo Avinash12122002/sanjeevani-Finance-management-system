@@ -11,7 +11,6 @@ import {
   Avatar,
   Dropdown,
   Tag,
-  Typography,
   Divider,
   Spin,
   message,
@@ -36,7 +35,6 @@ import {
 import { fetchApi } from '@/lib/api-client';
 
 const { Header, Sider, Content } = Layout;
-const { Text } = Typography;
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const router = useRouter();
@@ -256,9 +254,9 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         key: 'header',
         label: (
           <div className="py-1">
-            <Text strong className="text-red-600">
+            <div className="font-bold text-red-600 text-xs tracking-wide" style={{ color: '#dc2626' }}>
               Red Alert Surveillance Feed ({redAlerts.length})
-            </Text>
+            </div>
           </div>
         ),
       },
