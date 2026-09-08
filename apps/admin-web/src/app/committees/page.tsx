@@ -162,6 +162,8 @@ export default function CommitteesPage() {
       const res = await fetchApi('/committees');
       if (res.success && res.data) {
         setCommittees(res.data);
+      } else if (!res.success) {
+        message.error(res.message || res.error || 'Failed to load committees');
       }
     } catch (e: any) {
       message.error(`Failed to load committees: ${e.message}`);
@@ -172,9 +174,10 @@ export default function CommitteesPage() {
 
   const loadCustomers = async () => {
     try {
-      const res = await fetchApi('/customers');
+      const res = await fetchApi('/customers?limit=200');
       if (res.success && res.data) {
-        setCustomers(res.data);
+        const list = Array.isArray(res.data) ? res.data : (res.data.items || []);
+        setCustomers(list);
       }
     } catch {}
   };
@@ -186,6 +189,8 @@ export default function CommitteesPage() {
       const res = await fetchApi(`/committees/${group.id}`);
       if (res.success && res.data) {
         setCommitteeDetail(res.data);
+      } else {
+        message.error(res.message || res.error || 'Failed to load committee details');
       }
     } catch (e: any) {
       message.error(`Failed to load committee details: ${e.message}`);
@@ -206,11 +211,13 @@ export default function CommitteesPage() {
   const handleCreateSubmit = async (values: any) => {
     try {
       const res = await postApi('/committees', values);
-      if (res.success) {
-        message.success(`Committee "${res.data.name}" (${res.data.committeeNumber}) created successfully!`);
+      if (res.success && res.data) {
+        message.success(`Committee "${res.data.name || ''}" (${res.data.committeeNumber || ''}) created successfully!`);
         setCreateModalVisible(false);
         createForm.resetFields();
         loadCommittees();
+      } else {
+        message.error(res.message || res.error || 'Failed to create committee');
       }
     } catch (e: any) {
       message.error(e.message || 'Failed to create committee');
@@ -222,11 +229,13 @@ export default function CommitteesPage() {
     if (!selectedCommittee) return;
     try {
       const res = await postApi(`/committees/${selectedCommittee.id}/members`, values);
-      if (res.success) {
-        message.success(`Customer ${res.data.customerName} enrolled in Slot #${res.data.slotNumber}!`);
+      if (res.success && res.data) {
+        message.success(`Customer ${res.data.customerName || ''} enrolled in Slot #${res.data.slotNumber || ''}!`);
         setEnrollModalVisible(false);
         enrollForm.resetFields();
         reloadDrawerDetail(selectedCommittee.id);
+      } else {
+        message.error(res.message || res.error || 'Failed to enroll member');
       }
     } catch (e: any) {
       message.error(e.message || 'Failed to enroll member');
@@ -238,14 +247,15 @@ export default function CommitteesPage() {
     if (!selectedCommittee) return;
     try {
       const res = await postApi(`/committees/${selectedCommittee.id}/installments/collect`, values);
-      if (res.success) {
-        message.success(`Installment of ₹${values.amountPaid.toLocaleString('en-IN')} collected! Receipt: ${res.data.receiptNumber}`);
+      if (res.success && res.data) {
+        const receiptNo = res.data.receiptNumber || 'REC-CONFIRMED';
+        message.success(`Installment of ₹${Number(values.amountPaid).toLocaleString('en-IN')} collected! Receipt: ${receiptNo}`);
         setCollectModalVisible(false);
         collectForm.resetFields();
 
         // Prompt to print receipt
         const member = committeeDetail?.members.find((m) => m.id === values.memberId);
-        if (member) {
+        if (member && res.data.receiptNumber) {
           openReceiptPrintWindow({
             receiptNumber: res.data.receiptNumber,
             customerName: member.customerName,
@@ -259,6 +269,8 @@ export default function CommitteesPage() {
         }
 
         reloadDrawerDetail(selectedCommittee.id);
+      } else {
+        message.error(res.message || res.error || 'Failed to collect installment');
       }
     } catch (e: any) {
       message.error(e.message || 'Failed to collect installment');
@@ -270,11 +282,14 @@ export default function CommitteesPage() {
     if (!selectedCommittee) return;
     try {
       const res = await postApi(`/committees/${selectedCommittee.id}/rounds/auction`, values);
-      if (res.success) {
-        message.success(`Round ${values.roundNumber} successfully awarded! Net Payout: ₹${res.data.payout.netPayout.toLocaleString('en-IN')}`);
+      if (res.success && res.data) {
+        const netPayoutVal = res.data.payout?.netPayout !== undefined ? Number(res.data.payout.netPayout).toLocaleString('en-IN') : '0';
+        message.success(`Round ${values.roundNumber} successfully awarded! Net Payout: ₹${netPayoutVal}`);
         setAuctionModalVisible(false);
         auctionForm.resetFields();
         reloadDrawerDetail(selectedCommittee.id);
+      } else {
+        message.error(res.message || res.error || 'Failed to execute auction round');
       }
     } catch (e: any) {
       message.error(e.message || 'Failed to execute auction round');
@@ -289,6 +304,8 @@ export default function CommitteesPage() {
         message.success('Committee group deleted successfully');
         if (selectedCommittee?.id === groupId) setDrawerVisible(false);
         loadCommittees();
+      } else {
+        message.error(res.message || res.error || 'Failed to delete committee');
       }
     } catch (e: any) {
       message.error(e.message || 'Failed to delete committee');
@@ -1151,9 +1168,9 @@ export default function CommitteesPage() {
               filterOption={(input, option: any) =>
                 (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
               }
-              options={customers.map((c) => ({
+              options={(Array.isArray(customers) ? customers : []).map((c) => ({
                 value: c.id,
-                label: `${c.firstName} ${c.lastName} (${c.mobile}) - ${c.customerNumber || c.id}`,
+                label: `${c.firstName || ''} ${c.lastName || ''} (${c.mobile || 'N/A'}) - ${c.customerNumber || c.id}`.trim(),
               }))}
             />
           </Form.Item>

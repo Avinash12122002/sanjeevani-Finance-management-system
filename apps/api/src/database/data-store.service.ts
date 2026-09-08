@@ -542,6 +542,7 @@ export class DataStoreService implements OnModuleInit {
           resolution: r.resolution,
           createdAt: r.created_at ? new Date(r.created_at).toISOString() : '',
         }));
+        this.counters.complaint = this.complaints.length;
       }
 
       // Audit Logs
@@ -655,6 +656,7 @@ export class DataStoreService implements OnModuleInit {
           branchName: r.branch_name || 'Head Office - Main Branch',
           createdAt: r.created_at ? new Date(r.created_at).toISOString() : new Date().toISOString(),
         }));
+        this.counters.committee = this.committeeGroups.length;
       }
 
       // Committee Members (Slots)
@@ -1107,6 +1109,10 @@ export class DataStoreService implements OnModuleInit {
     this.recoveryCases = [];
     this.redAlerts = [];
     this.auditLogs = [];
+    this.committeeGroups = [];
+    this.committeeMembers = [];
+    this.committeeInstallments = [];
+    this.committeePayouts = [];
   }
 
   // ==========================================
