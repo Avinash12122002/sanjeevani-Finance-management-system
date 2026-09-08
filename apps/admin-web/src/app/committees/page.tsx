@@ -38,6 +38,8 @@ import {
   DeleteOutlined,
   InfoCircleOutlined,
   EditOutlined,
+  BankOutlined,
+  EyeOutlined,
 } from '@ant-design/icons';
 import { fetchApi, postApi, patchApi, deleteApi } from '@/lib/api-client';
 import { openReceiptPrintWindow } from '@/components/print/ReceiptPrintView';
@@ -477,16 +479,18 @@ export default function CommitteesPage() {
           rowKey="id"
           loading={loading}
           pagination={{ pageSize: 8 }}
+          scroll={{ x: 1050 }}
           columns={[
             {
               title: 'Committee Group',
               key: 'name',
+              width: 220,
               render: (_, record) => (
                 <div>
                   <div className="font-bold text-slate-800 text-sm">{record.name}</div>
                   <div className="text-xs text-emerald-700 font-mono font-semibold">{record.committeeNumber}</div>
                   <div className="text-[11px] text-slate-400 flex items-center gap-1 mt-0.5">
-                    <CalendarOutlined /> Started: {record.startDate} • {record.branchName}
+                    <CalendarOutlined /> Started: {record.startDate}
                   </div>
                 </div>
               ),
@@ -494,6 +498,7 @@ export default function CommitteesPage() {
             {
               title: 'Type & Rules',
               key: 'type',
+              width: 170,
               render: (_, record) => (
                 <div>
                   {record.groupType === 'AUCTION_BIDDING' ? (
@@ -514,6 +519,7 @@ export default function CommitteesPage() {
             {
               title: 'Monthly Contribution',
               key: 'contribution',
+              width: 180,
               render: (_, record) => (
                 <div>
                   <div className="font-bold text-slate-700 text-sm">
@@ -528,10 +534,11 @@ export default function CommitteesPage() {
             {
               title: 'Members / Slots',
               key: 'slots',
+              width: 170,
               render: (_, record) => {
                 const percent = Math.round((record.enrolledMembersCount / record.totalSlots) * 100) || 0;
                 return (
-                  <div className="w-40">
+                  <div className="w-36">
                     <div className="flex justify-between items-center text-xs font-semibold text-slate-600 mb-1">
                       <span>{record.enrolledMembersCount} / {record.totalSlots} Slots</span>
                       <Badge
@@ -552,6 +559,7 @@ export default function CommitteesPage() {
             {
               title: 'Rounds Progress',
               key: 'rounds',
+              width: 140,
               render: (_, record) => (
                 <div>
                   <div className="text-xs font-bold text-slate-700">
@@ -566,6 +574,7 @@ export default function CommitteesPage() {
             {
               title: 'Status',
               key: 'status',
+              width: 110,
               render: (_, record) => (
                 <div className="flex items-center gap-1.5">
                   <Badge status={record.status === 'ACTIVE' ? 'processing' : 'default'} />
@@ -578,17 +587,20 @@ export default function CommitteesPage() {
             {
               title: 'Actions',
               key: 'actions',
+              width: 150,
+              fixed: 'right',
               align: 'right',
               render: (_, record) => (
-                <Space>
+                <Space size={6}>
                   <Tooltip title="Open detailed member roster, collections matrix & conduct round draw/auction">
                     <Button
                       type="primary"
                       size="small"
+                      icon={<EyeOutlined />}
                       style={{ backgroundColor: '#059669', borderColor: '#059669' }}
                       onClick={() => openDrawer(record)}
                     >
-                      Open Workspace
+                      View
                     </Button>
                   </Tooltip>
                   <Tooltip title="Edit Committee parameters & status">
@@ -842,10 +854,17 @@ export default function CommitteesPage() {
           selectedCommittee && (
             <div className="flex items-center justify-between w-full pr-6">
               <div>
-                <span className="text-lg font-bold text-slate-800">{selectedCommittee.name}</span>
-                <span className="ml-2 font-mono text-xs font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
-                  {selectedCommittee.committeeNumber}
-                </span>
+                <div className="flex items-center gap-2">
+                  <span className="text-lg font-bold text-slate-800">{selectedCommittee.name}</span>
+                  <span className="font-mono text-xs font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                    {selectedCommittee.committeeNumber}
+                  </span>
+                </div>
+                <div className="text-xs text-slate-500 mt-1 flex items-center gap-2">
+                  <span><CalendarOutlined /> Started: {selectedCommittee.startDate}</span>
+                  <span>•</span>
+                  <span className="text-emerald-700 font-medium"><BankOutlined /> Branch: {selectedCommittee.branchName || 'Head Office'}</span>
+                </div>
               </div>
               <div className="flex items-center gap-2">
                 <Badge status={selectedCommittee.status === 'ACTIVE' ? 'processing' : 'default'} />
