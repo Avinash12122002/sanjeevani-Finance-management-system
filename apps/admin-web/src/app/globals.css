@@ -86,6 +86,58 @@ html, body {
   color: inherit !important;
 }
 
+/* Single-Row Compact Tabs across the Application */
+.ant-tabs-nav {
+  margin-bottom: 12px !important;
+}
+
+.ant-tabs-nav-list {
+  gap: 2px !important;
+}
+
+.ant-tabs-tab {
+  padding: 5px 8px !important;
+  margin: 0 !important;
+  font-size: 11.5px !important;
+  transition: all 0.15s ease !important;
+}
+
+.ant-tabs-tab + .ant-tabs-tab {
+  margin-left: 2px !important;
+}
+
+.ant-tabs-tab-btn {
+  font-size: 11.5px !important;
+  font-weight: 500 !important;
+  letter-spacing: -0.01em !important;
+}
+
+.ant-tabs-small .ant-tabs-tab {
+  padding: 4px 6px !important;
+}
+
+.ant-tabs-small .ant-tabs-tab-btn {
+  font-size: 11px !important;
+}
+
+/* Specific Extra-Compact Single-Row Settings Tabs */
+.compact-settings-tabs .ant-tabs-nav-list {
+  gap: 1px !important;
+}
+
+.compact-settings-tabs .ant-tabs-tab {
+  padding: 4px 5px !important;
+  margin: 0 !important;
+}
+
+.compact-settings-tabs .ant-tabs-tab + .ant-tabs-tab {
+  margin-left: 1px !important;
+}
+
+.compact-settings-tabs .ant-tabs-tab-btn {
+  font-size: 11px !important;
+}
+
 /* Glassmorphic & Modern Cards */
 .glass-card {
   background: #ffffff;

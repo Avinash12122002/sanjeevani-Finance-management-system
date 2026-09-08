@@ -869,11 +869,14 @@ export default function SettingsPage() {
 
   const renderTabHeader = (title: string, count?: number, fullTitle?: string, icon?: React.ReactNode) => (
     <span
-      className="text-xs font-medium max-w-[125px] md:max-w-[155px] truncate inline-flex items-center gap-1.5 align-middle"
+      className="text-[11px] font-medium whitespace-nowrap inline-flex items-center gap-1 leading-none tracking-tight"
       title={fullTitle || `${title}${count !== undefined ? ` (${count})` : ''}`}
     >
       {icon}
-      <span>{title}{count !== undefined ? ` (${count})` : ''}</span>
+      <span>{title}</span>
+      {count !== undefined && (
+        <span className="text-[10px] text-slate-500 font-mono ml-0.5">({count})</span>
+      )}
     </span>
   );
 
@@ -931,7 +934,8 @@ export default function SettingsPage() {
       <Tabs
         defaultActiveKey="staff"
         size="small"
-        tabBarStyle={{ marginBottom: 16 }}
+        className="compact-settings-tabs"
+        tabBarStyle={{ marginBottom: 14 }}
         items={[
           {
             key: 'staff',
@@ -1488,7 +1492,7 @@ export default function SettingsPage() {
           },
           {
             key: 'flags',
-            label: renderTabHeader('Compliance', undefined, 'Compliance Feature Flags (§43, BR-019)'),
+            label: renderTabHeader('Compliance', undefined, 'Compliance Feature Flags (§43, BR-019)', <SafetyCertificateOutlined className="text-cyan-600 text-xs" />),
             children: (
               <Card className="glass-card" title="Operational Compliance & Legal Feature Switches">
                 <div className="space-y-4">
@@ -1523,7 +1527,7 @@ export default function SettingsPage() {
           },
           {
             key: 'config',
-            label: renderTabHeader('Parameters', undefined, 'System Parameters (§104)'),
+            label: renderTabHeader('Parameters', undefined, 'System Parameters (§104)', <SettingOutlined className="text-slate-600 text-xs" />),
             children: (
               <Card className="glass-card" title="Global Operational Parameters">
                 <Descriptions bordered column={2} size="small">
