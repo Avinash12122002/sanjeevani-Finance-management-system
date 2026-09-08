@@ -25,8 +25,9 @@ import {
   CheckCircleOutlined,
   DeleteOutlined,
   EyeOutlined,
+  EditOutlined,
 } from '@ant-design/icons';
-import { fetchApi, postApi, deleteApi } from '@/lib/api-client';
+import { fetchApi, postApi, patchApi, deleteApi } from '@/lib/api-client';
 import { FinancialEngine } from '@sanjeevani/financial-engine';
 import { IReceipt, PaymentMode } from '@sanjeevani/shared-types';
 import { openReceiptPrintWindow } from '@/components/print/ReceiptPrintView';
@@ -41,8 +42,11 @@ export default function CollectionsPage() {
   const [recordModalVisible, setRecordModalVisible] = useState(false);
   const [receiptModalVisible, setReceiptModalVisible] = useState(false);
   const [currentReceipt, setCurrentReceipt] = useState<IReceipt | null>(null);
+  const [editModalVisible, setEditModalVisible] = useState(false);
+  const [selectedReceiptToEdit, setSelectedReceiptToEdit] = useState<IReceipt | null>(null);
 
   const [form] = Form.useForm();
+  const [editForm] = Form.useForm();
   const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -97,6 +101,31 @@ export default function CollectionsPage() {
       }
     } catch {
       message.error('An error occurred while deleting receipt.');
+    }
+  };
+
+  const handleOpenEditReceipt = (r: IReceipt) => {
+    setSelectedReceiptToEdit(r);
+    editForm.setFieldsValue({
+      remarks: (r as any).remarks || '',
+      deliveryStatus: r.deliveryStatus || 'SENT',
+    });
+    setEditModalVisible(true);
+  };
+
+  const handleSaveEditReceipt = async (values: any) => {
+    if (!selectedReceiptToEdit) return;
+    try {
+      const res = await patchApi(`/collections/receipts/${selectedReceiptToEdit.id}`, values);
+      if (res.success) {
+        message.success(`Receipt ${selectedReceiptToEdit.receiptNumber} remarks updated.`);
+        setEditModalVisible(false);
+        loadData();
+      } else {
+        message.error(res.message || 'Failed to update receipt remarks');
+      }
+    } catch {
+      message.error('An error occurred while updating receipt.');
     }
   };
 
@@ -177,7 +206,7 @@ export default function CollectionsPage() {
     {
       title: 'Action',
       key: 'action',
-      width: 170,
+      width: 210,
       render: (_: any, r: IReceipt) => (
         <Space size={4}>
           <Button
@@ -189,6 +218,13 @@ export default function CollectionsPage() {
             }}
           >
             View
+          </Button>
+          <Button
+            size="small"
+            icon={<EditOutlined />}
+            onClick={() => handleOpenEditReceipt(r)}
+          >
+            Edit
           </Button>
           <Button
             size="small"
@@ -503,6 +539,41 @@ export default function CollectionsPage() {
             </div>
           </div>
         )}
+      </Modal>
+
+      {/* Edit Receipt Remarks Modal */}
+      <Modal
+        title={
+          <div className="flex items-center gap-2 text-slate-800 font-bold">
+            <EditOutlined className="text-emerald-600" />
+            <span>Edit Receipt Remarks: {selectedReceiptToEdit?.receiptNumber}</span>
+          </div>
+        }
+        open={editModalVisible}
+        onCancel={() => setEditModalVisible(false)}
+        footer={null}
+        width={480}
+      >
+        <Form form={editForm} layout="vertical" onFinish={handleSaveEditReceipt} className="mt-4">
+          <Form.Item label="Collection Notes & Remarks" name="remarks">
+            <Input.TextArea rows={3} placeholder="Add verification remarks, collection notes or counter comments" />
+          </Form.Item>
+          <Form.Item label="Delivery Status" name="deliveryStatus" rules={[{ required: true }]}>
+            <Select
+              options={[
+                { label: 'Sent (SMS Dispatched)', value: 'SENT' },
+                { label: 'Pending Dispatch', value: 'PENDING' },
+                { label: 'Failed Delivery', value: 'FAILED' },
+              ]}
+            />
+          </Form.Item>
+          <div className="flex justify-end gap-2 pt-3 border-t border-slate-100">
+            <Button onClick={() => setEditModalVisible(false)}>Cancel</Button>
+            <Button type="primary" htmlType="submit" style={{ backgroundColor: '#059669', borderColor: '#059669' }}>
+              Save Remarks
+            </Button>
+          </div>
+        </Form>
       </Modal>
     </div>
   );

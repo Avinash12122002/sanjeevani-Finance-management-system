@@ -2,6 +2,7 @@ import {
   Controller,
   Get,
   Post,
+  Patch,
   Delete,
   Param,
   Body,
@@ -336,6 +337,28 @@ export class CollectionsController {
   async getAllReceipts() {
     await this.dataStore.refreshIfStale();
     return this.dataStore.receipts;
+  }
+
+  @Patch('receipts/:id')
+  async updateReceipt(
+    @Param('id') id: string,
+    @Body() body: { remarks?: string; deliveryStatus?: string },
+    @CurrentUser() user: IUser,
+  ) {
+    await this.dataStore.refreshIfStale();
+    const updated = await this.dataStore.updateReceipt(id, body);
+    if (!updated) throw new NotFoundException(`Receipt not found: ${id}`);
+    this.dataStore.logAudit(
+      user?.id || 'USR-001',
+      user?.employeeName || 'Staff',
+      'RECEIPT_UPDATED',
+      'Receipt',
+      id,
+      undefined,
+      body,
+      `Updated receipt ${id} remarks/delivery status.`,
+    );
+    return { success: true, receipt: updated };
   }
 
   @Delete('receipts/:id')

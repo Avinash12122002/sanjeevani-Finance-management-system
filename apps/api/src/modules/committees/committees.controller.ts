@@ -2,6 +2,7 @@ import {
   Controller,
   Get,
   Post,
+  Patch,
   Delete,
   Param,
   Body,
@@ -736,6 +737,50 @@ export class CommitteesController {
       groupStatus: group.status,
       nextRound: group.currentRound,
     };
+  }
+
+  /**
+   * Update Committee Group details (Name, Frequency, Commission %, Status)
+   */
+  @Patch(':id')
+  @Roles(UserRole.SUPER_ADMIN, UserRole.GENERAL_MANAGER, UserRole.BRANCH_MANAGER)
+  async updateCommittee(
+    @Param('id') id: string,
+    @Body()
+    body: {
+      name?: string;
+      frequency?: 'MONTHLY' | 'WEEKLY' | 'DAILY';
+      organizerCommissionPercent?: number;
+      status?: 'ACTIVE' | 'PAUSED' | 'COMPLETED';
+    },
+    @CurrentUser() user: IUser,
+  ) {
+    await this.dataStore.refreshIfStale();
+    const group = this.dataStore.committeeGroups.find((g) => g.id === id);
+    if (!group) throw new NotFoundException(`Committee group not found: ${id}`);
+
+    const oldVal = { ...group };
+
+    if (body.name && body.name.trim()) group.name = body.name.trim();
+    if (body.frequency) group.frequency = body.frequency;
+    if (body.organizerCommissionPercent !== undefined) {
+      group.organizerCommissionPercent = Number(body.organizerCommissionPercent);
+    }
+    if (body.status) group.status = body.status;
+
+    await this.dataStore.persistCommitteeGroup(group);
+
+    this.dataStore.logAudit(
+      user.id,
+      user.username,
+      'UPDATE_COMMITTEE_GROUP',
+      'COMMITTEE',
+      id,
+      oldVal,
+      group,
+    );
+
+    return { success: true, committee: group };
   }
 
   /**

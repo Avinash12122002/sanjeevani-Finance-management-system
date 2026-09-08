@@ -24,7 +24,34 @@ export class DatabaseController {
   constructor(private dataStore: DataStoreService) {}
 
   /**
-   * List all 15 PostgreSQL tables with row counts and schema metadata
+   * Health and synchronization status across all 21 tables
+   */
+  @Get('sync-status')
+  async getSyncStatus() {
+    return this.dataStore.getSyncStatus();
+  }
+
+  /**
+   * Force an immediate refresh from PostgreSQL into the in-memory cache
+   */
+  @Post('sync-force')
+  async forceSync(@CurrentUser() user: IUser) {
+    await this.dataStore.forceSync();
+    this.dataStore.logAudit(
+      user?.id || 'USR-001',
+      user?.employeeName || 'Super Administrator',
+      'DATABASE_SYNC_FORCED',
+      'Database',
+      'ALL_TABLES',
+      undefined,
+      undefined,
+      'Forced manual refresh of in-memory store from PostgreSQL.',
+    );
+    return this.dataStore.getSyncStatus();
+  }
+
+  /**
+   * List all 21 PostgreSQL tables with row counts and schema metadata
    */
   @Get('tables')
   async getTables() {

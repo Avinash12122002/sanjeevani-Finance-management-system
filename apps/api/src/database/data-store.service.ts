@@ -602,6 +602,8 @@ export class DataStoreService implements OnModuleInit {
           closedByName: r.closed_by_name,
           closedAt: r.closed_at ? new Date(r.closed_at).toISOString() : '',
         }));
+      } else if ((closureRes as any).command === 'SELECT') {
+        this.businessDayClosures = [];
       }
 
       // General Journal Entries
@@ -619,6 +621,8 @@ export class DataStoreService implements OnModuleInit {
           createdAt: r.created_at ? new Date(r.created_at).toISOString() : '',
           lines: Array.isArray(r.lines) ? r.lines : typeof r.lines === 'string' ? (() => { try { return JSON.parse(r.lines); } catch { return []; } })() : [],
         }));
+      } else if ((jrnRes as any).command === 'SELECT') {
+        this.journalEntries = [];
       }
 
       // Customer Documents
@@ -717,9 +721,39 @@ export class DataStoreService implements OnModuleInit {
           createdAt: r.created_at ? new Date(r.created_at).toISOString() : new Date().toISOString(),
         }));
       }
+
+      this.recalculateCounters();
     } catch (e: any) {
       this.logger.warn(`Could not load initial rows from PostgreSQL: ${e.message}`);
     }
+  }
+
+  private recalculateCounters() {
+    const extractMaxNum = (arr: any[], key: string, fallback: number = 0) => {
+      let max = fallback;
+      for (const item of arr) {
+        const val = item?.[key];
+        if (typeof val === 'string') {
+          const match = val.match(/\d+$/);
+          if (match) {
+            const num = parseInt(match[0], 10);
+            if (!isNaN(num) && num > max) max = num;
+          }
+        }
+      }
+      return max;
+    };
+
+    this.counters.customer = extractMaxNum(this.customers, 'customerNumber', this.customers.length);
+    this.counters.employee = extractMaxNum(this.employees, 'employeeNumber', this.employees.length);
+    this.counters.account = extractMaxNum(this.accounts, 'accountNumber', this.accounts.length);
+    this.counters.loan = extractMaxNum(this.loans, 'loanNumber', this.loans.length);
+    this.counters.loanApp = extractMaxNum(this.loanApplications, 'applicationNumber', this.loanApplications.length);
+    this.counters.transaction = extractMaxNum(this.transactions, 'transactionNumber', this.transactions.length);
+    this.counters.receipt = extractMaxNum(this.receipts, 'receiptNumber', this.receipts.length);
+    this.counters.journal = extractMaxNum(this.journalEntries, 'journalNumber', this.journalEntries.length);
+    this.counters.complaint = extractMaxNum(this.complaints, 'complaintNumber', this.complaints.length);
+    this.counters.committee = extractMaxNum(this.committeeGroups, 'committeeNumber', this.committeeGroups.length);
   }
 
   private lastSyncTime = 0;
@@ -754,6 +788,62 @@ export class DataStoreService implements OnModuleInit {
     if (!this.pool) return;
     await this.loadFromPostgres();
     this.lastSyncTime = Date.now();
+  }
+
+  async getSyncStatus() {
+    await this.refreshIfStale(1000);
+    const statusList: {
+      table: string;
+      inMemoryCount: number;
+      postgresCount: number;
+      status: 'IN_SYNC' | 'DESYNCHRONIZED' | 'POSTGRES_DISCONNECTED';
+    }[] = [];
+
+    if (!this.pool) {
+      for (const table of this.ALL_DB_TABLES) {
+        statusList.push({
+          table,
+          inMemoryCount: this.getInMemoryCount(table),
+          postgresCount: 0,
+          status: 'POSTGRES_DISCONNECTED',
+        });
+      }
+      return {
+        isConnected: false,
+        totalTables: this.ALL_DB_TABLES.length,
+        inSyncTables: 0,
+        allInSync: false,
+        tables: statusList,
+      };
+    }
+
+    for (const table of this.ALL_DB_TABLES) {
+      let pgCount = 0;
+      try {
+        const res = await this.pool.query(`SELECT COUNT(*) as count FROM ${table}`);
+        pgCount = parseInt(res.rows[0]?.count || '0', 10);
+      } catch {
+        pgCount = -1;
+      }
+      const memCount = this.getInMemoryCount(table);
+      const isSync = pgCount === memCount;
+      statusList.push({
+        table,
+        inMemoryCount: memCount,
+        postgresCount: pgCount >= 0 ? pgCount : 0,
+        status: isSync ? 'IN_SYNC' : 'DESYNCHRONIZED',
+      });
+    }
+
+    const inSyncCount = statusList.filter((s) => s.status === 'IN_SYNC').length;
+
+    return {
+      isConnected: true,
+      totalTables: this.ALL_DB_TABLES.length,
+      inSyncTables: inSyncCount,
+      allInSync: inSyncCount === this.ALL_DB_TABLES.length,
+      tables: statusList,
+    };
   }
 
   // ==========================================
@@ -1860,6 +1950,80 @@ export class DataStoreService implements OnModuleInit {
         await this.pool.query('DELETE FROM cash_drawers WHERE id = $1', [id]);
       } catch (e: any) {
         this.logger.error(`Failed to delete cash drawer ${id} from PostgreSQL: ${e.message}`);
+      }
+    }
+  }
+
+  async updateReceipt(id: string, updates: { remarks?: string; deliveryStatus?: 'PENDING' | 'FAILED' | 'SENT' | string }) {
+    const r = this.receipts.find((rec) => rec.id === id || rec.receiptNumber === id);
+    if (!r) return null;
+    if (updates.remarks !== undefined) (r as any).remarks = updates.remarks;
+    if (updates.deliveryStatus !== undefined) r.deliveryStatus = updates.deliveryStatus as any;
+    if (this.pool) {
+      try {
+        await this.pool.query(
+          'UPDATE receipts SET remarks = COALESCE($1, remarks), delivery_status = COALESCE($2, delivery_status) WHERE id = $3 OR receipt_number = $3',
+          [updates.remarks || null, updates.deliveryStatus || null, id]
+        );
+      } catch (e: any) {
+        this.logger.error(`Failed to update receipt ${id} in PostgreSQL: ${e.message}`);
+      }
+    }
+    return r;
+  }
+
+  async persistCommitteeGroup(group: any) {
+    if (!this.pool) return;
+    try {
+      await this.pool.query(
+        `INSERT INTO committee_groups (
+          id, committee_number, name, group_type, contribution_amount, member_count,
+          total_pool, organizer_commission_percent, frequency, start_date, end_date,
+          current_round, status, branch_id, branch_name, created_at
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
+        ON CONFLICT (id) DO UPDATE SET
+          name = EXCLUDED.name,
+          frequency = EXCLUDED.frequency,
+          organizer_commission_percent = EXCLUDED.organizer_commission_percent,
+          status = EXCLUDED.status,
+          current_round = EXCLUDED.current_round`,
+        [
+          group.id,
+          group.committeeNumber,
+          group.name,
+          group.groupType,
+          group.contributionAmount,
+          group.memberCount,
+          group.totalPool,
+          group.organizerCommissionPercent,
+          group.frequency,
+          group.startDate,
+          group.endDate,
+          group.currentRound,
+          group.status,
+          group.branchId,
+          group.branchName,
+          group.createdAt,
+        ],
+      );
+    } catch (e: any) {
+      this.logger.error(`Failed to persist committee group ${group.id}: ${e.message}`);
+    }
+  }
+
+  async deleteCommitteeGroup(id: string) {
+    this.committeeGroups = this.committeeGroups.filter((c) => c.id !== id && c.committeeNumber !== id);
+    this.committeeMembers = this.committeeMembers.filter((m) => m.committeeId !== id);
+    this.committeeInstallments = this.committeeInstallments.filter((i) => i.committeeId !== id);
+    this.committeePayouts = this.committeePayouts.filter((p) => p.committeeId !== id);
+    if (this.pool) {
+      try {
+        await this.pool.query('DELETE FROM committee_payouts WHERE committee_id = $1', [id]);
+        await this.pool.query('DELETE FROM committee_installments WHERE committee_id = $1', [id]);
+        await this.pool.query('DELETE FROM committee_members WHERE committee_id = $1', [id]);
+        await this.pool.query('DELETE FROM committee_groups WHERE id = $1 OR committee_number = $1', [id]);
+      } catch (e: any) {
+        this.logger.error(`Failed to delete committee ${id} from PostgreSQL: ${e.message}`);
       }
     }
   }

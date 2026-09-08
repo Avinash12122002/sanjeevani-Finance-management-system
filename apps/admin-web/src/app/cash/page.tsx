@@ -19,6 +19,7 @@ import {
   Space,
   Descriptions,
   Drawer,
+  Popconfirm,
 } from 'antd';
 import {
   AuditOutlined,
@@ -27,8 +28,9 @@ import {
   LockOutlined,
   EyeOutlined,
   PlusOutlined,
+  DeleteOutlined,
 } from '@ant-design/icons';
-import { fetchApi, postApi } from '@/lib/api-client';
+import { fetchApi, postApi, deleteApi } from '@/lib/api-client';
 import { FinancialEngine } from '@sanjeevani/financial-engine';
 import { ICashDrawer, CashDrawerStatus } from '@sanjeevani/shared-types';
 
@@ -127,6 +129,20 @@ export default function CashDrawerPage() {
     }
   };
 
+  const handleDeleteDrawer = async (id: string) => {
+    try {
+      const res = await deleteApi(`/cash-drawers/${id}`);
+      if (res.success) {
+        message.success(`Cash drawer session [${id}] deleted.`);
+        loadCashData();
+      } else {
+        message.error(res.message || 'Failed to delete drawer session');
+      }
+    } catch {
+      message.error('An error occurred while deleting cash drawer session.');
+    }
+  };
+
   const historyColumns = [
     {
       title: 'Business Date',
@@ -185,16 +201,28 @@ export default function CashDrawerPage() {
       title: 'Action',
       key: 'action',
       render: (_: any, r: ICashDrawer) => (
-        <Button
-          size="small"
-          icon={<EyeOutlined />}
-          onClick={() => {
-            setSelectedDrawer(r);
-            setDrawerOpen(true);
-          }}
-        >
-          View
-        </Button>
+        <Space size={4}>
+          <Button
+            size="small"
+            icon={<EyeOutlined />}
+            onClick={() => {
+              setSelectedDrawer(r);
+              setDrawerOpen(true);
+            }}
+          >
+            View
+          </Button>
+          <Popconfirm
+            title="Delete Drawer Session?"
+            description={`Delete record ${r.id} for ${r.businessDate}?`}
+            onConfirm={() => handleDeleteDrawer(r.id)}
+            okText="Delete"
+            cancelText="Cancel"
+            okButtonProps={{ danger: true }}
+          >
+            <Button size="small" danger icon={<DeleteOutlined />} />
+          </Popconfirm>
+        </Space>
       ),
     },
   ];

@@ -37,8 +37,9 @@ import {
   SyncOutlined,
   DeleteOutlined,
   InfoCircleOutlined,
+  EditOutlined,
 } from '@ant-design/icons';
-import { fetchApi, postApi, deleteApi } from '@/lib/api-client';
+import { fetchApi, postApi, patchApi, deleteApi } from '@/lib/api-client';
 import { openReceiptPrintWindow } from '@/components/print/ReceiptPrintView';
 
 interface CommitteeGroup {
@@ -124,6 +125,8 @@ export default function CommitteesPage() {
   const [enrollModalVisible, setEnrollModalVisible] = useState(false);
   const [collectModalVisible, setCollectModalVisible] = useState(false);
   const [auctionModalVisible, setAuctionModalVisible] = useState(false);
+  const [editModalVisible, setEditModalVisible] = useState(false);
+  const [selectedCommitteeToEdit, setSelectedCommitteeToEdit] = useState<CommitteeGroup | null>(null);
 
   // Drawer details
   const [selectedCommittee, setSelectedCommittee] = useState<CommitteeGroup | null>(null);
@@ -138,6 +141,7 @@ export default function CommitteesPage() {
 
   // Forms
   const [createForm] = Form.useForm();
+  const [editForm] = Form.useForm();
   const [enrollForm] = Form.useForm();
   const [collectForm] = Form.useForm();
   const [auctionForm] = Form.useForm();
@@ -309,6 +313,37 @@ export default function CommitteesPage() {
       }
     } catch (e: any) {
       message.error(e.message || 'Failed to delete committee');
+    }
+  };
+
+  // --- 6. Edit Committee ---
+  const handleOpenEditCommittee = (record: CommitteeGroup) => {
+    setSelectedCommitteeToEdit(record);
+    editForm.setFieldsValue({
+      name: record.name,
+      frequency: record.frequency,
+      organizerCommissionPercent: record.organizerCommissionPercent,
+      status: record.status,
+    });
+    setEditModalVisible(true);
+  };
+
+  const handleSaveEditCommittee = async (values: any) => {
+    if (!selectedCommitteeToEdit) return;
+    try {
+      const res = await patchApi(`/committees/${selectedCommitteeToEdit.id}`, values);
+      if (res.success) {
+        message.success(`Committee [${values.name || selectedCommitteeToEdit.name}] updated successfully!`);
+        setEditModalVisible(false);
+        loadCommittees();
+        if (selectedCommittee?.id === selectedCommitteeToEdit.id) {
+          reloadDrawerDetail(selectedCommitteeToEdit.id);
+        }
+      } else {
+        message.error(res.message || res.error || 'Failed to update committee');
+      }
+    } catch (e: any) {
+      message.error(e.message || 'Failed to update committee');
     }
   };
 
@@ -556,6 +591,13 @@ export default function CommitteesPage() {
                       Open Workspace
                     </Button>
                   </Tooltip>
+                  <Tooltip title="Edit Committee parameters & status">
+                    <Button
+                      size="small"
+                      icon={<EditOutlined />}
+                      onClick={() => handleOpenEditCommittee(record)}
+                    />
+                  </Tooltip>
                   <Tooltip title="Delete committee group (only permitted before installments are collected)">
                     <Popconfirm
                       title="Delete Committee Group?"
@@ -718,6 +760,77 @@ export default function CommitteesPage() {
             <Button onClick={() => setCreateModalVisible(false)}>Cancel</Button>
             <Button type="primary" htmlType="submit" style={{ backgroundColor: '#059669', borderColor: '#059669' }}>
               Create Committee
+            </Button>
+          </div>
+        </Form>
+      </Modal>
+
+      {/* --- MODAL 1.5: Edit Committee Group --- */}
+      <Modal
+        title={
+          <div className="flex items-center gap-2 text-slate-800 font-bold">
+            <EditOutlined className="text-emerald-600" />
+            <span>Edit Committee Group: {selectedCommitteeToEdit?.name}</span>
+          </div>
+        }
+        open={editModalVisible}
+        onCancel={() => setEditModalVisible(false)}
+        footer={null}
+        width={520}
+      >
+        <Form form={editForm} layout="vertical" onFinish={handleSaveEditCommittee} className="mt-4">
+          <Form.Item
+            label={<span className="font-semibold text-slate-700">Committee Group Name</span>}
+            name="name"
+            rules={[{ required: true, message: 'Please enter committee group name' }]}
+          >
+            <Input placeholder="e.g. Rohini Sector 7 Friends Committee" />
+          </Form.Item>
+
+          <Row gutter={16}>
+            <Col span={12}>
+              <Form.Item
+                label={<span className="font-semibold text-slate-700">Contribution Frequency</span>}
+                name="frequency"
+                rules={[{ required: true }]}
+              >
+                <Select
+                  options={[
+                    { label: 'Monthly (मासिक)', value: 'MONTHLY' },
+                    { label: 'Weekly (साप्ताहिक)', value: 'WEEKLY' },
+                    { label: 'Daily (दैनिक)', value: 'DAILY' },
+                  ]}
+                />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item
+                label={<span className="font-semibold text-slate-700">Organizer Fee %</span>}
+                name="organizerCommissionPercent"
+                rules={[{ required: true }]}
+              >
+                <InputNumber min={0} max={25} step={0.5} style={{ width: '100%' }} suffix="%" />
+              </Form.Item>
+            </Col>
+          </Row>
+
+          <Form.Item
+            label={<span className="font-semibold text-slate-700">Operating Status</span>}
+            name="status"
+            rules={[{ required: true }]}
+          >
+            <Select
+              options={[
+                { label: 'Active (चालू)', value: 'ACTIVE' },
+                { label: 'Completed (समाप्त)', value: 'COMPLETED' },
+              ]}
+            />
+          </Form.Item>
+
+          <div className="flex justify-end gap-2 pt-3 border-t border-slate-100">
+            <Button onClick={() => setEditModalVisible(false)}>Cancel</Button>
+            <Button type="primary" htmlType="submit" style={{ backgroundColor: '#059669', borderColor: '#059669' }}>
+              Save Changes
             </Button>
           </div>
         </Form>

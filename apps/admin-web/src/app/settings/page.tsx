@@ -51,6 +51,7 @@ import {
   PrinterOutlined,
   IdcardOutlined,
   SafetyCertificateOutlined,
+  SyncOutlined,
 } from '@ant-design/icons';
 import { fetchApi, postApi, patchApi, deleteApi } from '@/lib/api-client';
 import { noEmojiRule } from '@/lib/emoji-sanitizer';
@@ -128,11 +129,31 @@ export default function SettingsPage() {
   const [addRowForm] = Form.useForm();
   const [editRowForm] = Form.useForm();
   const [savingRow, setSavingRow] = useState(false);
+  const [syncStatus, setSyncStatus] = useState<any>(null);
+  const [forcingSync, setForcingSync] = useState(false);
 
   const loadDbTables = async () => {
     const res = await fetchApi('/database/tables');
     if (res.success && res.data) {
       setDbTables(res.data);
+    }
+    const syncRes = await fetchApi('/database/sync-status');
+    if (syncRes.success && syncRes.data) {
+      setSyncStatus(syncRes.data);
+    }
+  };
+
+  const handleForceSync = async () => {
+    setForcingSync(true);
+    const res = await postApi('/database/sync-force', {});
+    setForcingSync(false);
+    if (res.success && res.data) {
+      setSyncStatus(res.data);
+      message.success('Database in-memory cache synchronized with PostgreSQL!');
+      loadDbTables();
+      loadTableRows(selectedTable);
+    } else {
+      message.error(res.message || 'Failed to sync database');
     }
   };
 
@@ -1557,12 +1578,17 @@ export default function SettingsPage() {
                     <div className="flex items-center gap-2.5">
                       <DatabaseOutlined className="text-emerald-600 text-lg" />
                       <div>
-                        <div className="font-bold text-slate-800 text-base flex items-center gap-2">
+                        <div className="font-bold text-slate-800 text-base flex items-center gap-2 flex-wrap">
                           <span>PostgreSQL Database Explorer & Inspector</span>
-                          <Tag color="emerald" className="font-mono text-xs m-0">{dbTables.length || 17} TABLES CONNECTED</Tag>
+                          <Tag color="emerald" className="font-mono text-xs m-0">{dbTables.length || 21} TABLES CONNECTED</Tag>
+                          {syncStatus && (
+                            <Tag color={syncStatus.allInSync ? 'success' : 'warning'} className="font-mono text-xs m-0">
+                              {syncStatus.allInSync ? '✅ 100% IN-SYNC' : `${syncStatus.inSyncTables}/${syncStatus.totalTables} IN-SYNC`}
+                            </Tag>
+                          )}
                         </div>
                         <div className="text-xs text-slate-500 font-normal">
-                          Read, Create, Update & Delete 100% of rows and columns saved in database.
+                          Read, Create, Update & Delete 100% of rows and columns saved in PostgreSQL.
                         </div>
                       </div>
                     </div>
@@ -1570,6 +1596,14 @@ export default function SettingsPage() {
                 }
                 extra={
                   <Space wrap>
+                    <Button
+                      icon={<SyncOutlined />}
+                      loading={forcingSync}
+                      onClick={handleForceSync}
+                      style={{ color: '#059669', borderColor: '#059669' }}
+                    >
+                      Force DB Sync
+                    </Button>
                     <Button
                       icon={<ReloadOutlined />}
                       onClick={() => {
