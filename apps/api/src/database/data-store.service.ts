@@ -265,6 +265,8 @@ export class DataStoreService implements OnModuleInit {
           openedAt: r.opened_at ? new Date(r.opened_at).toISOString().split('T')[0] : '',
           createdAt: r.created_at ? new Date(r.created_at).toISOString() : '',
         }));
+      } else if ((branchRes as any)?.command === 'SELECT') {
+        this.branches = [];
       }
 
       // Users
@@ -284,6 +286,8 @@ export class DataStoreService implements OnModuleInit {
           passwordHash: r.password_hash,
           createdAt: r.created_at ? new Date(r.created_at).toISOString() : '',
         }));
+      } else if ((userRes as any)?.command === 'SELECT') {
+        this.users = [];
       }
 
       // Customers
@@ -327,6 +331,9 @@ export class DataStoreService implements OnModuleInit {
             this.customerPasswordMap.set(r.id, r.portal_password);
           }
         });
+      } else if ((custRes as any)?.command === 'SELECT') {
+        this.customers = [];
+        this.customerPasswordMap.clear();
       }
 
       // Accounts
@@ -358,6 +365,8 @@ export class DataStoreService implements OnModuleInit {
           updatedAt: r.created_at ? new Date(r.created_at).toISOString() : '',
         }));
         this.counters.account = this.accounts.length;
+      } else if ((accRes as any)?.command === 'SELECT') {
+        this.accounts = [];
       }
 
       // Loans
@@ -400,6 +409,8 @@ export class DataStoreService implements OnModuleInit {
           createdAt: r.created_at ? new Date(r.created_at).toISOString() : '',
         }));
         this.counters.loan = this.loans.length;
+      } else if ((loanRes as any)?.command === 'SELECT') {
+        this.loans = [];
       }
 
       // Receipts
@@ -421,6 +432,8 @@ export class DataStoreService implements OnModuleInit {
           deliveryStatus: 'SENT',
         }));
         this.counters.receipt = this.receipts.length;
+      } else if ((rcpRes as any)?.command === 'SELECT') {
+        this.receipts = [];
       }
 
       // Transactions
@@ -443,6 +456,8 @@ export class DataStoreService implements OnModuleInit {
           createdAt: r.created_at ? new Date(r.created_at).toISOString() : '',
         }));
         this.counters.transaction = this.transactions.length;
+      } else if ((txnRes as any)?.command === 'SELECT') {
+        this.transactions = [];
       }
 
       // Cash Drawers
@@ -464,6 +479,8 @@ export class DataStoreService implements OnModuleInit {
           openedAt: r.opened_at ? new Date(r.opened_at).toISOString() : '',
           closedAt: r.closed_at ? new Date(r.closed_at).toISOString() : undefined,
         }));
+      } else if ((cdRes as any)?.command === 'SELECT') {
+        this.cashDrawers = [];
       }
 
       // Products
@@ -487,6 +504,8 @@ export class DataStoreService implements OnModuleInit {
           regulatoryStatus: RegulatoryStatus.APPROVED,
           createdAt: r.created_at ? new Date(r.created_at).toISOString() : '',
         }));
+      } else if ((prodRes as any)?.command === 'SELECT') {
+        this.products = [];
       }
 
       // Employees
@@ -511,6 +530,8 @@ export class DataStoreService implements OnModuleInit {
           createdAt: r.created_at ? new Date(r.created_at).toISOString() : '',
         }));
         this.counters.employee = this.employees.length;
+      } else if ((empRes as any)?.command === 'SELECT') {
+        this.employees = [];
       }
 
       // Chart of Accounts
@@ -525,6 +546,8 @@ export class DataStoreService implements OnModuleInit {
           currency: 'INR',
           createdAt: r.created_at ? new Date(r.created_at).toISOString() : '',
         }));
+      } else if ((coaRes as any)?.command === 'SELECT') {
+        this.chartOfAccounts = [];
       }
 
       // Complaints
@@ -543,6 +566,8 @@ export class DataStoreService implements OnModuleInit {
           createdAt: r.created_at ? new Date(r.created_at).toISOString() : '',
         }));
         this.counters.complaint = this.complaints.length;
+      } else if ((cmpRes as any)?.command === 'SELECT') {
+        this.complaints = [];
       }
 
       // Audit Logs
@@ -560,6 +585,8 @@ export class DataStoreService implements OnModuleInit {
           ipAddress: r.client_ip || '127.0.0.1',
           timestamp: r.created_at ? new Date(r.created_at).toISOString() : '',
         }));
+      } else if ((auditRes as any)?.command === 'SELECT') {
+        this.auditLogs = [];
       }
 
       // Repayment Schedules (EMIs)
@@ -582,6 +609,8 @@ export class DataStoreService implements OnModuleInit {
           paidAt: r.paid_date ? new Date(r.paid_date).toISOString() : undefined,
           status: (r.status as InstallmentStatus) || InstallmentStatus.DUE,
         }));
+      } else if ((schedRes as any)?.command === 'SELECT') {
+        this.loanInstallments = [];
       }
 
       // Daily Closures / Business Date Locks
@@ -638,6 +667,8 @@ export class DataStoreService implements OnModuleInit {
           uploadedBy: r.uploaded_by,
           uploadedAt: r.uploaded_at ? new Date(r.uploaded_at).toISOString() : new Date().toISOString(),
         }));
+      } else if ((docRes as any)?.command === 'SELECT') {
+        this.customerDocuments = [];
       }
 
       // Committee Groups (SRS §42)
@@ -661,6 +692,8 @@ export class DataStoreService implements OnModuleInit {
           createdAt: r.created_at ? new Date(r.created_at).toISOString() : new Date().toISOString(),
         }));
         this.counters.committee = this.committeeGroups.length;
+      } else if ((cmGroupRes as any)?.command === 'SELECT') {
+        this.committeeGroups = [];
       }
 
       // Committee Members (Slots)
@@ -681,6 +714,8 @@ export class DataStoreService implements OnModuleInit {
           payoutDate: r.payout_date ? new Date(r.payout_date).toISOString().split('T')[0] : null,
           createdAt: r.created_at ? new Date(r.created_at).toISOString() : new Date().toISOString(),
         }));
+      } else if ((cmMemberRes as any)?.command === 'SELECT') {
+        this.committeeMembers = [];
       }
 
       // Committee Installments
@@ -700,6 +735,8 @@ export class DataStoreService implements OnModuleInit {
           receiptNumber: r.receipt_number,
           createdAt: r.created_at ? new Date(r.created_at).toISOString() : new Date().toISOString(),
         }));
+      } else if ((cmInstRes as any)?.command === 'SELECT') {
+        this.committeeInstallments = [];
       }
 
       // Committee Round Payouts
@@ -720,6 +757,8 @@ export class DataStoreService implements OnModuleInit {
           paymentMode: r.payment_mode || 'CASH',
           createdAt: r.created_at ? new Date(r.created_at).toISOString() : new Date().toISOString(),
         }));
+      } else if ((cmPayoutRes as any)?.command === 'SELECT') {
+        this.committeePayouts = [];
       }
 
       this.recalculateCounters();
