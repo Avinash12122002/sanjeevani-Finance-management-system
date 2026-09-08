@@ -43,7 +43,8 @@ export class AuthController {
     @Body() body: { username?: string; password?: string; mobile?: string },
     @Req() req: Request,
   ) {
-    const clientIp = (req.headers['x-forwarded-for'] as string) || req.ip || '127.0.0.1';
+    const rawFwd = req.headers['x-forwarded-for'];
+    const clientIp = (typeof rawFwd === 'string' ? rawFwd.split(',')[0].trim() : Array.isArray(rawFwd) ? rawFwd[0] : req.ip) || '127.0.0.1';
     const now = Date.now();
 
     // 1. Check Brute-Force Lockout

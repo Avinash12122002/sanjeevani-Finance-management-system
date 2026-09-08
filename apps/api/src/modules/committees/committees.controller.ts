@@ -13,11 +13,13 @@ import { DataStoreService } from '../../database/data-store.service';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { StaffGuard } from '../../common/guards/staff.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
-import { IUser, PaymentMode } from '@sanjeevani/shared-types';
+import { IUser, PaymentMode, UserRole } from '@sanjeevani/shared-types';
 import { SmsNotificationService } from '../../shared/sms-notification.service';
+import { RolesGuard } from '../../common/guards/roles.guard';
+import { Roles } from '../../common/decorators/roles.decorator';
 
 @Controller('api/v1/committees')
-@UseGuards(JwtAuthGuard, StaffGuard)
+@UseGuards(JwtAuthGuard, StaffGuard, RolesGuard)
 export class CommitteesController {
   constructor(
     private dataStore: DataStoreService,
@@ -110,6 +112,7 @@ export class CommitteesController {
    * Create a new Committee Group
    */
   @Post()
+  @Roles(UserRole.SUPER_ADMIN, UserRole.GENERAL_MANAGER, UserRole.BRANCH_MANAGER)
   async createCommittee(
     @Body()
     body: {
@@ -524,6 +527,7 @@ export class CommitteesController {
    * SRS §42: Calculates lowest bid discount, organizer commission, member dividend, and net payout
    */
   @Post(':id/rounds/auction')
+  @Roles(UserRole.SUPER_ADMIN, UserRole.GENERAL_MANAGER, UserRole.BRANCH_MANAGER)
   async conductRoundAuction(
     @Param('id') committeeId: string,
     @Body()
@@ -738,6 +742,7 @@ export class CommitteesController {
    * Delete or archive committee group
    */
   @Delete(':id')
+  @Roles(UserRole.SUPER_ADMIN)
   async deleteCommittee(@Param('id') id: string, @CurrentUser() user: IUser) {
     await this.dataStore.refreshIfStale();
     const group = this.dataStore.committeeGroups.find((g) => g.id === id);

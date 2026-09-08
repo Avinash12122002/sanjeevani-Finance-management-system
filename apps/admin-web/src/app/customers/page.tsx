@@ -52,7 +52,7 @@ import { fetchApi, postApi, patchApi, deleteApi } from '@/lib/api-client';
 import { FinancialEngine } from '@sanjeevani/financial-engine';
 import { ICustomer } from '@sanjeevani/shared-types';
 import { CustomerDocumentsModal } from '@/components/print/DocumentTemplates';
-import { maskAadhaar } from '@/lib/html-sanitizer';
+import { maskAadhaar, maskPan } from '@/lib/html-sanitizer';
 
 export default function CustomersPage() {
   const [customers, setCustomers] = useState<ICustomer[]>([]);
@@ -1040,7 +1040,11 @@ export default function CustomersPage() {
                         </Descriptions.Item>
                         <Descriptions.Item label="Income Tax PAN">
                           <span className="font-mono text-xs font-bold text-slate-800">
-                            {selectedCustomer360.profile.pan || <Tag color="default">Not Provided</Tag>}
+                            {selectedCustomer360.profile.pan ? (
+                              maskPan(selectedCustomer360.profile.pan)
+                            ) : (
+                              <Tag color="default">Not Provided</Tag>
+                            )}
                           </span>
                         </Descriptions.Item>
                         <Descriptions.Item label="Risk Category">

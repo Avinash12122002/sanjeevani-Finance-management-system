@@ -67,6 +67,8 @@ export async function fetchApi<T = any>(
             localStorage.removeItem('sfms_access_token');
             localStorage.removeItem('sfms_user');
             localStorage.removeItem('sjf_auth_token');
+            localStorage.removeItem('sfms_cached_metrics');
+            localStorage.removeItem('sfms_cached_charts');
             window.location.href = '/login';
           }
         }

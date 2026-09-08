@@ -935,7 +935,8 @@ export default function SettingsPage() {
         defaultActiveKey="staff"
         size="small"
         className="compact-settings-tabs"
-        tabBarStyle={{ marginBottom: 14 }}
+        tabBarGutter={2}
+        tabBarStyle={{ marginBottom: 12 }}
         items={[
           {
             key: 'staff',
@@ -1527,7 +1528,7 @@ export default function SettingsPage() {
           },
           {
             key: 'config',
-            label: renderTabHeader('Parameters', undefined, 'System Parameters (§104)', <SettingOutlined className="text-slate-600 text-xs" />),
+            label: renderTabHeader('Config', undefined, 'System Parameters (§104)', <SettingOutlined className="text-slate-600 text-xs" />),
             children: (
               <Card className="glass-card" title="Global Operational Parameters">
                 <Descriptions bordered column={2} size="small">
@@ -1729,7 +1730,7 @@ export default function SettingsPage() {
           },
           {
             key: 'hr',
-            label: renderTabHeader('HR & Training', onboardingList.length, 'HR Onboarding & 7-Day Training (SRS §43, §44)', <IdcardOutlined className="text-emerald-600 text-xs" />),
+            label: renderTabHeader('HR', onboardingList.length, 'HR Onboarding & 7-Day Training (SRS §43, §44)', <IdcardOutlined className="text-emerald-600 text-xs" />),
             children: (
               <div className="space-y-4">
                 <Card
@@ -1991,7 +1992,7 @@ export default function SettingsPage() {
           },
           {
             key: 'data_import',
-            label: renderTabHeader('Data Import', undefined, 'Bulk Data Migration Wizard (SRS §50)', <UploadOutlined className="text-purple-600 text-xs" />),
+            label: renderTabHeader('Import', undefined, 'Bulk Data Migration Wizard (SRS §50)', <UploadOutlined className="text-purple-600 text-xs" />),
             children: (
               <div className="space-y-4">
                 <Alert

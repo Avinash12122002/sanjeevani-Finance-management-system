@@ -17,9 +17,11 @@ import { IEmployee, IUser, UserRole } from '@sanjeevani/shared-types';
 import * as bcrypt from 'bcryptjs';
 
 import { StaffGuard } from '../../common/guards/staff.guard';
+import { RolesGuard } from '../../common/guards/roles.guard';
+import { Roles } from '../../common/decorators/roles.decorator';
 
 @Controller('api/v1/employees')
-@UseGuards(JwtAuthGuard, StaffGuard)
+@UseGuards(JwtAuthGuard, StaffGuard, RolesGuard)
 export class EmployeesController {
   constructor(private dataStore: DataStoreService) {}
 
@@ -38,6 +40,7 @@ export class EmployeesController {
   }
 
   @Post()
+  @Roles(UserRole.SUPER_ADMIN, UserRole.GENERAL_MANAGER)
   async createEmployee(@Body() body: any, @CurrentUser() user: IUser) {
     const employeeNumber = this.dataStore.nextEmployeeNumber();
     const branch = this.dataStore.branches.find((b) => b.id === body.branchId) || this.dataStore.branches[0];
@@ -103,10 +106,12 @@ export class EmployeesController {
       { employeeNumber: newEmp.employeeNumber, role: assignedRole },
     );
 
-    return { employee: newEmp, user: newUser };
+    const { passwordHash, ...safeUser } = newUser as any;
+    return { employee: newEmp, user: safeUser };
   }
 
   @Patch(':id')
+  @Roles(UserRole.SUPER_ADMIN, UserRole.GENERAL_MANAGER)
   async updateEmployee(
     @Param('id') id: string,
     @Body() body: any,
@@ -189,6 +194,7 @@ export class EmployeesController {
   }
 
   @Delete(':id')
+  @Roles(UserRole.SUPER_ADMIN)
   async deleteEmployee(@Param('id') id: string, @CurrentUser() user: IUser) {
     const empIndex = this.dataStore.employees.findIndex((e) => e.id === id || e.employeeNumber === id);
     if (empIndex === -1) {

@@ -20,9 +20,11 @@ import {
 } from '@sanjeevani/shared-types';
 
 import { StaffGuard } from '../../common/guards/staff.guard';
+import { RolesGuard } from '../../common/guards/roles.guard';
+import { Roles } from '../../common/decorators/roles.decorator';
 
 @Controller('api/v1/daily-closing')
-@UseGuards(JwtAuthGuard, StaffGuard)
+@UseGuards(JwtAuthGuard, StaffGuard, RolesGuard)
 export class DailyClosingController {
   constructor(private dataStore: DataStoreService) {}
 
@@ -107,6 +109,7 @@ export class DailyClosingController {
    * Execute Daily Closing & Business Date Lock (SRS §63, §64, BR-009)
    */
   @Post('execute')
+  @Roles(UserRole.SUPER_ADMIN, UserRole.GENERAL_MANAGER, UserRole.BRANCH_MANAGER)
   async executeDailyClosing(
     @Body() body: { notes?: string },
     @CurrentUser() user: IUser,

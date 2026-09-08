@@ -95,7 +95,11 @@ export class CustomerPortalController {
       }
     }
 
-    this.logger.warn(`[MSG91 Simulation] Live Auth Key not configured. OTP for +91${mobile} is: ${otp}`);
+    if (process.env.NODE_ENV !== 'production' && process.env.ALLOW_DEV_OTP === 'true') {
+      this.logger.warn(`[MSG91 Simulation] Live Auth Key not configured. OTP for +91${mobile} is: ${otp}`);
+    } else {
+      this.logger.log(`[MSG91 Simulation] Live Auth Key not configured. Dispatched OTP to +91${mobile.slice(0, 2)}******${mobile.slice(-2)}`);
+    }
     return true;
   }
 
@@ -540,7 +544,8 @@ export class CustomerPortalController {
       throw new BadRequestException('Please provide your mobile number and password');
     }
 
-    const clientIp = (req?.headers?.['x-forwarded-for'] as string) || req?.ip || '127.0.0.1';
+    const rawFwd = req?.headers?.['x-forwarded-for'];
+    const clientIp = (typeof rawFwd === 'string' ? rawFwd.split(',')[0].trim() : Array.isArray(rawFwd) ? rawFwd[0] : req?.ip) || '127.0.0.1';
     const rateLimitKey = `${clientIp}:${cleanMobile}`;
     const now = Date.now();
 
@@ -684,7 +689,8 @@ export class CustomerPortalController {
       throw new BadRequestException('Please provide your Customer ID or Mobile Number and Password');
     }
 
-    const clientIp = (req?.headers?.['x-forwarded-for'] as string) || req?.ip || '127.0.0.1';
+    const rawFwd = req?.headers?.['x-forwarded-for'];
+    const clientIp = (typeof rawFwd === 'string' ? rawFwd.split(',')[0].trim() : Array.isArray(rawFwd) ? rawFwd[0] : req?.ip) || '127.0.0.1';
     const rateLimitKey = `${clientIp}:${identifier.trim().toLowerCase()}`;
     const now = Date.now();
 
@@ -891,8 +897,12 @@ export class CustomerPortalController {
         mobile: customer.mobile,
         alternateMobile: customer.alternateMobile,
         email: customer.email,
-        aadhaar: (customer as any).aadhaar || (customer as any).aadhaarNumber || '•••• •••• ' + (customer.mobile ? customer.mobile.slice(-4) : '1234'),
-        pan: (customer as any).pan || (customer as any).panNumber || 'ABCDE' + (customer.mobile ? customer.mobile.slice(-4) : '1234') + 'F',
+        aadhaar: (customer as any).aadhaar && (customer as any).aadhaar.length >= 4
+          ? '•••• •••• ' + (customer as any).aadhaar.replace(/\D/g, '').slice(-4)
+          : '•••• •••• ' + (customer.mobile ? customer.mobile.slice(-4) : '1234'),
+        pan: (customer as any).pan && (customer as any).pan.length === 10
+          ? '•••••' + (customer as any).pan.slice(5)
+          : '•••••' + (customer.mobile ? customer.mobile.slice(-4) : '1234') + 'F',
         fatherOrSpouseName: customer.fatherOrSpouseName || 'Not Specified',
         dateOfBirth: customer.dateOfBirth || '1990-01-01',
         gender: customer.gender || 'MALE',

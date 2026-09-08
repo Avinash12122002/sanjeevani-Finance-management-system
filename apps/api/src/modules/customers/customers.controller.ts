@@ -27,12 +27,24 @@ import {
   ProductType,
   IAccount,
   AccountStatus,
+  UserRole,
 } from '@sanjeevani/shared-types';
 
 import { StaffGuard } from '../../common/guards/staff.guard';
+import { RolesGuard } from '../../common/guards/roles.guard';
+import { Roles } from '../../common/decorators/roles.decorator';
+
+function maskAadhaar(aadhaar?: string): string | undefined {
+  if (!aadhaar) return undefined;
+  const digits = aadhaar.replace(/\D/g, '');
+  if (digits.length >= 4) {
+    return `•••• •••• ${digits.slice(-4)}`;
+  }
+  return aadhaar;
+}
 
 @Controller('api/v1/customers')
-@UseGuards(JwtAuthGuard, StaffGuard)
+@UseGuards(JwtAuthGuard, StaffGuard, RolesGuard)
 export class CustomersController {
   constructor(private dataStore: DataStoreService) { }
 
@@ -66,7 +78,10 @@ export class CustomersController {
     const page = Number(query.page) || 1;
     const limit = Number(query.limit) || 20;
     const startIndex = (page - 1) * limit;
-    const paginatedItems = list.slice(startIndex, startIndex + limit);
+    const paginatedItems = list.slice(startIndex, startIndex + limit).map((c) => ({
+      ...c,
+      aadhaar: maskAadhaar(c.aadhaar),
+    }));
 
     return {
       items: paginatedItems,
@@ -395,7 +410,10 @@ export class CustomersController {
     }
 
     return {
-      profile: customer,
+      profile: {
+        ...customer,
+        aadhaar: maskAadhaar(customer.aadhaar),
+      },
       summary: {
         totalDeposits,
         totalLoanOutstanding,
@@ -421,7 +439,10 @@ export class CustomersController {
     if (!customer) {
       throw new NotFoundException(`Customer not found for identifier: ${id}`);
     }
-    return customer;
+    return {
+      ...customer,
+      aadhaar: maskAadhaar(customer.aadhaar),
+    };
   }
 
   @Patch(':id')
@@ -507,10 +528,32 @@ export class CustomersController {
   }
 
   @Delete(':id')
+  @Roles(UserRole.SUPER_ADMIN)
   async deleteCustomer(@Param('id') id: string, @CurrentUser() user: IUser) {
     const index = this.dataStore.customers.findIndex((c) => c.id === id || c.customerNumber === id);
     if (index === -1) {
       throw new NotFoundException(`Customer not found: ${id}`);
+    }
+
+    const target = this.dataStore.customers[index];
+
+    // Financial Safety & Ledger Integrity Check
+    const activeLoans = this.dataStore.loans.filter(
+      (l) => (l.customerId === target.id || l.customerNumber === target.customerNumber) && (l.outstandingPrincipal || 0) > 0,
+    );
+    if (activeLoans.length > 0) {
+      throw new BadRequestException(
+        `Financial Ledger Integrity Violation: Cannot delete member ${target.customerNumber} with ${activeLoans.length} active outstanding loan(s). Settle or write off all loans first.`,
+      );
+    }
+
+    const activeAccounts = this.dataStore.accounts.filter(
+      (a) => (a.customerId === target.id || a.customerNumber === target.customerNumber) && (a.currentBalance || 0) > 0,
+    );
+    if (activeAccounts.length > 0) {
+      throw new BadRequestException(
+        `Financial Ledger Integrity Violation: Cannot delete member ${target.customerNumber} with non-zero deposit balances. Settle or close accounts first.`,
+      );
     }
 
     const removed = this.dataStore.customers.splice(index, 1)[0];

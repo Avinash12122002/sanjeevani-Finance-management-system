@@ -52,6 +52,7 @@ import {
 import { useRouter } from 'next/navigation';
 import { FinancialEngine } from '@/shared/financial-engine';
 import { fetchApi, postApi } from '@/lib/api-client';
+import { maskAadhaar, maskPan } from '@/lib/html-sanitizer';
 
 export default function CustomerPortalPage() {
   const [data, setData] = useState<any>(null);
@@ -1359,12 +1360,12 @@ export default function CustomerPortalPage() {
                     <Descriptions bordered column={1} size="small" className="bg-slate-50/50 rounded-xl overflow-hidden">
                       <Descriptions.Item label="Aadhaar Card Number">
                         <div className="flex items-center gap-2">
-                          <span className="font-mono font-bold text-slate-900">{customer.aadhaar || '•••• •••• 1234'}</span>
+                          <span className="font-mono font-bold text-slate-900">{maskAadhaar(customer.aadhaar)}</span>
                           <Tag color="green" className="text-[10px] font-bold">VERIFIED</Tag>
                         </div>
                       </Descriptions.Item>
                       <Descriptions.Item label="PAN Card Number">
-                        <span className="font-mono font-bold text-slate-900">{customer.pan || 'ABCDE1234F'}</span>
+                        <span className="font-mono font-bold text-slate-900">{maskPan(customer.pan)}</span>
                       </Descriptions.Item>
                       <Descriptions.Item label="KYC Document Status">
                         <Tag color="success" className="font-black text-xs px-2.5 py-0.5 rounded-md">

@@ -28,9 +28,11 @@ import {
 } from '@sanjeevani/shared-types';
 
 import { StaffGuard } from '../../common/guards/staff.guard';
+import { RolesGuard } from '../../common/guards/roles.guard';
+import { Roles } from '../../common/decorators/roles.decorator';
 
 @Controller('api/v1/accounting')
-@UseGuards(JwtAuthGuard, StaffGuard)
+@UseGuards(JwtAuthGuard, StaffGuard, RolesGuard)
 export class AccountingController {
   constructor(private dataStore: DataStoreService) {}
 
@@ -41,6 +43,7 @@ export class AccountingController {
   }
 
   @Post('chart-of-accounts')
+  @Roles(UserRole.SUPER_ADMIN, UserRole.GENERAL_MANAGER, UserRole.ACCOUNTANT)
   async createAccount(@Body() body: Partial<IChartOfAccount>, @CurrentUser() user: IUser) {
     if (!body.accountName || !body.accountType) {
       throw new BadRequestException('Account Name and Account Classification are required.');
@@ -77,6 +80,7 @@ export class AccountingController {
   }
 
   @Patch('chart-of-accounts/:id')
+  @Roles(UserRole.SUPER_ADMIN, UserRole.GENERAL_MANAGER, UserRole.ACCOUNTANT)
   async updateAccount(
     @Param('id') id: string,
     @Body() body: Partial<IChartOfAccount>,
@@ -112,6 +116,7 @@ export class AccountingController {
   }
 
   @Delete('chart-of-accounts/:id')
+  @Roles(UserRole.SUPER_ADMIN)
   async deleteAccount(@Param('id') id: string, @CurrentUser() user: IUser) {
     const accIndex = this.dataStore.chartOfAccounts.findIndex((a) => a.id === id || a.accountCode === id);
     if (accIndex === -1) {
@@ -146,6 +151,7 @@ export class AccountingController {
    * Strictly enforces SUM(DEBIT) === SUM(CREDIT)
    */
   @Post('journals')
+  @Roles(UserRole.SUPER_ADMIN, UserRole.GENERAL_MANAGER, UserRole.ACCOUNTANT)
   async createJournalEntry(
     @Body()
     body: {
@@ -253,6 +259,7 @@ export class AccountingController {
    * Enforces rule: "Employee kuch delete na kar sake. Correction = reversal + new transaction, not silent deletion."
    */
   @Post('journals/:id/reverse')
+  @Roles(UserRole.SUPER_ADMIN, UserRole.GENERAL_MANAGER, UserRole.ACCOUNTANT)
   async reverseJournalEntry(
     @Param('id') id: string,
     @Body() body: { reason: string },
@@ -353,6 +360,7 @@ export class AccountingController {
   }
 
   @Delete('journals/:id')
+  @Roles(UserRole.SUPER_ADMIN)
   async deleteJournalEntry(@Param('id') id: string, @CurrentUser() user: IUser) {
     if (!user.roles.includes(UserRole.SUPER_ADMIN)) {
       throw new ForbiddenException(
@@ -608,6 +616,7 @@ export class AccountingController {
    * Bank Statement Reconciliation Matching Engine (SRS §28, §29)
    */
   @Post('bank-reconciliation/match')
+  @Roles(UserRole.SUPER_ADMIN, UserRole.GENERAL_MANAGER, UserRole.ACCOUNTANT)
   async matchBankStatement(
     @Body()
     body: {
@@ -728,6 +737,7 @@ export class AccountingController {
    * Book missing bank entry (e.g. Bank SMS Charge / Interest) into software ledger
    */
   @Post('bank-reconciliation/create-adjustment')
+  @Roles(UserRole.SUPER_ADMIN, UserRole.GENERAL_MANAGER, UserRole.ACCOUNTANT)
   async createBankAdjustment(
     @Body()
     body: {

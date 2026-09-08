@@ -99,6 +99,8 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       localStorage.removeItem('sfms_access_token');
       localStorage.removeItem('sfms_user');
       localStorage.removeItem('sjf_auth_token');
+      localStorage.removeItem('sfms_cached_metrics');
+      localStorage.removeItem('sfms_cached_charts');
     }
     setCurrentUser(null);
     message.success('Signed out successfully');
@@ -119,6 +121,8 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           localStorage.removeItem('sfms_access_token');
           localStorage.removeItem('sfms_user');
           localStorage.removeItem('sjf_auth_token');
+          localStorage.removeItem('sfms_cached_metrics');
+          localStorage.removeItem('sfms_cached_charts');
         }
         setCurrentUser(null);
         message.warning('Terminal session locked after 15 minutes of inactivity for security.');

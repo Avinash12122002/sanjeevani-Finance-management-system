@@ -2015,7 +2015,12 @@ export class DataStoreService implements OnModuleInit {
           ? 'created_at DESC'
           : 'id ASC';
         const res = await this.pool.query(`SELECT * FROM ${tableName} ORDER BY ${orderCol} LIMIT 200`);
-        return res.rows;
+        return res.rows.map((row: any) => {
+          const copy = { ...row };
+          if (copy.password_hash !== undefined) copy.password_hash = '[REDACTED_HASH]';
+          if (copy.portal_password !== undefined) copy.portal_password = '[REDACTED_SECRET]';
+          return copy;
+        });
       } catch (err: any) {
         this.logger.warn(`Direct query on ${tableName} failed: ${err.message}. Mapping from in-memory store.`);
       }
