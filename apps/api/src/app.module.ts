@@ -30,6 +30,7 @@ import { AuditController } from './modules/audit/audit.controller';
 import { DatabaseController } from './modules/database/database.controller';
 import { ImportController } from './modules/database/import.controller';
 import { DocumentsController } from './modules/documents/documents.controller';
+import { CommitteesController } from './modules/committees/committees.controller';
 import { EmojiSanitizerMiddleware } from './common/middleware/emoji-sanitizer.middleware';
 
 @Module({
@@ -73,6 +74,7 @@ import { EmojiSanitizerMiddleware } from './common/middleware/emoji-sanitizer.mi
     DatabaseController,
     ImportController,
     DocumentsController,
+    CommitteesController,
   ],
   providers: [
     DataStoreService,

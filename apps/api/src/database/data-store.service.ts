@@ -80,6 +80,12 @@ export class DataStoreService implements OnModuleInit {
   redAlerts: IRedAlert[] = [];
   customerPasswordMap = new Map<string, string>();
 
+  // Committee / ROSCA Collections (SRS §42)
+  committeeGroups: any[] = [];
+  committeeMembers: any[] = [];
+  committeeInstallments: any[] = [];
+  committeePayouts: any[] = [];
+
   // ID Counters (Clean Initial Production State)
   private counters = {
     customer: 0,
@@ -92,7 +98,12 @@ export class DataStoreService implements OnModuleInit {
     receipt: 0,
     journal: 0,
     complaint: 0,
+    committee: 0,
   };
+
+  getPool(): Pool | null {
+    return this.pool;
+  }
 
   async onModuleInit() {
     // 1. Always seed clean in-memory defaults first
@@ -210,6 +221,10 @@ export class DataStoreService implements OnModuleInit {
         closureRes,
         jrnRes,
         docRes,
+        cmGroupRes,
+        cmMemberRes,
+        cmInstRes,
+        cmPayoutRes,
       ] = await Promise.all([
         this.pool.query('SELECT * FROM branches').catch(() => ({ rows: [] })),
         this.pool.query('SELECT * FROM users').catch(() => ({ rows: [] })),
@@ -228,6 +243,10 @@ export class DataStoreService implements OnModuleInit {
         this.pool.query('SELECT * FROM daily_closures ORDER BY business_date DESC').catch(() => ({ rows: [] })),
         this.pool.query('SELECT * FROM journal_entries ORDER BY created_at DESC LIMIT 100').catch(() => ({ rows: [] })),
         this.pool.query('SELECT * FROM customer_documents ORDER BY uploaded_at DESC').catch(() => ({ rows: [] })),
+        this.pool.query('SELECT * FROM committee_groups ORDER BY created_at ASC').catch(() => ({ rows: [] })),
+        this.pool.query('SELECT * FROM committee_members ORDER BY slot_number ASC').catch(() => ({ rows: [] })),
+        this.pool.query('SELECT * FROM committee_installments ORDER BY round_number ASC').catch(() => ({ rows: [] })),
+        this.pool.query('SELECT * FROM committee_payouts ORDER BY round_number ASC').catch(() => ({ rows: [] })),
       ]);
 
       // Branches
@@ -615,6 +634,87 @@ export class DataStoreService implements OnModuleInit {
           uploadedAt: r.uploaded_at ? new Date(r.uploaded_at).toISOString() : new Date().toISOString(),
         }));
       }
+
+      // Committee Groups (SRS §42)
+      if (cmGroupRes && cmGroupRes.rows && cmGroupRes.rows.length > 0) {
+        this.committeeGroups = cmGroupRes.rows.map((r: any) => ({
+          id: r.id,
+          committeeNumber: r.committee_number,
+          name: r.name,
+          groupType: r.group_type || 'AUCTION_BIDDING',
+          contributionAmount: Number(r.contribution_amount || 0),
+          memberCount: Number(r.member_count || 10),
+          totalPool: Number(r.total_pool || 0),
+          organizerCommissionPercent: Number(r.organizer_commission_percent || 0),
+          frequency: r.frequency || 'MONTHLY',
+          startDate: r.start_date ? new Date(r.start_date).toISOString().split('T')[0] : '',
+          endDate: r.end_date ? new Date(r.end_date).toISOString().split('T')[0] : '',
+          currentRound: Number(r.current_round || 1),
+          status: r.status || 'ACTIVE',
+          branchId: r.branch_id || 'BR-001',
+          branchName: r.branch_name || 'Head Office - Main Branch',
+          createdAt: r.created_at ? new Date(r.created_at).toISOString() : new Date().toISOString(),
+        }));
+      }
+
+      // Committee Members (Slots)
+      if (cmMemberRes && cmMemberRes.rows && cmMemberRes.rows.length > 0) {
+        this.committeeMembers = cmMemberRes.rows.map((r: any) => ({
+          id: r.id,
+          committeeId: r.committee_id,
+          customerId: r.customer_id,
+          customerName: r.customer_name,
+          customerMobile: r.customer_mobile,
+          slotNumber: Number(r.slot_number || 1),
+          contributionAmount: Number(r.contribution_amount || 0),
+          totalPaid: Number(r.total_paid || 0),
+          totalPending: Number(r.total_pending || 0),
+          payoutStatus: r.payout_status || 'PENDING',
+          payoutRound: r.payout_round ? Number(r.payout_round) : null,
+          payoutAmount: Number(r.payout_amount || 0),
+          payoutDate: r.payout_date ? new Date(r.payout_date).toISOString().split('T')[0] : null,
+          createdAt: r.created_at ? new Date(r.created_at).toISOString() : new Date().toISOString(),
+        }));
+      }
+
+      // Committee Installments
+      if (cmInstRes && cmInstRes.rows && cmInstRes.rows.length > 0) {
+        this.committeeInstallments = cmInstRes.rows.map((r: any) => ({
+          id: r.id,
+          committeeId: r.committee_id,
+          roundNumber: Number(r.round_number || 1),
+          memberId: r.member_id,
+          customerId: r.customer_id,
+          dueDate: r.due_date ? new Date(r.due_date).toISOString().split('T')[0] : '',
+          amountDue: Number(r.amount_due || 0),
+          amountPaid: Number(r.amount_paid || 0),
+          status: r.status || 'PENDING',
+          paymentDate: r.payment_date ? new Date(r.payment_date).toISOString().split('T')[0] : null,
+          paymentMode: r.payment_mode || 'CASH',
+          receiptNumber: r.receipt_number,
+          createdAt: r.created_at ? new Date(r.created_at).toISOString() : new Date().toISOString(),
+        }));
+      }
+
+      // Committee Round Payouts
+      if (cmPayoutRes && cmPayoutRes.rows && cmPayoutRes.rows.length > 0) {
+        this.committeePayouts = cmPayoutRes.rows.map((r: any) => ({
+          id: r.id,
+          committeeId: r.committee_id,
+          roundNumber: Number(r.round_number || 1),
+          winnerMemberId: r.winner_member_id,
+          customerId: r.customer_id,
+          customerName: r.customer_name,
+          grossPool: Number(r.gross_pool || 0),
+          bidDiscount: Number(r.bid_discount || 0),
+          dividendPerMember: Number(r.dividend_per_member || 0),
+          organizerCommission: Number(r.organizer_commission || 0),
+          netPayout: Number(r.net_payout || 0),
+          payoutDate: r.payout_date ? new Date(r.payout_date).toISOString().split('T')[0] : '',
+          paymentMode: r.payment_mode || 'CASH',
+          createdAt: r.created_at ? new Date(r.created_at).toISOString() : new Date().toISOString(),
+        }));
+      }
     } catch (e: any) {
       this.logger.warn(`Could not load initial rows from PostgreSQL: ${e.message}`);
     }
@@ -708,6 +808,12 @@ export class DataStoreService implements OnModuleInit {
     this.counters.complaint++;
     const year = new Date().getFullYear();
     return `SJF-CMP-${year}-${String(this.counters.complaint).padStart(6, '0')}`;
+  }
+
+  nextCommitteeNumber(): string {
+    this.counters.committee++;
+    const year = new Date().getFullYear();
+    return `CM-${year}-${String(this.counters.committee).padStart(5, '0')}`;
   }
 
   // ==========================================
@@ -1773,13 +1879,17 @@ export class DataStoreService implements OnModuleInit {
     }
   }
 
-  // --- RAW DATABASE TABLES EXPLORER & CRUD (17 TABLES) ---
+  // --- RAW DATABASE TABLES EXPLORER & CRUD (21 TABLES) ---
   readonly ALL_DB_TABLES = [
     'accounts',
     'audit_logs',
     'branches',
     'cash_drawers',
     'chart_of_accounts',
+    'committee_groups',
+    'committee_installments',
+    'committee_members',
+    'committee_payouts',
     'complaints',
     'customer_documents',
     'customers',
@@ -1853,6 +1963,10 @@ export class DataStoreService implements OnModuleInit {
       audit_logs: ['id', 'user_id', 'user_name', 'action', 'entity_type', 'entity_id', 'client_ip', 'user_agent', 'details', 'created_at'],
       complaints: ['id', 'complaint_number', 'customer_id', 'customer_name', 'customer_number', 'category', 'description', 'priority', 'status', 'resolution', 'resolved_at', 'created_at'],
       customer_documents: ['id', 'customer_id', 'document_type', 'file_name', 'file_url', 'file_size', 'mime_type', 'uploaded_by', 'uploaded_at'],
+      committee_groups: ['id', 'committee_number', 'name', 'group_type', 'contribution_amount', 'member_count', 'total_pool', 'organizer_commission_percent', 'frequency', 'start_date', 'end_date', 'current_round', 'status', 'branch_id', 'branch_name', 'created_at'],
+      committee_members: ['id', 'committee_id', 'customer_id', 'customer_name', 'customer_mobile', 'slot_number', 'contribution_amount', 'total_paid', 'total_pending', 'payout_status', 'payout_round', 'payout_amount', 'payout_date', 'created_at'],
+      committee_installments: ['id', 'committee_id', 'round_number', 'member_id', 'customer_id', 'due_date', 'amount_due', 'amount_paid', 'status', 'payment_date', 'payment_mode', 'receipt_number', 'created_at'],
+      committee_payouts: ['id', 'committee_id', 'round_number', 'winner_member_id', 'customer_id', 'customer_name', 'gross_pool', 'bid_discount', 'dividend_per_member', 'organizer_commission', 'net_payout', 'payout_date', 'payment_mode', 'created_at'],
     };
     return cols[table] || ['id'];
   }
@@ -1876,6 +1990,10 @@ export class DataStoreService implements OnModuleInit {
       case 'audit_logs': return this.auditLogs.length;
       case 'complaints': return this.complaints.length;
       case 'customer_documents': return this.customerDocuments.length;
+      case 'committee_groups': return this.committeeGroups.length;
+      case 'committee_members': return this.committeeMembers.length;
+      case 'committee_installments': return this.committeeInstallments.length;
+      case 'committee_payouts': return this.committeePayouts.length;
       default: return 0;
     }
   }
@@ -2177,6 +2295,75 @@ export class DataStoreService implements OnModuleInit {
           uploaded_by: doc.uploadedBy,
           uploaded_at: doc.uploadedAt,
         }));
+      case 'committee_groups':
+        return this.committeeGroups.map((cg) => ({
+          id: cg.id,
+          committee_number: cg.committeeNumber,
+          name: cg.name,
+          group_type: cg.groupType,
+          contribution_amount: cg.contributionAmount,
+          member_count: cg.memberCount,
+          total_pool: cg.totalPool,
+          organizer_commission_percent: cg.organizerCommissionPercent,
+          frequency: cg.frequency,
+          start_date: cg.startDate,
+          end_date: cg.endDate,
+          current_round: cg.currentRound,
+          status: cg.status,
+          branch_id: cg.branchId,
+          branch_name: cg.branchName,
+          created_at: cg.createdAt,
+        }));
+      case 'committee_members':
+        return this.committeeMembers.map((cm) => ({
+          id: cm.id,
+          committee_id: cm.committeeId,
+          customer_id: cm.customerId,
+          customer_name: cm.customerName,
+          customer_mobile: cm.customerMobile,
+          slot_number: cm.slotNumber,
+          contribution_amount: cm.contributionAmount,
+          total_paid: cm.totalPaid,
+          total_pending: cm.totalPending,
+          payout_status: cm.payoutStatus,
+          payout_round: cm.payoutRound,
+          payout_amount: cm.payoutAmount,
+          payout_date: cm.payoutDate,
+          created_at: cm.createdAt,
+        }));
+      case 'committee_installments':
+        return this.committeeInstallments.map((ci) => ({
+          id: ci.id,
+          committee_id: ci.committeeId,
+          round_number: ci.roundNumber,
+          member_id: ci.memberId,
+          customer_id: ci.customerId,
+          due_date: ci.dueDate,
+          amount_due: ci.amountDue,
+          amount_paid: ci.amountPaid,
+          status: ci.status,
+          payment_date: ci.paymentDate,
+          payment_mode: ci.paymentMode,
+          receipt_number: ci.receiptNumber,
+          created_at: ci.createdAt,
+        }));
+      case 'committee_payouts':
+        return this.committeePayouts.map((cp) => ({
+          id: cp.id,
+          committee_id: cp.committeeId,
+          round_number: cp.roundNumber,
+          winner_member_id: cp.winnerMemberId,
+          customer_id: cp.customerId,
+          customer_name: cp.customerName,
+          gross_pool: cp.grossPool,
+          bid_discount: cp.bidDiscount,
+          dividend_per_member: cp.dividendPerMember,
+          organizer_commission: cp.organizerCommission,
+          net_payout: cp.netPayout,
+          payout_date: cp.payoutDate,
+          payment_mode: cp.paymentMode,
+          created_at: cp.createdAt,
+        }));
       default:
         return [];
     }
@@ -2234,6 +2421,10 @@ export class DataStoreService implements OnModuleInit {
       case 'journal_entries': this.journalEntries.push(data as any); break;
       case 'daily_closures': this.businessDayClosures.push(data as any); break;
       case 'audit_logs': this.auditLogs.push(data as any); break;
+      case 'committee_groups': this.committeeGroups.push(data as any); break;
+      case 'committee_members': this.committeeMembers.push(data as any); break;
+      case 'committee_installments': this.committeeInstallments.push(data as any); break;
+      case 'committee_payouts': this.committeePayouts.push(data as any); break;
     }
 
     return data;
@@ -2292,6 +2483,10 @@ export class DataStoreService implements OnModuleInit {
       case 'journal_entries': updateInArr(this.journalEntries); break;
       case 'daily_closures': updateInArr(this.businessDayClosures); break;
       case 'audit_logs': updateInArr(this.auditLogs); break;
+      case 'committee_groups': updateInArr(this.committeeGroups); break;
+      case 'committee_members': updateInArr(this.committeeMembers); break;
+      case 'committee_installments': updateInArr(this.committeeInstallments); break;
+      case 'committee_payouts': updateInArr(this.committeePayouts); break;
     }
 
     return { id, ...data };
@@ -2337,6 +2532,10 @@ export class DataStoreService implements OnModuleInit {
       case 'journal_entries': this.journalEntries = this.journalEntries.filter((j) => j.id !== id); break;
       case 'daily_closures': this.businessDayClosures = this.businessDayClosures.filter((dc) => dc.id !== id); break;
       case 'audit_logs': this.auditLogs = this.auditLogs.filter((a) => a.id !== id); break;
+      case 'committee_groups': this.committeeGroups = this.committeeGroups.filter((c) => c.id !== id); break;
+      case 'committee_members': this.committeeMembers = this.committeeMembers.filter((c) => c.id !== id); break;
+      case 'committee_installments': this.committeeInstallments = this.committeeInstallments.filter((c) => c.id !== id); break;
+      case 'committee_payouts': this.committeePayouts = this.committeePayouts.filter((c) => c.id !== id); break;
     }
 
     return { success: true, message: `Record ${id} deleted from ${tableName}` };

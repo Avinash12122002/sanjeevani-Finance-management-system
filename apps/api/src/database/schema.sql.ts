@@ -311,6 +311,79 @@ CREATE TABLE IF NOT EXISTS journal_entries (
     lines JSONB,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
+
+-- 17. COMMITTEE / CHIT GROUPS (SRS §42)
+CREATE TABLE IF NOT EXISTS committee_groups (
+    id VARCHAR(50) PRIMARY KEY,
+    committee_number VARCHAR(50) UNIQUE NOT NULL,
+    name VARCHAR(150) NOT NULL,
+    group_type VARCHAR(30) DEFAULT 'AUCTION_BIDDING',
+    contribution_amount NUMERIC(15, 2) NOT NULL,
+    member_count INT NOT NULL,
+    total_pool NUMERIC(15, 2) NOT NULL,
+    organizer_commission_percent NUMERIC(5, 2) DEFAULT 0,
+    frequency VARCHAR(20) DEFAULT 'MONTHLY',
+    start_date DATE DEFAULT CURRENT_DATE,
+    end_date DATE,
+    current_round INT DEFAULT 1,
+    status VARCHAR(20) DEFAULT 'ACTIVE',
+    branch_id VARCHAR(50) DEFAULT 'BR-001',
+    branch_name VARCHAR(150) DEFAULT 'Head Office - Main Branch (Delhi)',
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 18. COMMITTEE MEMBERS (SLOTS)
+CREATE TABLE IF NOT EXISTS committee_members (
+    id VARCHAR(50) PRIMARY KEY,
+    committee_id VARCHAR(50) NOT NULL,
+    customer_id VARCHAR(50) NOT NULL,
+    customer_name VARCHAR(150) NOT NULL,
+    customer_mobile VARCHAR(20),
+    slot_number INT NOT NULL,
+    contribution_amount NUMERIC(15, 2) NOT NULL,
+    total_paid NUMERIC(15, 2) DEFAULT 0,
+    total_pending NUMERIC(15, 2) DEFAULT 0,
+    payout_status VARCHAR(20) DEFAULT 'PENDING',
+    payout_round INT,
+    payout_amount NUMERIC(15, 2) DEFAULT 0,
+    payout_date DATE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 19. COMMITTEE INSTALLMENTS
+CREATE TABLE IF NOT EXISTS committee_installments (
+    id VARCHAR(50) PRIMARY KEY,
+    committee_id VARCHAR(50) NOT NULL,
+    round_number INT NOT NULL,
+    member_id VARCHAR(50) NOT NULL,
+    customer_id VARCHAR(50) NOT NULL,
+    due_date DATE NOT NULL,
+    amount_due NUMERIC(15, 2) NOT NULL,
+    amount_paid NUMERIC(15, 2) DEFAULT 0,
+    status VARCHAR(20) DEFAULT 'PENDING',
+    payment_date DATE,
+    payment_mode VARCHAR(30),
+    receipt_number VARCHAR(50),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 20. COMMITTEE ROUND PAYOUTS & AUCTIONS
+CREATE TABLE IF NOT EXISTS committee_payouts (
+    id VARCHAR(50) PRIMARY KEY,
+    committee_id VARCHAR(50) NOT NULL,
+    round_number INT NOT NULL,
+    winner_member_id VARCHAR(50) NOT NULL,
+    customer_id VARCHAR(50) NOT NULL,
+    customer_name VARCHAR(150) NOT NULL,
+    gross_pool NUMERIC(15, 2) NOT NULL,
+    bid_discount NUMERIC(15, 2) DEFAULT 0,
+    dividend_per_member NUMERIC(15, 2) DEFAULT 0,
+    organizer_commission NUMERIC(15, 2) DEFAULT 0,
+    net_payout NUMERIC(15, 2) NOT NULL,
+    payout_date DATE DEFAULT CURRENT_DATE,
+    payment_mode VARCHAR(30) DEFAULT 'CASH',
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
 `;
 
 export const SEED_MASTER_DATA_SQL = `
