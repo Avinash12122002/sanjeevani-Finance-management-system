@@ -261,7 +261,7 @@ export class DataStoreService implements OnModuleInit {
 
       // Branches
       if (branchRes.rows.length > 0) {
-        this.branches = branchRes.rows.map((r) => ({
+        this.branches = branchRes.rows.map((r: any) => ({
           id: r.id,
           branchCode: r.branch_code,
           name: r.name,
@@ -281,7 +281,7 @@ export class DataStoreService implements OnModuleInit {
 
       // Users
       if (userRes.rows.length > 0) {
-        this.users = userRes.rows.map((r) => ({
+        this.users = userRes.rows.map((r: any) => ({
           id: r.id,
           username: r.username,
           email: r.email,
@@ -302,7 +302,7 @@ export class DataStoreService implements OnModuleInit {
 
       // Customers
       if (custRes.rows.length > 0) {
-        this.customers = custRes.rows.map((r) => ({
+        this.customers = custRes.rows.map((r: any) => ({
           id: r.id,
           customerNumber: r.customer_number,
           branchId: r.branch_id || 'BR-001',
@@ -341,7 +341,7 @@ export class DataStoreService implements OnModuleInit {
         }));
         this.counters.customer = this.customers.length;
 
-        custRes.rows.forEach((r) => {
+        custRes.rows.forEach((r: any) => {
           if (r.portal_password) {
             this.customerPasswordMap.set(r.id, r.portal_password);
           }
@@ -353,7 +353,7 @@ export class DataStoreService implements OnModuleInit {
 
       // Accounts
       if (accRes.rows.length > 0) {
-        this.accounts = accRes.rows.map((r) => ({
+        this.accounts = accRes.rows.map((r: any) => ({
           id: r.id,
           accountNumber: r.account_number,
           customerId: r.customer_id,
@@ -386,7 +386,7 @@ export class DataStoreService implements OnModuleInit {
 
       // Loans
       if (loanRes.rows.length > 0) {
-        this.loans = loanRes.rows.map((r) => ({
+        this.loans = loanRes.rows.map((r: any) => ({
           id: r.id,
           loanNumber: r.loan_number,
           customerId: r.customer_id,
@@ -430,7 +430,7 @@ export class DataStoreService implements OnModuleInit {
 
       // Receipts
       if (rcpRes.rows.length > 0) {
-        this.receipts = rcpRes.rows.map((r) => ({
+        this.receipts = rcpRes.rows.map((r: any) => ({
           id: r.id,
           receiptNumber: r.receipt_number,
           transactionId: r.transaction_id || '',
@@ -453,7 +453,7 @@ export class DataStoreService implements OnModuleInit {
 
       // Transactions
       if (txnRes.rows.length > 0) {
-        this.transactions = txnRes.rows.map((r) => ({
+        this.transactions = txnRes.rows.map((r: any) => ({
           id: r.id,
           transactionNumber: r.transaction_number,
           branchId: r.branch_id || 'BR-001',
@@ -477,7 +477,7 @@ export class DataStoreService implements OnModuleInit {
 
       // Cash Drawers
       if (cdRes.rows.length > 0) {
-        this.cashDrawers = cdRes.rows.map((r) => ({
+        this.cashDrawers = cdRes.rows.map((r: any) => ({
           id: r.id,
           branchId: r.branch_id,
           branchName: r.branch_name,
@@ -500,7 +500,7 @@ export class DataStoreService implements OnModuleInit {
 
       // Products
       if (prodRes.rows.length > 0) {
-        this.products = prodRes.rows.map((r) => ({
+        this.products = prodRes.rows.map((r: any) => ({
           id: r.id,
           productCode: r.product_code,
           productName: r.product_name,
@@ -525,7 +525,7 @@ export class DataStoreService implements OnModuleInit {
 
       // Employees
       if (empRes.rows.length > 0) {
-        this.employees = empRes.rows.map((r) => ({
+        this.employees = empRes.rows.map((r: any) => ({
           id: r.id,
           employeeNumber: r.employee_number,
           userId: r.user_id || 'USR-001',
@@ -551,7 +551,7 @@ export class DataStoreService implements OnModuleInit {
 
       // Chart of Accounts
       if (coaRes.rows.length > 0) {
-        this.chartOfAccounts = coaRes.rows.map((r) => ({
+        this.chartOfAccounts = coaRes.rows.map((r: any) => ({
           id: r.id,
           accountCode: r.account_code,
           accountName: r.account_name,
@@ -567,7 +567,7 @@ export class DataStoreService implements OnModuleInit {
 
       // Complaints
       if (cmpRes.rows.length > 0) {
-        this.complaints = cmpRes.rows.map((r) => ({
+        this.complaints = cmpRes.rows.map((r: any) => ({
           id: r.id,
           complaintNumber: r.complaint_number,
           customerId: r.customer_id,
@@ -587,7 +587,7 @@ export class DataStoreService implements OnModuleInit {
 
       // Audit Logs
       if (auditRes.rows.length > 0) {
-        this.auditLogs = auditRes.rows.map((r) => ({
+        this.auditLogs = auditRes.rows.map((r: any) => ({
           id: r.id,
           userId: r.user_id,
           userName: r.user_name,
@@ -606,7 +606,7 @@ export class DataStoreService implements OnModuleInit {
 
       // Repayment Schedules (EMIs)
       if (schedRes.rows.length > 0) {
-        this.loanInstallments = schedRes.rows.map((r) => ({
+        this.loanInstallments = schedRes.rows.map((r: any) => ({
           id: r.id,
           loanId: r.loan_id,
           installmentNumber: r.installment_no,
@@ -630,7 +630,7 @@ export class DataStoreService implements OnModuleInit {
 
       // Daily Closures / Business Date Locks
       if (closureRes.rows.length > 0) {
-        this.businessDayClosures = closureRes.rows.map((r) => ({
+        this.businessDayClosures = closureRes.rows.map((r: any) => ({
           id: r.id,
           branchId: r.branch_id || 'BR-001',
           branchName: r.branch_name || 'Head Office - Main Branch',
@@ -652,7 +652,7 @@ export class DataStoreService implements OnModuleInit {
 
       // General Journal Entries
       if (jrnRes.rows.length > 0) {
-        this.journalEntries = jrnRes.rows.map((r) => ({
+        this.journalEntries = jrnRes.rows.map((r: any) => ({
           id: r.id,
           journalNumber: r.journal_number,
           businessDate: r.business_date ? new Date(r.business_date).toISOString().split('T')[0] : '',
@@ -671,7 +671,7 @@ export class DataStoreService implements OnModuleInit {
 
       // Customer Documents
       if (docRes && docRes.rows && docRes.rows.length > 0) {
-        this.customerDocuments = docRes.rows.map((r) => ({
+        this.customerDocuments = docRes.rows.map((r: any) => ({
           id: r.id,
           customerId: r.customer_id,
           documentType: r.document_type,
@@ -999,7 +999,7 @@ export class DataStoreService implements OnModuleInit {
           entityId || null,
           JSON.stringify({ reason: reason || '', details: newValue || {} }),
         ],
-      ).catch((e) => this.logger.warn(`Failed to persist audit log: ${e.message}`));
+      ).catch((e: any) => this.logger.warn(`Failed to persist audit log: ${e.message}`));
     }
   }
 
