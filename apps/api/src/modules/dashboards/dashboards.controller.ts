@@ -2,7 +2,7 @@ import { Controller, Get, Query, UseGuards } from '@nestjs/common';
 import { DataStoreService } from '../../database/data-store.service';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { StaffGuard } from '../../common/guards/staff.guard';
-import { PaginationParams, ProductType } from '@sanjeevani/shared-types';
+import { PaginationParams, ProductType, TransactionType, TransactionStatus } from '@sanjeevani/shared-types';
 
 @Controller('api/v1')
 @UseGuards(JwtAuthGuard, StaffGuard)
@@ -230,9 +230,25 @@ export class DashboardsController {
       );
 
       // Recovery KPIs (SRS §40.4)
+      const currentMonthPrefix = today.slice(0, 7);
       const activeOverdueLoans = this.dataStore.loans.filter(
         (l) => (l.overdueAmount || 0) > 0,
       );
+      const assignedOverdueCount = activeOverdueLoans.filter(
+        (l) => (l as any).assignedTo === emp.id || (l as any).assignedTo === emp.userId || !emp.branchId || l.branchId === emp.branchId,
+      ).length;
+      const borrowerContactsToday = userTxns.filter((t) => t.transactionDate === today).length +
+        handledComplaints.filter((c) => (c.createdAt || '').startsWith(today)).length;
+      const recoveredThisMonthActual = userTxns
+        .filter(
+          (t) =>
+            t.transactionType === TransactionType.EMI_PAYMENT &&
+            (t.transactionDate || '').startsWith(currentMonthPrefix),
+        )
+        .reduce((sum, t) => sum + (t.amount || 0), 0);
+      const collectionEfficiency = userTxns.length > 0
+        ? Math.min(100, Math.round((userTxns.filter((t) => t.status === TransactionStatus.POSTED).length / userTxns.length) * 1000) / 10)
+        : 0;
 
       return {
         employeeId: emp.id,
@@ -245,7 +261,7 @@ export class DashboardsController {
           todayCollectedAmount: todayCollections,
           totalAllTimeCollected: userTxns.reduce((sum, t) => sum + (t.amount || 0), 0),
           transactionCount: userTxns.length,
-          collectionEfficiencyPercentage: 94.5, // Standard benchmark
+          collectionEfficiencyPercentage: collectionEfficiency,
         },
         loanOfficerMetrics: {
           applicationsCount: officerApps.length,
@@ -261,9 +277,9 @@ export class DashboardsController {
           complaintsResolvedCount: handledComplaints.filter((c) => c.status === 'RESOLVED' || (c.status as string) === 'CLOSED').length,
         },
         recoveryMetrics: {
-          overdueAccountsAssigned: Math.min(activeOverdueLoans.length, 15),
-          contactedToday: 8,
-          recoveredThisMonth: Math.round(todayCollections * 0.35),
+          overdueAccountsAssigned: assignedOverdueCount,
+          contactedToday: borrowerContactsToday,
+          recoveredThisMonth: recoveredThisMonthActual,
         },
       };
     });

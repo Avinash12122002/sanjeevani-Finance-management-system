@@ -45,6 +45,16 @@ const twoFactorChallengeStore = new Map<
   }
 >();
 
+// Periodically evict expired challenges to prevent unbounded memory growth
+function pruneExpiredChallenges() {
+  const now = Date.now();
+  for (const [id, item] of twoFactorChallengeStore.entries()) {
+    if (item.expiresAt < now) {
+      twoFactorChallengeStore.delete(id);
+    }
+  }
+}
+
 @Controller('api/v1/auth')
 export class AuthController {
   constructor(
@@ -162,6 +172,7 @@ export class AuthController {
 
     // 2. Intercept for Two-Factor Authentication (2FA) if enabled (§39)
     if (user.is2faEnabled) {
+      pruneExpiredChallenges();
       const challengeId = `2FA-${Date.now()}-${randomBytes(8).toString('hex')}`;
       const otp = randomInt(100000, 1000000).toString();
       const expiresAt = Date.now() + 5 * 60 * 1000;
@@ -351,8 +362,9 @@ export class AuthController {
     }
 
     const challenge = twoFactorChallengeStore.get(body.challengeId);
-    if (!challenge) {
-      throw new BadRequestException('Invalid or expired 2FA session.');
+    if (!challenge || Date.now() > challenge.expiresAt) {
+      if (challenge) twoFactorChallengeStore.delete(body.challengeId);
+      throw new BadRequestException('2FA challenge session has expired or is invalid. Please log in again.');
     }
 
     const now = Date.now();

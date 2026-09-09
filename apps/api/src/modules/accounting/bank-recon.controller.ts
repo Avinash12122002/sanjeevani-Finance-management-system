@@ -12,6 +12,7 @@ import { StaffGuard } from '../../common/guards/staff.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { FinancialEngine } from '@sanjeevani/financial-engine';
 import { IUser } from '@sanjeevani/shared-types';
+import { randomBytes } from 'crypto';
 
 export interface IBankStatementLine {
   id: string;
@@ -100,10 +101,15 @@ export class BankReconController {
 
     return {
       softwareBankBalance,
+      ledgerBalance: softwareBankBalance,
       bankStatementBalance: statementEndingBalance,
+      statementBalance: statementEndingBalance,
       customerBankCollections,
       difference,
+      unreconciledDifference: difference,
       isReconciled,
+      matchedCount: matchedLines.length,
+      unmatchedCount: unmatchedLines.length,
       summary: {
         totalStatementLines: importedStatementLines.length,
         matchedCount: matchedLines.length,
@@ -112,54 +118,99 @@ export class BankReconController {
         totalWithdrawals: importedStatementLines.reduce((sum, l) => sum + (l.withdrawalAmount || 0), 0),
       },
       statementLines: importedStatementLines,
+      transactions: importedStatementLines,
     };
   }
 
   /**
    * IMPORT BANK STATEMENT ENTRIES (SRS §28)
-   * Ingests statement rows from CSV / NetBanking statement export
+   * Ingests statement rows from CSV string or pre-parsed line objects
    */
   @Post('import')
   async importBankStatement(
     @Body()
     body: {
-      lines: Array<{
-        transactionDate: string;
+      lines?: Array<{
+        transactionDate?: string;
         valueDate?: string;
-        description: string;
+        description?: string;
         referenceNo?: string;
         withdrawalAmount?: number;
         depositAmount?: number;
-        balance: number;
+        balance?: number;
       }>;
+      csvContent?: string;
     },
     @CurrentUser() user: IUser,
   ) {
-    if (!body.lines || !Array.isArray(body.lines) || body.lines.length === 0) {
-      throw new BadRequestException('Statement lines array is required.');
+    let rawLines = body.lines || [];
+
+    // Support direct CSV text payload from frontend
+    if ((!rawLines || rawLines.length === 0) && body.csvContent) {
+      const rows = body.csvContent.trim().split(/\r?\n/).filter(Boolean);
+      const header = rows[0]?.toLowerCase() || '';
+      const hasHeader = header.includes('date') || header.includes('amount') || header.includes('description');
+      const dataRows = hasHeader ? rows.slice(1) : rows;
+
+      rawLines = dataRows.map((row) => {
+        const cols = row.split(',').map((c) => c.trim().replace(/^["']|["']$/g, ''));
+        const date = cols[0] || new Date().toISOString().split('T')[0];
+        const desc = cols[1] || 'Bank Transaction';
+        const ref = cols[2] || '';
+        const amt = parseFloat(cols[3] || '0') || 0;
+        const type = (cols[4] || '').toUpperCase();
+        const isDebit = type.includes('DEBIT') || type.includes('DR') || type.includes('WITHDRAW');
+
+        return {
+          transactionDate: date,
+          description: desc,
+          referenceNo: ref,
+          withdrawalAmount: isDebit ? Math.abs(amt) : 0,
+          depositAmount: !isDebit ? Math.abs(amt) : 0,
+          balance: 0,
+        };
+      });
+    }
+
+    if (!rawLines || !Array.isArray(rawLines) || rawLines.length === 0) {
+      throw new BadRequestException('Statement lines array or csvContent is required.');
     }
 
     const imported: IBankStatementLine[] = [];
 
-    for (const raw of body.lines) {
+    for (const raw of rawLines) {
+      const withdrawal = Number(raw.withdrawalAmount || 0);
+      const deposit = Number(raw.depositAmount || 0);
+      const balance = Number(raw.balance || 0);
+
+      if (!Number.isFinite(withdrawal) || !Number.isFinite(deposit) || !Number.isFinite(balance)) {
+        throw new BadRequestException('Statement lines contain invalid non-numeric amount or balance values.');
+      }
+
       const newLine: IBankStatementLine = {
-        id: `BST-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+        id: `BST-${Date.now()}-${randomBytes(4).toString('hex')}`,
         transactionDate: raw.transactionDate || new Date().toISOString().split('T')[0],
         valueDate: raw.valueDate,
         description: raw.description || 'Bank Transaction',
         referenceNo: raw.referenceNo,
-        withdrawalAmount: Number(raw.withdrawalAmount || 0),
-        depositAmount: Number(raw.depositAmount || 0),
-        balance: Number(raw.balance || 0),
+        withdrawalAmount: withdrawal,
+        depositAmount: deposit,
+        balance,
         isMatched: false,
       };
 
-      // Auto-match if identical amount and reference exists in transactions
-      const matchedTxn = this.dataStore.transactions.find(
-        (t) =>
-          Math.abs((t.amount || 0) - (newLine.depositAmount || newLine.withdrawalAmount)) < 0.01 ||
-          (newLine.referenceNo && t.referenceNumber === newLine.referenceNo),
-      );
+      // Auto-match: exact reference match OR (exact amount AND same transaction date)
+      const lineAmount = newLine.depositAmount || newLine.withdrawalAmount || 0;
+      const matchedTxn = this.dataStore.transactions.find((t) => {
+        if (newLine.referenceNo && t.referenceNumber && t.referenceNumber.toLowerCase() === newLine.referenceNo.toLowerCase()) {
+          return true;
+        }
+        const txnAmount = Math.abs(t.amount || 0);
+        if (lineAmount > 0 && Math.abs(txnAmount - lineAmount) < 0.01 && t.transactionDate === newLine.transactionDate) {
+          return true;
+        }
+        return false;
+      });
 
       if (matchedTxn) {
         newLine.isMatched = true;
@@ -197,24 +248,44 @@ export class BankReconController {
   async matchStatementLine(
     @Body()
     body: {
-      statementLineId: string;
+      statementLineId?: string;
+      statementTxnId?: string;
       transactionId?: string;
-      matched: boolean;
+      matched?: boolean;
     },
     @CurrentUser() user: IUser,
   ) {
-    const line = importedStatementLines.find((l) => l.id === body.statementLineId);
-    if (!line) {
-      throw new BadRequestException('Statement line not found.');
+    const lineId = body.statementLineId || body.statementTxnId;
+    if (!lineId) {
+      throw new BadRequestException('statementLineId or statementTxnId is required.');
     }
 
-    line.isMatched = body.matched;
-    line.matchedTransactionId = body.matched ? body.transactionId || 'MANUAL_MATCH' : undefined;
-    line.matchedAt = body.matched ? new Date().toISOString() : undefined;
-    line.matchedBy = body.matched ? user.employeeName || user.username : undefined;
+    const line = importedStatementLines.find((l) => l.id === lineId);
+    if (!line) {
+      throw new BadRequestException(`Statement line '${lineId}' not found.`);
+    }
+
+    const newMatched = body.matched !== undefined ? body.matched : !line.isMatched;
+
+    line.isMatched = newMatched;
+    line.matchedTransactionId = newMatched ? body.transactionId || 'MANUAL_MATCH' : undefined;
+    line.matchedAt = newMatched ? new Date().toISOString() : undefined;
+    line.matchedBy = newMatched ? user.employeeName || user.username : undefined;
+
+    // Record both match and unmatch events in audit trail
+    this.dataStore.logAudit(
+      user.id,
+      user.employeeName || user.username,
+      newMatched ? 'BANK_STATEMENT_MATCHED' : 'BANK_STATEMENT_UNMATCHED',
+      'BankReconciliation',
+      line.id,
+      { isMatched: !newMatched },
+      { isMatched: newMatched, matchedTransactionId: line.matchedTransactionId },
+      `Statement line ${line.id} ${newMatched ? 'matched' : 'unmatched'} by user`,
+    );
 
     return {
-      message: `Statement line ${line.id} ${body.matched ? 'matched' : 'unmatched'} successfully.`,
+      message: `Statement line ${line.id} ${newMatched ? 'matched' : 'unmatched'} successfully.`,
       line,
     };
   }

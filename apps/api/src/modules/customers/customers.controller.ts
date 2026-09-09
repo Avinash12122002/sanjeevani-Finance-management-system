@@ -98,6 +98,13 @@ export class CustomersController {
       throw new BadRequestException('First Name, Last Name and Mobile are required');
     }
 
+    if (body.dateOfBirth) {
+      const parsedDob = new Date(body.dateOfBirth.trim());
+      if (isNaN(parsedDob.getTime()) || parsedDob > new Date()) {
+        throw new BadRequestException('Invalid Date of Birth: Must be a valid date in the past.');
+      }
+    }
+
     const today = new Date().toISOString().split('T')[0];
     if (this.dataStore.isDateLocked(today)) {
       throw new BadRequestException(

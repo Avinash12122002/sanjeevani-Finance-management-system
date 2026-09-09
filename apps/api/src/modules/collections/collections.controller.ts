@@ -137,9 +137,15 @@ export class CollectionsController {
       transactionType = TransactionType.EMI_PAYMENT;
       paymentFor = `Loan EMI (${loan.loanNumber})`;
 
-      // Update next unpaid installment in sequence (earliest OVERDUE / DUE first) (BUG-02 FIX)
+      // Update next unpaid installment in sequence (earliest OVERDUE / DUE first, excluding WAIVED / CANCELLED)
       const unpaidInstallments = this.dataStore.loanInstallments
-        .filter((i) => i.loanId === loan.id && i.status !== InstallmentStatus.PAID)
+        .filter(
+          (i) =>
+            i.loanId === loan.id &&
+            i.status !== InstallmentStatus.PAID &&
+            (i.status as string) !== 'WAIVED' &&
+            (i.status as string) !== 'CANCELLED',
+        )
         .sort((a, b) => a.installmentNumber - b.installmentNumber);
 
       nextInst = unpaidInstallments[0];

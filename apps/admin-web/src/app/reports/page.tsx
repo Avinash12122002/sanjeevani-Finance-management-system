@@ -245,11 +245,15 @@ export default function ReportsPage() {
     }
   };
 
-  const handleToggleReconMatch = async (txnId: string) => {
+  const handleToggleReconMatch = async (txnId: string, isCurrentlyMatched?: boolean) => {
     try {
       const res = await fetchApi('/accounting/bank-recon/match', {
         method: 'POST',
-        body: JSON.stringify({ statementTxnId: txnId }),
+        body: JSON.stringify({
+          statementLineId: txnId,
+          statementTxnId: txnId,
+          matched: isCurrentlyMatched !== undefined ? !isCurrentlyMatched : true,
+        }),
       });
       if (res.success) {
         message.success(res.message);
@@ -941,11 +945,11 @@ export default function ReportsPage() {
                     </div>
                     {bankReconData && (
                       <div className="flex items-center gap-2">
-                        <Tag color={bankReconData.unreconciledDifference === 0 ? 'success' : 'warning'}>
-                          {bankReconData.unreconciledDifference === 0 ? 'Fully Reconciled' : `Variance: ${FinancialEngine.formatINR(bankReconData.unreconciledDifference)}`}
+                        <Tag color={(bankReconData.unreconciledDifference ?? bankReconData.difference) === 0 ? 'success' : 'warning'}>
+                          {(bankReconData.unreconciledDifference ?? bankReconData.difference) === 0 ? 'Fully Reconciled' : `Variance: ${FinancialEngine.formatINR(bankReconData.unreconciledDifference ?? bankReconData.difference ?? 0)}`}
                         </Tag>
                         <Tag color="cyan">
-                          Matched: {bankReconData.matchedCount} / {bankReconData.transactions?.length || 0}
+                          Matched: {bankReconData.matchedCount ?? bankReconData.summary?.matchedCount ?? 0} / {(bankReconData.statementLines || bankReconData.transactions)?.length || 0}
                         </Tag>
                       </div>
                     )}
@@ -957,7 +961,7 @@ export default function ReportsPage() {
                         <Card size="small" className="border border-slate-200 shadow-sm">
                           <Statistic
                             title="Software Ledger Balance"
-                            value={bankReconData.ledgerBalance || 0}
+                            value={bankReconData.ledgerBalance ?? bankReconData.softwareBankBalance ?? 0}
                             formatter={(v) => FinancialEngine.formatINR(Number(v))}
                             valueStyle={{ color: '#0d9488', fontWeight: 700 }}
                           />
@@ -967,7 +971,7 @@ export default function ReportsPage() {
                         <Card size="small" className="border border-slate-200 shadow-sm">
                           <Statistic
                             title="Bank Statement Balance"
-                            value={bankReconData.statementBalance || 0}
+                            value={bankReconData.statementBalance ?? bankReconData.bankStatementBalance ?? 0}
                             formatter={(v) => FinancialEngine.formatINR(Number(v))}
                             valueStyle={{ color: '#2563eb', fontWeight: 700 }}
                           />
@@ -977,9 +981,9 @@ export default function ReportsPage() {
                         <Card size="small" className="border border-slate-200 shadow-sm">
                           <Statistic
                             title="Unreconciled Variance"
-                            value={bankReconData.unreconciledDifference || 0}
+                            value={bankReconData.unreconciledDifference ?? bankReconData.difference ?? 0}
                             formatter={(v) => FinancialEngine.formatINR(Number(v))}
-                            valueStyle={{ color: (bankReconData.unreconciledDifference || 0) === 0 ? '#059669' : '#e11d48', fontWeight: 700 }}
+                            valueStyle={{ color: (bankReconData.unreconciledDifference ?? bankReconData.difference ?? 0) === 0 ? '#059669' : '#e11d48', fontWeight: 700 }}
                           />
                         </Card>
                       </Col>
@@ -988,64 +992,85 @@ export default function ReportsPage() {
 
                   <Table
                     size="small"
-                    dataSource={bankReconData?.transactions || []}
+                    dataSource={bankReconData?.statementLines || bankReconData?.transactions || []}
                     rowKey="id"
                     loading={bankReconLoading}
                     pagination={{ pageSize: 10 }}
                     columns={[
-                      { title: 'Date', dataIndex: 'date', key: 'dt', width: 110 },
+                      {
+                        title: 'Date',
+                        key: 'dt',
+                        width: 110,
+                        render: (_, r: any) => r.transactionDate || r.date || '-',
+                      },
                       { title: 'Description / Narration', dataIndex: 'description', key: 'desc', ellipsis: true },
-                      { title: 'Reference / UTR', dataIndex: 'reference', key: 'ref', render: (r) => <span className="font-mono text-xs text-slate-600">{r || '-'}</span> },
+                      {
+                        title: 'Reference / UTR',
+                        key: 'ref',
+                        render: (_, r: any) => <span className="font-mono text-xs text-slate-600">{r.referenceNo || r.reference || '-'}</span>,
+                      },
                       {
                         title: 'Type',
-                        dataIndex: 'type',
                         key: 'type',
                         width: 90,
-                        render: (t) => <Tag color={t === 'CREDIT' ? 'success' : 'error'}>{t}</Tag>,
+                        render: (_, r: any) => {
+                          const isCredit = r.type === 'CREDIT' || (r.depositAmount > 0);
+                          return <Tag color={isCredit ? 'success' : 'error'}>{isCredit ? 'CREDIT' : 'DEBIT'}</Tag>;
+                        },
                       },
                       {
                         title: 'Amount',
-                        dataIndex: 'amount',
                         key: 'amt',
                         align: 'right',
-                        render: (a, r: any) => (
-                          <span className={r.type === 'CREDIT' ? 'font-bold text-emerald-700' : 'font-bold text-rose-700'}>
-                            {r.type === 'CREDIT' ? '+' : '-'}{FinancialEngine.formatINR(a)}
-                          </span>
-                        ),
+                        render: (_, r: any) => {
+                          const isCredit = r.type === 'CREDIT' || (r.depositAmount > 0);
+                          const amt = r.amount !== undefined ? r.amount : (r.depositAmount || r.withdrawalAmount || 0);
+                          return (
+                            <span className={isCredit ? 'font-bold text-emerald-700' : 'font-bold text-rose-700'}>
+                              {isCredit ? '+' : '-'}{FinancialEngine.formatINR(amt)}
+                            </span>
+                          );
+                        },
                       },
                       {
                         title: 'Status',
-                        dataIndex: 'status',
                         key: 'st',
                         width: 120,
-                        render: (st) => (
-                          <Tag color={st === 'MATCHED' ? 'green' : 'gold'}>
-                            {st === 'MATCHED' ? 'Reconciled' : 'Unmatched'}
-                          </Tag>
-                        ),
+                        render: (_, r: any) => {
+                          const isMatched = r.isMatched !== undefined ? r.isMatched : r.status === 'MATCHED';
+                          return (
+                            <Tag color={isMatched ? 'green' : 'gold'}>
+                              {isMatched ? 'Reconciled' : 'Unmatched'}
+                            </Tag>
+                          );
+                        },
                       },
                       {
                         title: 'Matched Software Txn',
-                        dataIndex: 'matchedWith',
                         key: 'match',
                         ellipsis: true,
-                        render: (m) => m ? <span className="font-mono text-xs text-emerald-700">{m}</span> : <span className="text-slate-400 text-xs">None</span>,
+                        render: (_, r: any) => {
+                          const m = r.matchedTransactionId || r.matchedWith;
+                          return m ? <span className="font-mono text-xs text-emerald-700">{m}</span> : <span className="text-slate-400 text-xs">None</span>;
+                        },
                       },
                       {
                         title: 'Action',
                         key: 'action',
                         width: 120,
-                        render: (_, r: any) => (
-                          <Button
-                            size="small"
-                            type={r.status === 'MATCHED' ? 'default' : 'primary'}
-                            style={r.status !== 'MATCHED' ? { background: '#0d9488', borderColor: '#0d9488' } : {}}
-                            onClick={() => handleToggleReconMatch(r.id)}
-                          >
-                            {r.status === 'MATCHED' ? 'Unmatch' : 'Match Txn'}
-                          </Button>
-                        ),
+                        render: (_, r: any) => {
+                          const isMatched = r.isMatched !== undefined ? r.isMatched : r.status === 'MATCHED';
+                          return (
+                            <Button
+                              size="small"
+                              type={isMatched ? 'default' : 'primary'}
+                              style={!isMatched ? { background: '#0d9488', borderColor: '#0d9488' } : {}}
+                              onClick={() => handleToggleReconMatch(r.id, isMatched)}
+                            >
+                              {isMatched ? 'Unmatch' : 'Match Txn'}
+                            </Button>
+                          );
+                        },
                       },
                     ]}
                   />
