@@ -17,6 +17,7 @@ import { CollectionsController } from './modules/collections/collections.control
 import { TransactionsController } from './modules/transactions/transactions.controller';
 import { CashController } from './modules/cash/cash.controller';
 import { AccountingController } from './modules/accounting/accounting.controller';
+import { BankReconController } from './modules/accounting/bank-recon.controller';
 import { DailyClosingController } from './modules/daily-closing/daily-closing.controller';
 import { DashboardsController } from './modules/dashboards/dashboards.controller';
 import { BranchesController } from './modules/branches/branches.controller';
@@ -62,6 +63,7 @@ import { EmojiSanitizerMiddleware } from './common/middleware/emoji-sanitizer.mi
     VerificationController,
     CashController,
     AccountingController,
+    BankReconController,
     DailyClosingController,
     DashboardsController,
     BranchesController,

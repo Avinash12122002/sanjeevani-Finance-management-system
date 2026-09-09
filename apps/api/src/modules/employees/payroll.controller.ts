@@ -168,7 +168,7 @@ export class PayrollController {
         employeeName: emp.name,
         designation: emp.designation,
         branchId: emp.branchId,
-        branchName: emp.branchName,
+        branchName: emp.branchName || 'Head Office - Main Branch',
         basicSalary: basic,
         hraAllowance: hra,
         conveyanceAllowance: conveyance,

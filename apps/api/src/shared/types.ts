@@ -399,6 +399,10 @@ export interface ICustomer {
   city: string;
   state: string;
   postalCode: string;
+  nomineeName?: string;
+  nomineeRelation?: string;
+  nomineeMobile?: string;
+  introducer?: string;
   photoUrl?: string;
   joiningDate: string;
   status: CustomerStatus;

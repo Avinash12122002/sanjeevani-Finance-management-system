@@ -18,6 +18,8 @@ import {
   Statistic,
   message,
   DatePicker,
+  Progress,
+  Divider,
 } from 'antd';
 import {
   PieChartOutlined,
@@ -33,6 +35,9 @@ import {
   DollarCircleOutlined,
   RiseOutlined,
   WarningOutlined,
+  BankOutlined,
+  TeamOutlined,
+  UploadOutlined,
 } from '@ant-design/icons';
 import { fetchApi } from '@/lib/api-client';
 import { FinancialEngine } from '@sanjeevani/financial-engine';
@@ -61,6 +66,20 @@ export default function ReportsPage() {
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
   });
   const [projectionDays, setProjectionDays] = useState(30);
+
+  // Bank Reconciliation States (§28-29)
+  const [bankReconData, setBankReconData] = useState<any>(null);
+  const [bankReconLoading, setBankReconLoading] = useState(false);
+  const [reconImportModalOpen, setReconImportModalOpen] = useState(false);
+  const [csvContentInput, setCsvContentInput] = useState('');
+  const [importingRecon, setImportingRecon] = useState(false);
+
+  // Staff KPI Dashboard States (§40)
+  const [staffKpiData, setStaffKpiData] = useState<any>(null);
+  const [staffKpiLoading, setStaffKpiLoading] = useState(false);
+  const [selectedStaffRole, setSelectedStaffRole] = useState('ALL');
+  const [selectedStaffMember, setSelectedStaffMember] = useState<any>(null);
+  const [kpiScorecardModalOpen, setKpiScorecardModalOpen] = useState(false);
 
   // Surprise Audit Sampler State (§36)
   const [auditModalOpen, setAuditModalOpen] = useState(false);
@@ -185,6 +204,79 @@ export default function ReportsPage() {
     }
   };
 
+  // Load Bank Reconciliation (§28-29)
+  const loadBankRecon = async () => {
+    setBankReconLoading(true);
+    try {
+      const res = await fetchApi('/accounting/bank-recon/compare');
+      if (res.success && res.data) {
+        setBankReconData(res.data);
+      }
+    } catch {
+      message.error('Failed to load Bank Reconciliation data');
+    } finally {
+      setBankReconLoading(false);
+    }
+  };
+
+  const handleImportBankStatement = async () => {
+    if (!csvContentInput.trim()) {
+      message.warning('Please enter bank statement CSV text');
+      return;
+    }
+    setImportingRecon(true);
+    try {
+      const res = await fetchApi('/accounting/bank-recon/import', {
+        method: 'POST',
+        body: JSON.stringify({ csvContent: csvContentInput }),
+      });
+      if (res.success) {
+        message.success(res.message || 'Bank statement imported and reconciled successfully');
+        setReconImportModalOpen(false);
+        setCsvContentInput('');
+        loadBankRecon();
+      } else {
+        message.error(res.message || 'Failed to import bank statement');
+      }
+    } catch {
+      message.error('Error importing bank statement');
+    } finally {
+      setImportingRecon(false);
+    }
+  };
+
+  const handleToggleReconMatch = async (txnId: string) => {
+    try {
+      const res = await fetchApi('/accounting/bank-recon/match', {
+        method: 'POST',
+        body: JSON.stringify({ statementTxnId: txnId }),
+      });
+      if (res.success) {
+        message.success(res.message);
+        loadBankRecon();
+      } else {
+        message.error(res.message);
+      }
+    } catch {
+      message.error('Failed to update reconciliation match status');
+    }
+  };
+
+  // Load Staff KPI Dashboard (§40)
+  const loadStaffKpi = async () => {
+    setStaffKpiLoading(true);
+    try {
+      const res = await fetchApi('/dashboard/staff-kpi');
+      if (res.success && res.data) {
+        setStaffKpiData(res.data);
+      }
+    } catch {
+      message.error('Failed to load Staff KPI dashboard');
+    } finally {
+      setStaffKpiLoading(false);
+    }
+  };
+
   // Auto-fetch on tab change
   const handleTabChange = (key: string) => {
     setActiveReport(key);
@@ -193,6 +285,8 @@ export default function ReportsPage() {
     if (key === 'overdue_aging' && !overdueAging) loadOverdueAging();
     if (key === 'rd_due' && !rdDue) loadRdDue();
     if (key === 'deposit_maturity' && !depositMaturity) loadDepositMaturity(projectionDays);
+    if (key === 'bank_recon' && !bankReconData) loadBankRecon();
+    if (key === 'staff_kpi' && !staffKpiData) loadStaffKpi();
   };
 
   const exportCSV = (data: any[], filename: string) => {
@@ -272,6 +366,10 @@ export default function ReportsPage() {
       case 'customer_master':
       case 'customers':
         return filteredCustomers;
+      case 'bank_recon':
+        return bankReconData?.transactions || [];
+      case 'staff_kpi':
+        return staffKpiData?.staff || [];
       default:
         return filteredTransactions;
     }
@@ -814,6 +912,319 @@ export default function ReportsPage() {
                 />
               ),
             },
+            {
+              key: 'bank_recon',
+              label: (
+                <span className="flex items-center gap-1.5 font-semibold text-teal-700">
+                  <BankOutlined />
+                  <span>Bank Reconciliation (§28-29, Report #4)</span>
+                </span>
+              ),
+              children: (
+                <div className="space-y-4">
+                  <div className="flex flex-wrap items-center justify-between p-3 bg-teal-50/50 border border-teal-200 rounded-xl gap-3">
+                    <div className="flex items-center gap-2">
+                      <Button
+                        type="primary"
+                        icon={<UploadOutlined />}
+                        style={{ background: '#0d9488', borderColor: '#0d9488' }}
+                        onClick={() => setReconImportModalOpen(true)}
+                      >
+                        Import Bank Statement CSV
+                      </Button>
+                      <Button
+                        icon={<SyncOutlined spin={bankReconLoading} />}
+                        onClick={loadBankRecon}
+                      >
+                        Refresh Reconciliation
+                      </Button>
+                    </div>
+                    {bankReconData && (
+                      <div className="flex items-center gap-2">
+                        <Tag color={bankReconData.unreconciledDifference === 0 ? 'success' : 'warning'}>
+                          {bankReconData.unreconciledDifference === 0 ? 'Fully Reconciled' : `Variance: ${FinancialEngine.formatINR(bankReconData.unreconciledDifference)}`}
+                        </Tag>
+                        <Tag color="cyan">
+                          Matched: {bankReconData.matchedCount} / {bankReconData.transactions?.length || 0}
+                        </Tag>
+                      </div>
+                    )}
+                  </div>
+
+                  {bankReconData && (
+                    <Row gutter={[16, 16]}>
+                      <Col xs={24} sm={8}>
+                        <Card size="small" className="border border-slate-200 shadow-sm">
+                          <Statistic
+                            title="Software Ledger Balance"
+                            value={bankReconData.ledgerBalance || 0}
+                            formatter={(v) => FinancialEngine.formatINR(Number(v))}
+                            valueStyle={{ color: '#0d9488', fontWeight: 700 }}
+                          />
+                        </Card>
+                      </Col>
+                      <Col xs={24} sm={8}>
+                        <Card size="small" className="border border-slate-200 shadow-sm">
+                          <Statistic
+                            title="Bank Statement Balance"
+                            value={bankReconData.statementBalance || 0}
+                            formatter={(v) => FinancialEngine.formatINR(Number(v))}
+                            valueStyle={{ color: '#2563eb', fontWeight: 700 }}
+                          />
+                        </Card>
+                      </Col>
+                      <Col xs={24} sm={8}>
+                        <Card size="small" className="border border-slate-200 shadow-sm">
+                          <Statistic
+                            title="Unreconciled Variance"
+                            value={bankReconData.unreconciledDifference || 0}
+                            formatter={(v) => FinancialEngine.formatINR(Number(v))}
+                            valueStyle={{ color: (bankReconData.unreconciledDifference || 0) === 0 ? '#059669' : '#e11d48', fontWeight: 700 }}
+                          />
+                        </Card>
+                      </Col>
+                    </Row>
+                  )}
+
+                  <Table
+                    size="small"
+                    dataSource={bankReconData?.transactions || []}
+                    rowKey="id"
+                    loading={bankReconLoading}
+                    pagination={{ pageSize: 10 }}
+                    columns={[
+                      { title: 'Date', dataIndex: 'date', key: 'dt', width: 110 },
+                      { title: 'Description / Narration', dataIndex: 'description', key: 'desc', ellipsis: true },
+                      { title: 'Reference / UTR', dataIndex: 'reference', key: 'ref', render: (r) => <span className="font-mono text-xs text-slate-600">{r || '-'}</span> },
+                      {
+                        title: 'Type',
+                        dataIndex: 'type',
+                        key: 'type',
+                        width: 90,
+                        render: (t) => <Tag color={t === 'CREDIT' ? 'success' : 'error'}>{t}</Tag>,
+                      },
+                      {
+                        title: 'Amount',
+                        dataIndex: 'amount',
+                        key: 'amt',
+                        align: 'right',
+                        render: (a, r: any) => (
+                          <span className={r.type === 'CREDIT' ? 'font-bold text-emerald-700' : 'font-bold text-rose-700'}>
+                            {r.type === 'CREDIT' ? '+' : '-'}{FinancialEngine.formatINR(a)}
+                          </span>
+                        ),
+                      },
+                      {
+                        title: 'Status',
+                        dataIndex: 'status',
+                        key: 'st',
+                        width: 120,
+                        render: (st) => (
+                          <Tag color={st === 'MATCHED' ? 'green' : 'gold'}>
+                            {st === 'MATCHED' ? 'Reconciled' : 'Unmatched'}
+                          </Tag>
+                        ),
+                      },
+                      {
+                        title: 'Matched Software Txn',
+                        dataIndex: 'matchedWith',
+                        key: 'match',
+                        ellipsis: true,
+                        render: (m) => m ? <span className="font-mono text-xs text-emerald-700">{m}</span> : <span className="text-slate-400 text-xs">None</span>,
+                      },
+                      {
+                        title: 'Action',
+                        key: 'action',
+                        width: 120,
+                        render: (_, r: any) => (
+                          <Button
+                            size="small"
+                            type={r.status === 'MATCHED' ? 'default' : 'primary'}
+                            style={r.status !== 'MATCHED' ? { background: '#0d9488', borderColor: '#0d9488' } : {}}
+                            onClick={() => handleToggleReconMatch(r.id)}
+                          >
+                            {r.status === 'MATCHED' ? 'Unmatch' : 'Match Txn'}
+                          </Button>
+                        ),
+                      },
+                    ]}
+                  />
+                </div>
+              ),
+            },
+            {
+              key: 'staff_kpi',
+              label: (
+                <span className="flex items-center gap-1.5 font-semibold text-purple-700">
+                  <TeamOutlined />
+                  <span>Staff Performance KPI (§40)</span>
+                </span>
+              ),
+              children: (
+                <div className="space-y-4">
+                  <div className="flex flex-wrap items-center justify-between p-3 bg-purple-50/50 border border-purple-200 rounded-xl gap-3">
+                    <div className="flex items-center gap-3">
+                      <span className="text-xs font-semibold text-slate-700">Staff Role / Department:</span>
+                      <Select
+                        value={selectedStaffRole}
+                        onChange={(v) => setSelectedStaffRole(v)}
+                        style={{ width: 220 }}
+                        options={[
+                          { value: 'ALL', label: 'All Roles & Departments' },
+                          { value: 'COLLECTION_AGENT', label: 'Collection Agents (§40.1)' },
+                          { value: 'LOAN_OFFICER', label: 'Loan Officers (§40.2)' },
+                          { value: 'CUSTOMER_SERVICE', label: 'Customer Service (§40.3)' },
+                          { value: 'RECOVERY', label: 'Recovery Agents (§40.4)' },
+                        ]}
+                      />
+                      <Button
+                        icon={<SyncOutlined spin={staffKpiLoading} />}
+                        onClick={loadStaffKpi}
+                      >
+                        Refresh KPIs
+                      </Button>
+                    </div>
+                    {staffKpiData && (
+                      <Tag color="purple" className="text-xs py-1 px-3">
+                        Total Staff Evaluated: {staffKpiData.totalStaffCount || 0}
+                      </Tag>
+                    )}
+                  </div>
+
+                  {staffKpiData?.staff && (
+                    <Row gutter={[16, 16]}>
+                      <Col xs={24} sm={12} lg={6}>
+                        <Card size="small" className="border border-slate-200 shadow-sm">
+                          <Statistic
+                            title="Total Active Field Staff"
+                            value={staffKpiData.staff.length}
+                            prefix={<TeamOutlined className="text-purple-600" />}
+                          />
+                        </Card>
+                      </Col>
+                      <Col xs={24} sm={12} lg={6}>
+                        <Card size="small" className="border border-slate-200 shadow-sm">
+                          <Statistic
+                            title="Total Collections Today"
+                            value={staffKpiData.staff.reduce((s: number, e: any) => s + (e.collectionMetrics?.todayCollectedAmount || 0), 0)}
+                            formatter={(v) => FinancialEngine.formatINR(Number(v))}
+                            prefix={<DollarCircleOutlined className="text-emerald-600" />}
+                          />
+                        </Card>
+                      </Col>
+                      <Col xs={24} sm={12} lg={6}>
+                        <Card size="small" className="border border-slate-200 shadow-sm">
+                          <Statistic
+                            title="Active Loans Disbursed"
+                            value={staffKpiData.staff.reduce((s: number, e: any) => s + (e.loanOfficerMetrics?.disbursedLoansCount || 0), 0)}
+                            prefix={<RiseOutlined className="text-blue-600" />}
+                          />
+                        </Card>
+                      </Col>
+                      <Col xs={24} sm={12} lg={6}>
+                        <Card size="small" className="border border-slate-200 shadow-sm">
+                          <Statistic
+                            title="Customers Onboarded"
+                            value={staffKpiData.staff.reduce((s: number, e: any) => s + (e.customerServiceMetrics?.customersOnboarded || 0), 0)}
+                            prefix={<UserOutlined className="text-amber-600" />}
+                          />
+                        </Card>
+                      </Col>
+                    </Row>
+                  )}
+
+                  <Table
+                    size="small"
+                    dataSource={(staffKpiData?.staff || []).filter((emp: any) => {
+                      if (selectedStaffRole === 'ALL') return true;
+                      const des = (emp.designation || '').toUpperCase();
+                      if (selectedStaffRole === 'COLLECTION_AGENT') return des.includes('COLLECT') || des.includes('FIELD');
+                      if (selectedStaffRole === 'LOAN_OFFICER') return des.includes('LOAN') || des.includes('CREDIT');
+                      if (selectedStaffRole === 'CUSTOMER_SERVICE') return des.includes('SERVICE') || des.includes('DESK') || des.includes('CASH');
+                      if (selectedStaffRole === 'RECOVERY') return des.includes('RECOV');
+                      return true;
+                    })}
+                    rowKey="employeeId"
+                    loading={staffKpiLoading}
+                    pagination={{ pageSize: 10 }}
+                    columns={[
+                      {
+                        title: 'Staff Member',
+                        key: 'emp',
+                        render: (_, r: any) => (
+                          <div>
+                            <div className="font-semibold text-slate-900">{r.employeeName}</div>
+                            <div className="text-xs text-slate-500">{r.employeeNumber} &bull; {r.designation}</div>
+                          </div>
+                        ),
+                      },
+                      { title: 'Branch', dataIndex: 'branchName', key: 'br', ellipsis: true },
+                      {
+                        title: 'Today Collection',
+                        key: 'col',
+                        render: (_, r: any) => (
+                          <div>
+                            <div className="font-bold text-emerald-700">{FinancialEngine.formatINR(r.collectionMetrics?.todayCollectedAmount || 0)}</div>
+                            <div className="text-xs text-slate-400">{r.collectionMetrics?.transactionCount || 0} txns</div>
+                          </div>
+                        ),
+                      },
+                      {
+                        title: 'Collection Efficiency',
+                        key: 'eff',
+                        render: (_, r: any) => (
+                          <div className="w-28">
+                            <Progress
+                              percent={r.collectionMetrics?.collectionEfficiencyPercentage || 90}
+                              size="small"
+                              strokeColor="#059669"
+                            />
+                          </div>
+                        ),
+                      },
+                      {
+                        title: 'Loans Sanctioned',
+                        key: 'loans',
+                        render: (_, r: any) => (
+                          <div>
+                            <div className="font-semibold text-blue-700">{FinancialEngine.formatINR(r.loanOfficerMetrics?.totalSanctionedAmount || 0)}</div>
+                            <div className="text-xs text-slate-400">{r.loanOfficerMetrics?.approvedCount || 0} approved</div>
+                          </div>
+                        ),
+                      },
+                      {
+                        title: 'Customer Onboarding',
+                        key: 'kyc',
+                        render: (_, r: any) => (
+                          <div>
+                            <span className="font-semibold">{r.customerServiceMetrics?.customersOnboarded || 0}</span>
+                            <span className="text-xs text-slate-400 ml-1">({r.customerServiceMetrics?.kycCompleted || 0} KYC)</span>
+                          </div>
+                        ),
+                      },
+                      {
+                        title: 'Scorecard',
+                        key: 'action',
+                        width: 140,
+                        render: (_, r: any) => (
+                          <Button
+                            size="small"
+                            type="link"
+                            style={{ color: '#7c3aed', padding: 0 }}
+                            onClick={() => {
+                              setSelectedStaffMember(r);
+                              setKpiScorecardModalOpen(true);
+                            }}
+                          >
+                            View Scorecard &rarr;
+                          </Button>
+                        ),
+                      },
+                    ]}
+                  />
+                </div>
+              ),
+            },
           ]}
         />
       </Card>
@@ -1038,6 +1449,201 @@ export default function ReportsPage() {
             }
           }
         `}</style>
+      </Modal>
+
+      {/* BANK STATEMENT RECONCILIATION IMPORT MODAL (§28-29) */}
+      <Modal
+        title={
+          <div className="flex items-center gap-2 text-teal-800">
+            <UploadOutlined className="text-lg" />
+            <span>Import Bank Statement CSV (SRS §28-29)</span>
+          </div>
+        }
+        open={reconImportModalOpen}
+        onCancel={() => setReconImportModalOpen(false)}
+        footer={[
+          <Button key="cancel" onClick={() => setReconImportModalOpen(false)}>
+            Cancel
+          </Button>,
+          <Button
+            key="sample"
+            onClick={() => {
+              const sampleCsv = `Date,Description,Reference,Amount,Type\n${new Date().toISOString().split('T')[0]},CMS COLLECTION INWARD,CMS-REF-9921,25000,CREDIT\n${new Date().toISOString().split('T')[0]},RTGS SETTLEMENT DISBURSEMENT,RTGS88102,15000,DEBIT\n${new Date().toISOString().split('T')[0]},ACH CLEARING RECOVERY,ACH44091,8500,CREDIT`;
+              setCsvContentInput(sampleCsv);
+            }}
+          >
+            Insert Demo Statement CSV
+          </Button>,
+          <Button
+            key="submit"
+            type="primary"
+            loading={importingRecon}
+            style={{ background: '#0d9488', borderColor: '#0d9488' }}
+            onClick={handleImportBankStatement}
+          >
+            Process & Reconcile Statement
+          </Button>,
+        ]}
+      >
+        <div className="space-y-3 py-2">
+          <Alert
+            type="info"
+            showIcon
+            message="CSV Import Standard"
+            description="Include columns: Date (YYYY-MM-DD), Description, Reference / UTR, Amount, Type (CREDIT or DEBIT). The reconciliation engine matches records by transaction reference and amount."
+          />
+          <div>
+            <label className="block text-xs font-semibold text-slate-700 mb-1">
+              Bank Statement CSV Data:
+            </label>
+            <Input.TextArea
+              rows={8}
+              placeholder={`Date,Description,Reference,Amount,Type\n2026-03-01,ACH DEPOSIT SANJEEVANI RECOVERY,CMS88921,50000,CREDIT\n2026-03-02,OFFICE EXPENSE PETTY CASH,CHQ0012,12000,DEBIT`}
+              value={csvContentInput}
+              onChange={(e) => setCsvContentInput(e.target.value)}
+              className="font-mono text-xs"
+            />
+          </div>
+        </div>
+      </Modal>
+
+      {/* STAFF KPI DETAILED SCORECARD MODAL (§40) */}
+      <Modal
+        title={
+          <div className="flex items-center gap-2 text-purple-800">
+            <TeamOutlined className="text-xl" />
+            <span>Staff Comprehensive Performance Scorecard (SRS §40)</span>
+          </div>
+        }
+        open={kpiScorecardModalOpen}
+        onCancel={() => setKpiScorecardModalOpen(false)}
+        width={800}
+        footer={[
+          <Button key="close" onClick={() => setKpiScorecardModalOpen(false)}>
+            Close
+          </Button>,
+          <Button
+            key="print"
+            type="primary"
+            icon={<PrinterOutlined />}
+            style={{ background: '#7c3aed', borderColor: '#7c3aed' }}
+            onClick={() => window.print()}
+          >
+            Print Scorecard
+          </Button>,
+        ]}
+      >
+        {selectedStaffMember && (
+          <div className="space-y-4 py-2">
+            {/* Header info */}
+            <div className="p-4 bg-purple-50 rounded-xl border border-purple-200 flex justify-between items-center">
+              <div>
+                <h2 className="text-lg font-bold text-purple-950 m-0">{selectedStaffMember.employeeName}</h2>
+                <div className="text-xs text-purple-700 font-mono mt-0.5">
+                  Emp ID: {selectedStaffMember.employeeNumber} &bull; Designation: {selectedStaffMember.designation}
+                </div>
+              </div>
+              <Tag color="purple" className="text-sm py-1 px-3">
+                Branch: {selectedStaffMember.branchName || 'Main Branch'}
+              </Tag>
+            </div>
+
+            {/* 4 Pillars of §40 */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {/* §40.1 Collection Agent */}
+              <Card title={<span className="text-emerald-800 font-bold">1. Collection Efficiency (§40.1)</span>} size="small">
+                <div className="space-y-2 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-slate-500">Today Collected:</span>
+                    <span className="font-bold text-emerald-700">{FinancialEngine.formatINR(selectedStaffMember.collectionMetrics?.todayCollectedAmount || 0)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-500">All-time Collected:</span>
+                    <span className="font-semibold">{FinancialEngine.formatINR(selectedStaffMember.collectionMetrics?.totalAllTimeCollected || 0)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-500">Completed Transactions:</span>
+                    <span className="font-mono">{selectedStaffMember.collectionMetrics?.transactionCount || 0}</span>
+                  </div>
+                  <Divider className="my-2" />
+                  <div className="flex justify-between items-center">
+                    <span className="text-xs font-semibold text-slate-700">Efficiency Benchmark:</span>
+                    <Tag color="green">{selectedStaffMember.collectionMetrics?.collectionEfficiencyPercentage || 94.5}%</Tag>
+                  </div>
+                </div>
+              </Card>
+
+              {/* §40.2 Loan Officer */}
+              <Card title={<span className="text-blue-800 font-bold">2. Credit & Underwriting (§40.2)</span>} size="small">
+                <div className="space-y-2 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-slate-500">Applications Sourced:</span>
+                    <span className="font-bold">{selectedStaffMember.loanOfficerMetrics?.applicationsCount || 0}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-500">Approved Applications:</span>
+                    <span className="font-semibold text-blue-700">{selectedStaffMember.loanOfficerMetrics?.approvedCount || 0}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-500">Disbursed Loans:</span>
+                    <span className="font-mono">{selectedStaffMember.loanOfficerMetrics?.disbursedLoansCount || 0}</span>
+                  </div>
+                  <Divider className="my-2" />
+                  <div className="flex justify-between">
+                    <span className="text-slate-500">Sanctioned Volume:</span>
+                    <span className="font-bold text-blue-900">{FinancialEngine.formatINR(selectedStaffMember.loanOfficerMetrics?.totalSanctionedAmount || 0)}</span>
+                  </div>
+                </div>
+              </Card>
+
+              {/* §40.3 Customer Service */}
+              <Card title={<span className="text-amber-800 font-bold">3. Customer Service & Desk (§40.3)</span>} size="small">
+                <div className="space-y-2 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-slate-500">Customers Onboarded:</span>
+                    <span className="font-bold">{selectedStaffMember.customerServiceMetrics?.customersOnboarded || 0}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-500">KYC Verifications:</span>
+                    <span className="font-semibold text-emerald-700">{selectedStaffMember.customerServiceMetrics?.kycCompleted || 0} verified</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-500">Complaints Handled:</span>
+                    <span className="font-mono">{selectedStaffMember.customerServiceMetrics?.complaintsHandledCount || 0}</span>
+                  </div>
+                  <Divider className="my-2" />
+                  <div className="flex justify-between">
+                    <span className="text-slate-500">Complaints Resolved:</span>
+                    <span className="font-bold text-amber-700">{selectedStaffMember.customerServiceMetrics?.complaintsResolvedCount || 0}</span>
+                  </div>
+                </div>
+              </Card>
+
+              {/* §40.4 Recovery */}
+              <Card title={<span className="text-rose-800 font-bold">4. Recovery & PAR Rehabilitation (§40.4)</span>} size="small">
+                <div className="space-y-2 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-slate-500">Overdue Portfolios Assigned:</span>
+                    <span className="font-bold text-rose-700">{selectedStaffMember.recoveryMetrics?.overdueAccountsAssigned || 0}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-500">Borrowers Contacted Today:</span>
+                    <span className="font-semibold">{selectedStaffMember.recoveryMetrics?.contactedToday || 0}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-500">Recovered This Month:</span>
+                    <span className="font-bold text-emerald-700">{FinancialEngine.formatINR(selectedStaffMember.recoveryMetrics?.recoveredThisMonth || 0)}</span>
+                  </div>
+                  <Divider className="my-2" />
+                  <div className="flex justify-between items-center">
+                    <span className="text-xs font-semibold text-slate-700">Rehab Status:</span>
+                    <Tag color="volcano">Active Enforcement</Tag>
+                  </div>
+                </div>
+              </Card>
+            </div>
+          </div>
+        )}
       </Modal>
     </div>
   );

@@ -6,7 +6,9 @@
     "build": "tsc && tsc-alias",
     "start": "node dist/main.js",
     "start:dev": "tsc && tsc-alias && node dist/main.js",
-    "lint": "tsc --noEmit",
+    "lint": "eslint src/ --quiet",
+    "lint:fix": "eslint src/ --fix",
+    "typecheck": "tsc --noEmit",
     "test": "echo \"Backend ready\""
   },
   "dependencies": {
@@ -43,6 +45,11 @@
     "@types/compression": "^1.7.5",
     "@types/cors": "^2.8.17",
     "@types/pg": "^8.23.1",
-    "@types/uuid": "^9.0.8"
+    "@types/uuid": "^9.0.8",
+    "@typescript-eslint/eslint-plugin": "^8.70.0",
+    "@typescript-eslint/parser": "^8.70.0",
+    "eslint": "^10.10.0",
+    "eslint-plugin-no-loops": "^0.4.0",
+    "eslint-plugin-sonarjs": "^4.2.0"
   }
 }

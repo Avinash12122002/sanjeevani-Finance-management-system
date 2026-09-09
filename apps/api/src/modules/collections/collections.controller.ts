@@ -39,7 +39,7 @@ export class CollectionsController {
    * Today's Collection Queue for Collector or Cashier (SRS §31, §32)
    */
   @Get('today')
-  async getTodaysCollectionList(@CurrentUser() user: IUser) {
+  async getTodaysCollectionList(@CurrentUser() _user: IUser) {
     await this.dataStore.refreshIfStale();
     const dueLoans = this.dataStore.loans.filter((l) => l.status === 'ACTIVE' || l.status === 'OVERDUE');
     const dueAccounts = this.dataStore.accounts.filter((a) => a.status === 'ACTIVE' && a.productType === 'RD');
@@ -137,14 +137,12 @@ export class CollectionsController {
       transactionType = TransactionType.EMI_PAYMENT;
       paymentFor = `Loan EMI (${loan.loanNumber})`;
 
-      // Update next due installment — includes OVERDUE so past-due payments are correctly marked (BUG-02 FIX)
-      nextInst = this.dataStore.loanInstallments.find(
-        (i) =>
-          i.loanId === loan.id &&
-          (i.status === InstallmentStatus.DUE ||
-            i.status === InstallmentStatus.UPCOMING ||
-            i.status === InstallmentStatus.OVERDUE),
-      );
+      // Update next unpaid installment in sequence (earliest OVERDUE / DUE first) (BUG-02 FIX)
+      const unpaidInstallments = this.dataStore.loanInstallments
+        .filter((i) => i.loanId === loan.id && i.status !== InstallmentStatus.PAID)
+        .sort((a, b) => a.installmentNumber - b.installmentNumber);
+
+      nextInst = unpaidInstallments[0];
 
       if (nextInst) {
         nextInst.amountPaid = amount;

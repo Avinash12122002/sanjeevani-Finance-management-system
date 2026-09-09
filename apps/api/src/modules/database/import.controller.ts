@@ -13,7 +13,7 @@ import { StaffGuard } from '../../common/guards/staff.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
-import { IUser, CustomerStatus, KYCStatus, RiskCategory, AccountStatus, ProductType, UserRole } from '@sanjeevani/shared-types';
+import { IUser, CustomerStatus, KYCStatus, RiskCategory, ProductType, UserRole } from '@sanjeevani/shared-types';
 
 export interface IImportValidationRow {
   rowNumber: number;

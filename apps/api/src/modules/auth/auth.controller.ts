@@ -22,6 +22,7 @@ import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { IUser, UserRole } from '@sanjeevani/shared-types';
+import { randomBytes, randomInt } from 'crypto';
 
 import * as bcrypt from 'bcryptjs';
 
@@ -30,6 +31,19 @@ const loginAttemptsMap = new Map<string, { attempts: number; lockUntil: number; 
 const MAX_ATTEMPTS = 5;
 const LOCKOUT_DURATION_MS = 15 * 60 * 1000; // 15 minutes
 const WINDOW_DURATION_MS = 15 * 60 * 1000;
+
+// In-Memory 2FA Challenge Store
+const twoFactorChallengeStore = new Map<
+  string,
+  {
+    userId: string;
+    otp: string;
+    expiresAt: number;
+    attempts: number;
+    lastSentAt: number;
+    clientIp: string;
+  }
+>();
 
 @Controller('api/v1/auth')
 export class AuthController {
@@ -143,8 +157,49 @@ export class AuthController {
       throw new UnauthorizedException('User account is currently disabled. Contact Super Admin.');
     }
 
-    // Clear failed attempts on successful login
+    // Clear failed attempts on successful credentials check
     loginAttemptsMap.delete(clientIp);
+
+    // 2. Intercept for Two-Factor Authentication (2FA) if enabled (§39)
+    if (user.is2faEnabled) {
+      const challengeId = `2FA-${Date.now()}-${randomBytes(8).toString('hex')}`;
+      const otp = randomInt(100000, 1000000).toString();
+      const expiresAt = Date.now() + 5 * 60 * 1000;
+
+      twoFactorChallengeStore.set(challengeId, {
+        userId: user.id,
+        otp,
+        expiresAt,
+        attempts: 0,
+        lastSentAt: Date.now(),
+        clientIp,
+      });
+
+      const maskedMobile = user.mobile
+        ? `${user.mobile.slice(0, 2)}******${user.mobile.slice(-2)}`
+        : 'registered mobile';
+
+      this.dataStore.logAudit(
+        user.id,
+        user.employeeName || user.username,
+        '2FA_CHALLENGE_ISSUED',
+        'User',
+        user.id,
+        undefined,
+        { challengeId, clientIp },
+        `2FA OTP dispatched for ${user.username} (Mobile: ${maskedMobile})`,
+      );
+
+      return {
+        message: 'Two-Factor Authentication required. Enter the 6-digit OTP.',
+        data: {
+          require2fa: true,
+          challengeId,
+          mobile: maskedMobile,
+          devOtp: process.env.NODE_ENV !== 'production' ? otp : undefined,
+        },
+      };
+    }
 
     const payload = {
       id: user.id,
@@ -196,12 +251,136 @@ export class AuthController {
     };
   }
 
+  /**
+   * VERIFY 2FA OTP (SRS §39)
+   */
+  @Post('verify-2fa')
+  async verify2Fa(
+    @Body() body: { challengeId: string; otp: string },
+    @Req() req: Request,
+  ) {
+    if (!body.challengeId || !body.otp) {
+      throw new BadRequestException('Challenge ID and OTP are required.');
+    }
+
+    const challenge = twoFactorChallengeStore.get(body.challengeId);
+    if (!challenge) {
+      throw new UnauthorizedException('Invalid or expired 2FA session. Please log in again.');
+    }
+
+    if (Date.now() > challenge.expiresAt) {
+      twoFactorChallengeStore.delete(body.challengeId);
+      throw new UnauthorizedException('2FA OTP has expired. Please log in again.');
+    }
+
+    challenge.attempts += 1;
+    if (challenge.otp !== body.otp.trim()) {
+      if (challenge.attempts >= 5) {
+        twoFactorChallengeStore.delete(body.challengeId);
+        throw new UnauthorizedException('Too many incorrect 2FA attempts. Session terminated.');
+      }
+      throw new UnauthorizedException(`Invalid OTP. ${5 - challenge.attempts} attempt(s) remaining.`);
+    }
+
+    // OTP verified
+    twoFactorChallengeStore.delete(body.challengeId);
+
+    const user = this.dataStore.users.find((u) => u.id === challenge.userId);
+    if (!user || !user.isActive) {
+      throw new UnauthorizedException('User account not found or disabled.');
+    }
+
+    const rawFwd = req.headers['x-forwarded-for'];
+    const clientIp = (typeof rawFwd === 'string' ? rawFwd.split(',')[0].trim() : Array.isArray(rawFwd) ? rawFwd[0] : req.ip) || '127.0.0.1';
+
+    const payload = {
+      id: user.id,
+      sub: user.id,
+      username: user.username,
+      roles: user.roles,
+      branchId: user.branchId,
+      branchName: user.branchName,
+      employeeId: user.employeeId,
+      employeeName: user.employeeName,
+    };
+
+    const accessToken = await this.jwtService.signAsync(payload);
+    const refreshToken = await this.jwtService.signAsync(payload, { expiresIn: '7d' });
+
+    this.dataStore.logAudit(
+      user.id,
+      user.employeeName || user.username,
+      '2FA_LOGIN_SUCCESS',
+      'User',
+      user.id,
+      undefined,
+      {
+        loginTime: new Date().toISOString(),
+        clientIp,
+        status: '2FA_VERIFIED',
+      },
+      `Staff ${user.employeeName || user.username} completed 2FA verification from IP ${clientIp}`,
+    );
+
+    return {
+      message: '2FA verification successful',
+      data: {
+        accessToken,
+        refreshToken,
+        expiresIn: 3600,
+        user: {
+          id: user.id,
+          username: user.username,
+          employeeName: user.employeeName,
+          roles: user.roles,
+          branchId: user.branchId,
+          branchName: user.branchName,
+          is2faEnabled: user.is2faEnabled,
+        },
+      },
+    };
+  }
+
+  /**
+   * RESEND 2FA OTP (SRS §39)
+   */
+  @Post('resend-2fa-otp')
+  async resend2FaOtp(@Body() body: { challengeId: string }) {
+    if (!body.challengeId) {
+      throw new BadRequestException('Challenge ID is required.');
+    }
+
+    const challenge = twoFactorChallengeStore.get(body.challengeId);
+    if (!challenge) {
+      throw new BadRequestException('Invalid or expired 2FA session.');
+    }
+
+    const now = Date.now();
+    if (now - challenge.lastSentAt < 30000) {
+      const waitSec = Math.ceil((30000 - (now - challenge.lastSentAt)) / 1000);
+      throw new BadRequestException(`Please wait ${waitSec} second(s) before requesting a new OTP.`);
+    }
+
+    const newOtp = randomInt(100000, 1000000).toString();
+    challenge.otp = newOtp;
+    challenge.expiresAt = now + 5 * 60 * 1000;
+    challenge.lastSentAt = now;
+
+    return {
+      message: 'New 2FA OTP dispatched successfully.',
+      data: {
+        devOtp: process.env.NODE_ENV !== 'production' ? newOtp : undefined,
+      },
+    };
+  }
+
   @Get('me')
   @UseGuards(JwtAuthGuard)
   getProfile(@CurrentUser() user: IUser) {
     const fullUser = this.dataStore.users.find((u) => u.id === (user as any).sub || u.id === user.id);
     const target = fullUser || user;
-    const { passwordHash, ...safe } = target as any;
+    const safe = { ...(target as any) };
+    delete safe.passwordHash;
     return safe;
   }
 
@@ -237,7 +416,8 @@ export class AuthController {
   async getUsers() {
     await this.dataStore.refreshIfStale();
     return this.dataStore.users.map((u) => {
-      const { passwordHash, ...safe } = u as any;
+      const safe = { ...(u as any) };
+      delete safe.passwordHash;
       return safe;
     });
   }
@@ -294,7 +474,8 @@ export class AuthController {
       `Created login user account ${newUser.username}`,
     );
 
-    const { passwordHash, ...safe } = newUser as any;
+    const safe = { ...(newUser as any) };
+    delete safe.passwordHash;
     return safe;
   }
 
@@ -348,7 +529,8 @@ export class AuthController {
       `Updated user account ${targetUser.username}`,
     );
 
-    const { passwordHash, ...safe } = targetUser as any;
+    const safe = { ...(targetUser as any) };
+    delete safe.passwordHash;
     return safe;
   }
 

@@ -23,7 +23,6 @@ import {
   IUser,
   UserRole,
   TransactionType,
-  InstallmentStatus,
   AccountStatus,
 } from '@sanjeevani/shared-types';
 

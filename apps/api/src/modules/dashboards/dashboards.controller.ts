@@ -193,7 +193,7 @@ export class DashboardsController {
    * STAFF PERFORMANCE KPI TELEMETRY (SRS §40)
    * Tracks role-specific KPIs for Collection Agents, Loan Officers, Customer Service, and Recovery Officers
    */
-  @Get('dashboard/staff-kpi')
+  @Get(['dashboard/staff-kpi', 'reports/staff-kpi'])
   async getStaffKpiDashboard(@Query('branchId') queryBranchId?: string) {
     await this.dataStore.refreshIfStale();
 
@@ -203,7 +203,6 @@ export class DashboardsController {
     const today = new Date().toISOString().split('T')[0];
 
     const kpiList = staff.map((emp) => {
-      const designation = (emp.designation || '').toUpperCase();
 
       // Collection Agent KPIs (SRS §40.1)
       const userTxns = this.dataStore.transactions.filter(

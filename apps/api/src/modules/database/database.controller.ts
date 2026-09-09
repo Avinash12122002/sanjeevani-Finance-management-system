@@ -8,7 +8,6 @@ import {
   Body,
   UseGuards,
   BadRequestException,
-  NotFoundException,
 } from '@nestjs/common';
 import { DataStoreService } from '../../database/data-store.service';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';

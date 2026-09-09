@@ -4,7 +4,7 @@ import { deepSanitizeEmojis } from '../utils/emoji-sanitizer';
 
 @Injectable()
 export class EmojiSanitizerMiddleware implements NestMiddleware {
-  use(req: Request, res: Response, next: NextFunction) {
+  use(req: Request, _res: Response, next: NextFunction) {
     if (req.body && typeof req.body === 'object') {
       req.body = deepSanitizeEmojis(req.body);
     }

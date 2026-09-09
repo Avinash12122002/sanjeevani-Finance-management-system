@@ -894,7 +894,7 @@ export default function CustomerPortalPage() {
                         <div className="bg-white p-3.5 rounded-xl border border-slate-200">
                           <div className="text-slate-500 font-medium">Annual Return Rate</div>
                           <div className="font-black text-indigo-700 text-sm mt-0.5">
-                            {rd.interestRate != null ? `${rd.interestRate}% p.a.` : 'N/A'}
+                            {rd.interestRate !== null && rd.interestRate !== undefined ? `${rd.interestRate}% p.a.` : 'N/A'}
                           </div>
                         </div>
                         <div className="bg-white p-3.5 rounded-xl border border-slate-200">
@@ -963,7 +963,7 @@ export default function CustomerPortalPage() {
                         <div className="bg-white p-3.5 rounded-xl border border-indigo-100">
                           <div className="text-slate-500 font-medium">Guaranteed Return Rate</div>
                           <div className="font-black text-indigo-700 text-sm mt-0.5">
-                            {fd.interestRate != null ? `${fd.interestRate}% p.a.` : 'N/A'}
+                            {fd.interestRate !== null && fd.interestRate !== undefined ? `${fd.interestRate}% p.a.` : 'N/A'}
                           </div>
                         </div>
                         <div className="bg-white p-3.5 rounded-xl border border-indigo-100">
@@ -1060,7 +1060,7 @@ export default function CustomerPortalPage() {
                           <div className="bg-white p-3.5 rounded-xl border border-slate-200">
                             <div className="text-slate-500 font-medium">Annual Interest Rate</div>
                             <div className="font-black text-slate-800 text-sm mt-0.5">
-                              {(loan.annualInterestRate ?? loan.interestRate) != null ? `${loan.annualInterestRate ?? loan.interestRate}% p.a.` : 'N/A'}
+                              {(loan.annualInterestRate ?? loan.interestRate) !== null && (loan.annualInterestRate ?? loan.interestRate) !== undefined ? `${loan.annualInterestRate ?? loan.interestRate}% p.a.` : 'N/A'}
                             </div>
                           </div>
                           <div className="bg-white p-3.5 rounded-xl border border-slate-200">

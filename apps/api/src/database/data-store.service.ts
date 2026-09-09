@@ -1,6 +1,7 @@
 import { Injectable, OnModuleInit, Logger } from '@nestjs/common';
 import { Pool } from 'pg';
 import * as bcrypt from 'bcryptjs';
+import { randomBytes } from 'crypto';
 import {
   UserRole,
   CustomerStatus,
@@ -134,7 +135,7 @@ export class DataStoreService implements OnModuleInit {
           resolvedHost = addresses[0];
           this.logger.log(`Resolved ${parsedUrl.hostname} → ${resolvedHost} (IPv4)`);
         }
-      } catch (_dnsErr) {
+      } catch {
         // DNS resolve4 failed — fall back to original hostname
       }
 
@@ -152,6 +153,15 @@ export class DataStoreService implements OnModuleInit {
           'ALTER TABLE customers ADD COLUMN IF NOT EXISTS portal_password TEXT',
           'ALTER TABLE customers ADD COLUMN IF NOT EXISTS alternate_mobile VARCHAR(20)',
           'ALTER TABLE customers ADD COLUMN IF NOT EXISTS father_or_spouse_name VARCHAR(150)',
+          'ALTER TABLE customers ADD COLUMN IF NOT EXISTS date_of_birth DATE',
+          'ALTER TABLE customers ADD COLUMN IF NOT EXISTS gender VARCHAR(20) DEFAULT \'MALE\'',
+          'ALTER TABLE customers ADD COLUMN IF NOT EXISTS status VARCHAR(20) DEFAULT \'ACTIVE\'',
+          'ALTER TABLE customers ADD COLUMN IF NOT EXISTS nominee_name VARCHAR(150)',
+          'ALTER TABLE customers ADD COLUMN IF NOT EXISTS nominee_relationship VARCHAR(50)',
+          'ALTER TABLE customers ADD COLUMN IF NOT EXISTS nominee_mobile VARCHAR(20)',
+          'ALTER TABLE customers ADD COLUMN IF NOT EXISTS introducer VARCHAR(150)',
+          'ALTER TABLE customers ADD COLUMN IF NOT EXISTS joining_date DATE DEFAULT CURRENT_DATE',
+          'ALTER TABLE customers ADD COLUMN IF NOT EXISTS photo_url TEXT',
           'ALTER TABLE accounts ADD COLUMN IF NOT EXISTS nominee_name VARCHAR(150)',
           'ALTER TABLE accounts ADD COLUMN IF NOT EXISTS nominee_relationship VARCHAR(50)',
           'ALTER TABLE accounts ADD COLUMN IF NOT EXISTS nominee_mobile VARCHAR(20)',
@@ -318,6 +328,11 @@ export class DataStoreService implements OnModuleInit {
             : r.status === 'SUSPENDED' ? CustomerStatus.SUSPENDED
             : r.status === 'CLOSED' ? CustomerStatus.INACTIVE
             : CustomerStatus.ACTIVE,
+          nomineeName: r.nominee_name || undefined,
+          nomineeRelation: r.nominee_relationship || undefined,
+          nomineeMobile: r.nominee_mobile || undefined,
+          introducer: r.introducer || undefined,
+          photoUrl: r.photo_url || undefined,
           kycStatus: r.kyc_status === 'VERIFIED' ? KYCStatus.VERIFIED : KYCStatus.PENDING,
           riskCategory: (r.risk_category as any) || RiskCategory.LOW,
           createdBy: 'USR-001',
@@ -851,7 +866,8 @@ export class DataStoreService implements OnModuleInit {
       this.ALL_DB_TABLES.map(async (table) => {
         let pgCount = 0;
         try {
-          const res = await this.pool!.query(`SELECT COUNT(*) as count FROM ${table}`);
+          const safeTable = table.replace(/[^a-zA-Z0-9_]/g, '');
+          const res = await this.pool!.query(`SELECT COUNT(*) as count FROM "${safeTable}"`);
           pgCount = parseInt(res.rows[0]?.count || '0', 10);
         } catch {
           pgCount = -1;
@@ -954,7 +970,7 @@ export class DataStoreService implements OnModuleInit {
     reason?: string,
   ) {
     const log: IAuditLog = {
-      id: `AUD-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+      id: `AUD-${Date.now()}-${randomBytes(4).toString('hex')}`,
       userId,
       userName,
       eventType,
@@ -1342,8 +1358,14 @@ export class DataStoreService implements OnModuleInit {
     try {
       const fullName = `${c.firstName || ''} ${c.lastName || ''}`.trim() || 'Member';
       await this.pool.query(
-        `INSERT INTO customers (id, customer_number, full_name, mobile, email, aadhaar, pan, address, city, state, kyc_status, risk_category, branch_id, alternate_mobile, father_or_spouse_name)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+        `INSERT INTO customers (
+           id, customer_number, full_name, mobile, email, aadhaar, pan,
+           address, city, state, kyc_status, risk_category, branch_id,
+           alternate_mobile, father_or_spouse_name, date_of_birth, gender,
+           status, nominee_name, nominee_relationship, nominee_mobile,
+           introducer, joining_date, photo_url
+         )
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24)
          ON CONFLICT (id) DO UPDATE SET
            full_name = EXCLUDED.full_name,
            mobile = EXCLUDED.mobile,
@@ -1356,7 +1378,16 @@ export class DataStoreService implements OnModuleInit {
            city = EXCLUDED.city,
            state = EXCLUDED.state,
            alternate_mobile = EXCLUDED.alternate_mobile,
-           father_or_spouse_name = EXCLUDED.father_or_spouse_name`,
+           father_or_spouse_name = EXCLUDED.father_or_spouse_name,
+           date_of_birth = EXCLUDED.date_of_birth,
+           gender = EXCLUDED.gender,
+           status = EXCLUDED.status,
+           nominee_name = EXCLUDED.nominee_name,
+           nominee_relationship = EXCLUDED.nominee_relationship,
+           nominee_mobile = EXCLUDED.nominee_mobile,
+           introducer = EXCLUDED.introducer,
+           joining_date = EXCLUDED.joining_date,
+           photo_url = EXCLUDED.photo_url`,
         [
           c.id,
           c.customerNumber,
@@ -1373,6 +1404,15 @@ export class DataStoreService implements OnModuleInit {
           c.branchId || null,
           c.alternateMobile || null,
           c.fatherOrSpouseName || null,
+          c.dateOfBirth || null,
+          c.gender || 'MALE',
+          c.status || 'ACTIVE',
+          c.nomineeName || null,
+          c.nomineeRelation || null,
+          c.nomineeMobile || null,
+          c.introducer || null,
+          c.joiningDate || null,
+          c.photoUrl || null,
         ],
       );
     } catch (e: any) {

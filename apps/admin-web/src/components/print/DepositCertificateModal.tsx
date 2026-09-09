@@ -53,11 +53,11 @@ export default function DepositCertificateModal({
 
     if (num === 0) return 'Zero Rupees';
     let n = Math.floor(num);
-    let crore = Math.floor(n / 10000000);
+    const crore = Math.floor(n / 10000000);
     n %= 10000000;
-    let lakh = Math.floor(n / 100000);
+    const lakh = Math.floor(n / 100000);
     n %= 100000;
-    let thousand = Math.floor(n / 1000);
+    const thousand = Math.floor(n / 1000);
     n %= 1000;
 
     let res = '';

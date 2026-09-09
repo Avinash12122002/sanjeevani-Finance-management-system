@@ -1268,7 +1268,7 @@ export default function SettingsPage() {
                       ),
                     },
                     { title: 'Category', dataIndex: 'productType', key: 'type', render: (t) => <Tag color="blue">{t}</Tag> },
-                    { title: 'Interest Rate', dataIndex: 'interestRate', key: 'rate', render: (r) => <span className="font-bold text-indigo-700">{r != null ? `${r}% p.a.` : 'N/A'}</span> },
+                    { title: 'Interest Rate', dataIndex: 'interestRate', key: 'rate', render: (r) => <span className="font-bold text-indigo-700">{r !== null && r !== undefined ? `${r}% p.a.` : 'N/A'}</span> },
                     { title: 'Tenure Limits', key: 'tenure', render: (_: any, r: any) => `${r.minimumTenureMonths ?? r.minTenureMonths ?? 1} - ${r.maximumTenureMonths ?? r.maxTenureMonths ?? 60} Mo` },
                     {
                       title: 'Amount Bounds',

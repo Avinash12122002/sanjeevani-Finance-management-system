@@ -8,7 +8,6 @@ import {
   Param,
   UseGuards,
   NotFoundException,
-  BadRequestException,
 } from '@nestjs/common';
 import { DataStoreService } from '../../database/data-store.service';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
@@ -106,7 +105,8 @@ export class EmployeesController {
       { employeeNumber: newEmp.employeeNumber, role: assignedRole },
     );
 
-    const { passwordHash, ...safeUser } = newUser as any;
+    const safeUser = { ...(newUser as any) };
+    delete safeUser.passwordHash;
     return { employee: newEmp, user: safeUser };
   }
 

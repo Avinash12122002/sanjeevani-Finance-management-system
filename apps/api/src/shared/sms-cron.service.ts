@@ -2,7 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { DataStoreService } from '../database/data-store.service';
 import { SmsNotificationService } from './sms-notification.service';
-import { InstallmentStatus, AccountStatus, ProductType } from '@sanjeevani/shared-types';
+import { InstallmentStatus, AccountStatus } from '@sanjeevani/shared-types';
 
 /**
  * SmsCronService — Scheduled SMS Reminders
@@ -121,7 +121,7 @@ export class SmsCronService {
         customerName: `${customer.firstName} ${customer.lastName}`.trim(),
         accountNumber: account.accountNumber,
         productType: account.productType,
-        maturityDate: account.maturityDate,
+        maturityDate: account.maturityDate || new Date().toISOString().split('T')[0],
         maturityAmount: account.maturityAmount || account.currentBalance,
       });
       sentCount++;

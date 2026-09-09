@@ -165,7 +165,7 @@ export class FinancialEngine {
         const dueDate = addMonthsClamped(baseDate, i);
 
         let pDue = principalPerMonth;
-        let iDue = interestPerMonth;
+        const iDue = interestPerMonth;
 
         if (i === req.tenureMonths) {
           pDue = currentPrincipal;

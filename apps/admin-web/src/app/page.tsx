@@ -688,7 +688,7 @@ export default function OwnerDashboardPage() {
                 title: 'Efficiency Rating',
                 key: 'eff',
                 render: (_, r) => {
-                  const eff = r.collectionMetrics?.collectionEfficiencyPercentage != null
+                  const eff = r.collectionMetrics?.collectionEfficiencyPercentage !== null && r.collectionMetrics?.collectionEfficiencyPercentage !== undefined
                     ? Math.round(r.collectionMetrics.collectionEfficiencyPercentage)
                     : 0;
                   return (

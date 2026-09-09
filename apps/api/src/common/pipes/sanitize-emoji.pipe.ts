@@ -3,7 +3,7 @@ import { deepSanitizeEmojis } from '../utils/emoji-sanitizer';
 
 @Injectable()
 export class SanitizeEmojiPipe implements PipeTransform {
-  transform(value: any, metadata: ArgumentMetadata) {
+  transform(value: any, _metadata?: ArgumentMetadata) {
     if (!value) return value;
     return deepSanitizeEmojis(value);
   }

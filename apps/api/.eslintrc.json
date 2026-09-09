@@ -10,55 +10,49 @@
     "sonarjs"
   ],
   "extends": [
-    "next/core-web-vitals",
+    "eslint:recommended",
     "plugin:@typescript-eslint/recommended",
     "plugin:sonarjs/recommended-legacy"
   ],
+  "env": {
+    "node": true,
+    "es2021": true
+  },
   "rules": {
     // ── Bug Prevention ──
     "no-console": "warn",
     "no-debugger": "error",
+    "no-duplicate-case": "error",
+    "no-unreachable": "error",
+    "no-fallthrough": "error",
     "eqeqeq": ["error", "always"],
     "no-var": "error",
     "prefer-const": "error",
+    "no-shadow": "off",
+    "@typescript-eslint/no-shadow": "error",
 
     // ── Logic Error Prevention ──
-    "@typescript-eslint/no-unused-vars": ["warn", { "argsIgnorePattern": "^_", "caughtErrors": "none" }],
+    "@typescript-eslint/no-unused-vars": ["error", { "argsIgnorePattern": "^_" }],
     "@typescript-eslint/no-explicit-any": "warn",
+    "@typescript-eslint/no-non-null-assertion": "warn",
     "no-return-await": "error",
+    "no-throw-literal": "error",
     "no-self-compare": "error",
-
-    // ── React Specific ──
-    "react-hooks/exhaustive-deps": "warn",
-    "react/no-array-index-key": "warn",
+    "no-unmodified-loop-condition": "error",
 
     // ── Code Optimization (shorter, DRY code) ──
     "sonarjs/no-duplicate-string": ["warn", { "threshold": 3 }],
     "sonarjs/no-identical-functions": "error",
     "sonarjs/no-redundant-jump": "error",
+    "sonarjs/no-small-switch": "warn",
     "sonarjs/prefer-single-boolean-return": "warn",
     "sonarjs/cognitive-complexity": ["warn", 15],
-    "sonarjs/prefer-read-only-props": "off",
-    "sonarjs/deprecation": "warn",
-    "sonarjs/no-nested-conditional": "off",
-    "sonarjs/pseudo-random": "off",
-    "sonarjs/no-misleading-character-class": "off",
-    "sonarjs/super-linear-regex": "off",
-    "sonarjs/different-types-comparison": "warn",
-    "sonarjs/no-dead-store": "warn",
-    "sonarjs/unused-import": "off",
-    "sonarjs/no-ignored-exceptions": "off",
-    "sonarjs/concise-regex": "off",
-    "sonarjs/slow-regex": "off",
-    "sonarjs/no-nested-template-literals": "off",
-    "sonarjs/no-redundant-assignments": "off",
-    "sonarjs/no-unused-vars": "off",
 
     // ── Clean Code ──
     "no-nested-ternary": "warn",
     "max-depth": ["warn", 4],
-    "max-lines-per-function": ["warn", { "max": 100, "skipBlankLines": true, "skipComments": true }],
+    "max-lines-per-function": ["warn", { "max": 80, "skipBlankLines": true, "skipComments": true }],
     "complexity": ["warn", 15]
   },
-  "ignorePatterns": [".next/", "node_modules/"]
+  "ignorePatterns": ["dist/", "node_modules/"]
 }

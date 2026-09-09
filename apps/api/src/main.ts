@@ -2,9 +2,7 @@ import { NestFactory } from '@nestjs/core';
 import { ValidationPipe, Logger } from '@nestjs/common';
 import helmet from 'helmet';
 import compression from 'compression';
-import cors from 'cors';
 import * as express from 'express';
-import { join } from 'path';
 
 import { AppModule } from './app.module';
 import { AllExceptionsFilter } from './common/filters/http-exception.filter';
@@ -13,6 +11,13 @@ import { SanitizeEmojiPipe } from './common/pipes/sanitize-emoji.pipe';
 
 async function bootstrap() {
   const logger = new Logger('SanjeevaniFinanceBootstrap');
+
+  // Enforce secure JWT Secret in production environment
+  if (process.env.NODE_ENV === 'production' && (!process.env.JWT_SECRET || process.env.JWT_SECRET === 'sanjeevani-finance-jwt-super-secret-key-2026')) {
+    logger.error('CRITICAL SECURITY CONFIGURATION ERROR: Production server cannot run with default or missing JWT_SECRET. Please set a strong random JWT_SECRET in environment variables.');
+    process.exit(1);
+  }
+
   const app = await NestFactory.create(AppModule);
 
   // 1. Security Hardening Middleware (SRS §82)

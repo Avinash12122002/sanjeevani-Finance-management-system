@@ -296,6 +296,11 @@ export default function CustomersPage() {
       status: record.status || 'ACTIVE',
       kycStatus: record.kycStatus || 'VERIFIED',
       riskCategory: record.riskCategory || 'LOW',
+      nomineeName: record.nomineeName || '',
+      nomineeRelation: record.nomineeRelation || '',
+      nomineeMobile: record.nomineeMobile || '',
+      introducer: record.introducer || '',
+      joiningDate: record.joiningDate || '',
     });
     setEditModalVisible(true);
   };
@@ -555,8 +560,9 @@ export default function CustomersPage() {
 
           <Row gutter={16}>
             <Col span={8}>
-              <Form.Item name="gender" label="Gender" initialValue="MALE">
+              <Form.Item name="gender" label="Gender" rules={[{ required: true, message: 'Please select gender' }]}>
                 <Select
+                  placeholder="Select Gender"
                   options={[
                     { label: 'Male', value: 'MALE' },
                     { label: 'Female', value: 'FEMALE' },
@@ -566,7 +572,7 @@ export default function CustomersPage() {
               </Form.Item>
             </Col>
             <Col span={8}>
-              <Form.Item name="dateOfBirth" label="Date of Birth" initialValue="1990-01-01">
+              <Form.Item name="dateOfBirth" label="Date of Birth" rules={[{ required: true, message: 'DOB is required' }]}>
                 <Input type="date" />
               </Form.Item>
             </Col>
@@ -677,6 +683,39 @@ export default function CustomersPage() {
                     { label: 'PENDING', value: 'PENDING' },
                   ]}
                 />
+              </Form.Item>
+            </Col>
+          </Row>
+
+          <Divider orientation="left" className="text-xs text-slate-500 font-semibold m-0 mb-3">
+            Nominee & Introducer Details (SRS §6)
+          </Divider>
+          <Row gutter={16}>
+            <Col span={8}>
+              <Form.Item name="nomineeName" label="Nominee Full Name">
+                <Input placeholder="e.g. Sunita Sharma" />
+              </Form.Item>
+            </Col>
+            <Col span={8}>
+              <Form.Item name="nomineeRelation" label="Relationship">
+                <Input placeholder="e.g. Spouse / Mother / Son" />
+              </Form.Item>
+            </Col>
+            <Col span={8}>
+              <Form.Item name="nomineeMobile" label="Nominee Mobile">
+                <Input placeholder="10-digit mobile" maxLength={10} />
+              </Form.Item>
+            </Col>
+          </Row>
+          <Row gutter={16}>
+            <Col span={12}>
+              <Form.Item name="introducer" label="Introducer / Referral Source">
+                <Input placeholder="Introducer Member Name or ID" />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item name="joiningDate" label="Official Joining Date">
+                <Input type="date" />
               </Form.Item>
             </Col>
           </Row>
@@ -866,6 +905,32 @@ export default function CustomersPage() {
                     { label: 'BLOCKED', value: 'BLOCKED' },
                   ]}
                 />
+              </Form.Item>
+            </Col>
+          </Row>
+
+          <Row gutter={16}>
+            <Col span={8}>
+              <Form.Item name="nomineeName" label="Nominee Name">
+                <Input placeholder="Nominee full name" />
+              </Form.Item>
+            </Col>
+            <Col span={8}>
+              <Form.Item name="nomineeRelation" label="Relationship">
+                <Input placeholder="e.g. Spouse / Mother" />
+              </Form.Item>
+            </Col>
+            <Col span={8}>
+              <Form.Item name="nomineeMobile" label="Nominee Mobile">
+                <Input placeholder="10-digit mobile" maxLength={10} />
+              </Form.Item>
+            </Col>
+          </Row>
+
+          <Row gutter={16}>
+            <Col span={24}>
+              <Form.Item name="introducer" label="Introducer / Referral Source">
+                <Input placeholder="Introducer Member Name or ID" />
               </Form.Item>
             </Col>
           </Row>

@@ -13,7 +13,6 @@ import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { FinancialEngine } from '@sanjeevani/financial-engine';
 import {
   BusinessDateStatus,
-  IBusinessDayClosure,
   IUser,
   UserRole,
   TransactionStatus,
@@ -111,7 +110,7 @@ export class DailyClosingController {
   @Post('execute')
   @Roles(UserRole.SUPER_ADMIN, UserRole.GENERAL_MANAGER, UserRole.BRANCH_MANAGER)
   async executeDailyClosing(
-    @Body() body: { notes?: string },
+    @Body() _body: { notes?: string },
     @CurrentUser() user: IUser,
   ) {
     const today = new Date().toISOString().split('T')[0];

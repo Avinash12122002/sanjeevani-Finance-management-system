@@ -332,7 +332,13 @@ export class LoansController {
       totalPayable: emiCalculation.totalPayable,
       totalInterest: emiCalculation.totalInterest,
       disbursementDate: disburseDate,
-      firstDueDate: emiCalculation.schedule[0]?.dueDate || disburseDate,
+      firstDueDate:
+        emiCalculation.schedule[0]?.dueDate ||
+        (() => {
+          const d = new Date(disburseDate);
+          d.setMonth(d.getMonth() + 1);
+          return d.toISOString().split('T')[0];
+        })(),
       finalDueDate: emiCalculation.schedule[emiCalculation.schedule.length - 1]?.dueDate || disburseDate,
       outstandingPrincipal: principal,
       totalPaid: 0,
@@ -455,7 +461,7 @@ export class LoansController {
     if (customerForSms?.mobile) {
       this.sms.sendLoanDisbursedSms({
         mobile: customerForSms.mobile,
-        customerName: app.customerName,
+        customerName: app.customerName || 'Valued Member',
         loanNumber,
         amount: principal,
         emiAmount: newLoan.emiAmount,

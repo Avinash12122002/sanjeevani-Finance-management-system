@@ -18,6 +18,7 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
 import { extname, join, basename } from 'path';
 import * as fs from 'fs';
+import { randomBytes } from 'crypto';
 import { DataStoreService } from '../../database/data-store.service';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { StaffGuard } from '../../common/guards/staff.guard';
@@ -60,13 +61,13 @@ export class DocumentsController {
     FileInterceptor('file', {
       storage: diskStorage({
         destination: uploadDir,
-        filename: (req, file, cb) => {
-          const uniqueSuffix = `${Date.now()}-${Math.round(Math.random() * 1e9)}`;
+        filename: (_req, file, cb) => {
+          const uniqueSuffix = `${Date.now()}-${randomBytes(8).toString('hex')}`;
           const ext = extname(file.originalname);
           cb(null, `DOC-${uniqueSuffix}${ext}`);
         },
       }),
-      fileFilter: (req, file, cb) => {
+      fileFilter: (_req, file, cb) => {
         const allowedMime = [
           'image/jpeg',
           'image/png',

@@ -27,7 +27,10 @@ import {
   IAccount,
   AccountStatus,
 } from '@sanjeevani/shared-types';
+import { randomBytes, randomInt } from 'crypto';
 import * as bcrypt from 'bcryptjs';
+
+const CUSTOMER_SESSION_EXPIRY = (process.env.CUSTOMER_JWT_EXPIRES_IN || '2h') as any;
 
 // Active OTP Store (cleanMobile -> { otp, customerId, expiresAt, attempts, verified?, reqId? })
 const otpStore = new Map<string, { otp: string; customerId: string; expiresAt: number; attempts: number; verified?: boolean; reqId?: string }>();
@@ -204,7 +207,7 @@ export class CustomerPortalController {
     }
 
     // Generate 4-digit secure numerical OTP (matching MSG91 Widget settings)
-    const otp = Math.floor(1000 + Math.random() * 9000).toString();
+    const otp = randomInt(1000, 10000).toString();
     const expiresAt = Date.now() + 5 * 60 * 1000; // 5 minutes expiry
 
     otpStore.set(cleanMobile, {
@@ -335,7 +338,7 @@ export class CustomerPortalController {
     if (!customer) {
       const newCount = this.dataStore.customers.length + 1;
       const customerNumber = `SJF-${String(newCount).padStart(6, '0')}`;
-      const newId = `CUS-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
+      const newId = `CUS-${Date.now()}-${randomBytes(4).toString('hex')}`;
       const nameParts = (body.fullName?.trim() || 'New Member').split(' ');
       const firstName = nameParts[0] || 'Member';
       const lastName = nameParts.slice(1).join(' ') || '';
@@ -423,7 +426,7 @@ export class CustomerPortalController {
       roles: ['CUSTOMER'],
     };
 
-    const token = await this.jwtService.signAsync(payload, { expiresIn: '7d' });
+    const token = await this.jwtService.signAsync(payload, { expiresIn: CUSTOMER_SESSION_EXPIRY });
 
     return {
       success: true,
@@ -505,7 +508,7 @@ export class CustomerPortalController {
       roles: ['CUSTOMER'],
     };
 
-    const token = await this.jwtService.signAsync(payload, { expiresIn: '7d' });
+    const token = await this.jwtService.signAsync(payload, { expiresIn: CUSTOMER_SESSION_EXPIRY });
 
     return {
       success: true,
@@ -642,7 +645,7 @@ export class CustomerPortalController {
       roles: ['CUSTOMER'],
     };
 
-    const token = await this.jwtService.signAsync(payload, { expiresIn: '7d' });
+    const token = await this.jwtService.signAsync(payload, { expiresIn: CUSTOMER_SESSION_EXPIRY });
 
     return {
       success: true,
@@ -791,7 +794,7 @@ export class CustomerPortalController {
       roles: ['CUSTOMER'],
     };
 
-    const token = await this.jwtService.signAsync(payload, { expiresIn: '7d' });
+    const token = await this.jwtService.signAsync(payload, { expiresIn: CUSTOMER_SESSION_EXPIRY });
 
     return {
       success: true,
@@ -1055,7 +1058,7 @@ export class CustomerPortalController {
     }
 
     const cleanMobile = (customer.mobile || '').replace(/\D/g, '').slice(-10);
-    const otp = Math.floor(1000 + Math.random() * 9000).toString();
+    const otp = randomInt(1000, 10000).toString();
     const expiresAt = Date.now() + 5 * 60 * 1000;
 
     otpStore.set(cleanMobile, {

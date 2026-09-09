@@ -1,9 +1,8 @@
 'use client';
 
 import React from 'react';
-import { Modal, Button, Select, Space, Tag } from 'antd';
+import { Modal, Button, Select } from 'antd';
 import { PrinterOutlined, FileTextOutlined } from '@ant-design/icons';
-import { FinancialEngine } from '@sanjeevani/financial-engine';
 import { escapeHtml } from '../../lib/html-sanitizer';
 
 export type DocumentTemplateType =

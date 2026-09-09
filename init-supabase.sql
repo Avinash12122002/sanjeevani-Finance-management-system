@@ -65,6 +65,16 @@ CREATE TABLE IF NOT EXISTS customers (
     risk_category VARCHAR(20) DEFAULT 'LOW',
     assigned_collector_id VARCHAR(50),
     branch_id VARCHAR(50),
+    father_or_spouse_name VARCHAR(150),
+    date_of_birth DATE,
+    gender VARCHAR(20) DEFAULT 'MALE',
+    status VARCHAR(20) DEFAULT 'ACTIVE',
+    nominee_name VARCHAR(150),
+    nominee_relationship VARCHAR(50),
+    nominee_mobile VARCHAR(20),
+    introducer VARCHAR(150),
+    joining_date DATE DEFAULT CURRENT_DATE,
+    photo_url TEXT,
     portal_password TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );

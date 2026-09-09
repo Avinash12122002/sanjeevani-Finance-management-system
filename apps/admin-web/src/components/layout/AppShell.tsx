@@ -80,7 +80,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
     try {
       setCurrentUser(JSON.parse(stored));
-    } catch (e) {
+    } catch {
       // ignore parse errors - treat as unauthenticated
       router.replace('/login');
       return;
@@ -163,16 +163,16 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const userRole = currentUser?.roles?.[0] || 'SUPER_ADMIN';
 
   const ROLE_ALLOWED_PAGES: Record<string, string[]> = {
-    SUPER_ADMIN: ['/', '/customers', '/accounts', '/loans', '/committees', '/collections', '/cash', '/accounting', '/daily-closing', '/reports', '/audit', '/sop', '/settings'],
-    GENERAL_MANAGER: ['/', '/customers', '/accounts', '/loans', '/committees', '/collections', '/cash', '/accounting', '/daily-closing', '/reports', '/audit', '/sop', '/settings'],
-    BRANCH_MANAGER: ['/', '/customers', '/accounts', '/loans', '/committees', '/collections', '/cash', '/accounting', '/daily-closing', '/reports', '/audit', '/sop'],
+    SUPER_ADMIN: ['/', '/customers', '/accounts', '/loans', '/committees', '/collections', '/cash', '/accounting', '/daily-closing', '/verifications', '/reports', '/audit', '/sop', '/settings'],
+    GENERAL_MANAGER: ['/', '/customers', '/accounts', '/loans', '/committees', '/collections', '/cash', '/accounting', '/daily-closing', '/verifications', '/reports', '/audit', '/sop', '/settings'],
+    BRANCH_MANAGER: ['/', '/customers', '/accounts', '/loans', '/committees', '/collections', '/cash', '/accounting', '/daily-closing', '/verifications', '/reports', '/audit', '/sop'],
     ACCOUNTANT: ['/', '/accounts', '/loans', '/committees', '/collections', '/cash', '/accounting', '/daily-closing', '/reports', '/audit', '/sop'],
     LOAN_OFFICER: ['/', '/customers', '/loans', '/accounts', '/reports', '/sop'],
     CASHIER: ['/', '/customers', '/committees', '/collections', '/cash', '/accounts', '/reports', '/sop'],
     COLLECTION_AGENT: ['/', '/customers', '/collections', '/reports', '/sop'],
     RECOVERY_OFFICER: ['/', '/customers', '/loans', '/collections', '/reports', '/sop'],
     CUSTOMER_SERVICE: ['/', '/customers', '/collections', '/reports', '/sop'],
-    AUDITOR: ['/', '/customers', '/accounting', '/daily-closing', '/reports', '/audit', '/sop'],
+    AUDITOR: ['/', '/customers', '/accounting', '/daily-closing', '/verifications', '/reports', '/audit', '/sop'],
   };
 
   const allowedPages = ROLE_ALLOWED_PAGES[userRole] || ROLE_ALLOWED_PAGES.SUPER_ADMIN;
@@ -233,6 +233,11 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       key: '/daily-closing',
       icon: <LockOutlined style={{ fontSize: 18 }} />,
       label: <Link href="/daily-closing" prefetch={true} className="text-inherit no-underline block w-full">Daily Closing & Date Lock</Link>,
+    },
+    {
+      key: '/verifications',
+      icon: <SafetyCertificateOutlined style={{ fontSize: 18 }} />,
+      label: <Link href="/verifications" prefetch={true} className="text-inherit no-underline block w-full">Four-Eyes Approvals (Dual-Control)</Link>,
     },
     {
       key: '/reports',

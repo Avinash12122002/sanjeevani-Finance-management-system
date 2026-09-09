@@ -766,49 +766,49 @@ export default function LoansPage() {
       >
         <Form form={assessmentForm} layout="vertical" onFinish={handlePerformAssessment}>
           <div className="text-xs text-slate-500 mb-3">
-            Score each domain from 0 (High Risk) to 100 (Excellent) per SRS §24 standard underwriting matrix.
+            Score each domain against SRS §11 weights: KYC (max 10), Income (max 20), Repayment (max 20), Liabilities (max 15), Security (max 15), Banking (max 10), Field (max 10) = 100 Max Score.
           </div>
           <Row gutter={16}>
             <Col span={12}>
-              <Form.Item name="kycScore" label="KYC & Identity Verification Score" initialValue={85}>
-                <InputNumber min={0} max={100} className="w-full" />
+              <Form.Item name="kycScore" label="KYC & Identity (Max 10)" initialValue={9}>
+                <InputNumber min={0} max={10} className="w-full" />
               </Form.Item>
             </Col>
             <Col span={12}>
-              <Form.Item name="incomeScore" label="Income Stability Score" initialValue={75}>
-                <InputNumber min={0} max={100} className="w-full" />
+              <Form.Item name="incomeScore" label="Stable Income (Max 20)" initialValue={17}>
+                <InputNumber min={0} max={20} className="w-full" />
               </Form.Item>
             </Col>
           </Row>
 
           <Row gutter={16}>
             <Col span={12}>
-              <Form.Item name="repaymentScore" label="Past Repayment Track Score" initialValue={80}>
-                <InputNumber min={0} max={100} className="w-full" />
+              <Form.Item name="repaymentScore" label="Repayment History (Max 20)" initialValue={18}>
+                <InputNumber min={0} max={20} className="w-full" />
               </Form.Item>
             </Col>
             <Col span={12}>
-              <Form.Item name="liabilityScore" label="Debt-to-Income Score" initialValue={70}>
-                <InputNumber min={0} max={100} className="w-full" />
+              <Form.Item name="liabilityScore" label="Existing Liabilities (Max 15)" initialValue={13}>
+                <InputNumber min={0} max={15} className="w-full" />
               </Form.Item>
             </Col>
           </Row>
 
           <Row gutter={16}>
             <Col span={12}>
-              <Form.Item name="fieldScore" label="Field Verification Score" initialValue={80}>
-                <InputNumber min={0} max={100} className="w-full" />
+              <Form.Item name="securityScore" label="Security / Guarantor (Max 15)" initialValue={13}>
+                <InputNumber min={0} max={15} className="w-full" />
               </Form.Item>
             </Col>
             <Col span={12}>
-              <Form.Item name="securityScore" label="Guarantor / Security Score" initialValue={75}>
-                <InputNumber min={0} max={100} className="w-full" />
+              <Form.Item name="fieldScore" label="Field Verification (Max 10)" initialValue={9}>
+                <InputNumber min={0} max={10} className="w-full" />
               </Form.Item>
             </Col>
           </Row>
 
-          <Form.Item name="bankingScore" label="Bank Statement Cashflow Score" initialValue={80}>
-            <InputNumber min={0} max={100} className="w-full" />
+          <Form.Item name="bankingScore" label="Bank / Payment History (Max 10)" initialValue={8}>
+            <InputNumber min={0} max={10} className="w-full" />
           </Form.Item>
 
           <Form.Item name="notes" label="Field Verification Notes" initialValue="Physical residence & business shop verified. Positive neighbor feedback.">
